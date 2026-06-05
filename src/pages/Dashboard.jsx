@@ -19,7 +19,7 @@ export default function Dashboard({ setPage }) {
   const managers = employees.filter(e=>e.role==='manager'||e.role==='admin');
 
   return (
-    <div className="anim-up" style={{ maxWidth:1400, margin:'0 auto' }}>
+    <div className="anim-up" style={{ maxWidth:1300, margin:'0 auto' }}>
       <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:36, flexWrap:'wrap', gap:16 }}>
         <div>
           <h1 className="page-title">Tableau de bord</h1>

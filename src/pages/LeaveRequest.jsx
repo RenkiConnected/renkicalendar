@@ -154,7 +154,8 @@ function LeaveCalendar({employeeId,leaveRequests}){
 
 export default function LeaveRequestPage(){
   const{currentUser,employees,leaveRequests,submitLeaveRequest,deleteLeaveRequest}=useApp();
-  const emp=employees.find(e=>e.name===currentUser);
+  const { currentEmpId } = useApp();
+  const emp = employees.find(e => e.id === currentEmpId || e.name === currentUser);
   const[selDates,setSelDates]=useState([]);
   const[reason,setReason]=useState('');
   const[type,setType]=useState('vacation');
