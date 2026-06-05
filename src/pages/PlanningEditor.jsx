@@ -1,7 +1,8 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
 
 const BREAKS=[{v:0,l:'Pas de pause'},{v:.5,l:'30 min'},{v:1,l:'1h'}];
+const DAY_NAMES=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
 
 function calcH(s,e,b){
   try{
@@ -10,9 +11,14 @@ function calcH(s,e,b){
     return d>0?Math.max(0,d/60-b):0;
   }catch{return 0;}
 }
+function addMinutes(time,mins){
+  const[h,m]=time.split(':').map(Number);
+  const total=h*60+m+mins;
+  return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
+}
 function getMeta(types,id){ return types.find(t=>t.id===id)||{label:id,color:'#6366F1',bgColor:'#EEF2FF'}; }
 
-/* ── SHIFT MODAL ─────────────────────────────────────────── */
+/* ── SHIFT MODAL ───────────────────────────────────────────── */
 function ShiftModal({emp,dayIdx,day,shift,onSave,onDelete,onClose,types}){
   const[type,setType]=useState(shift?.type||'work');
   const[s,setS]=useState(shift?.startTime||'09:00');
@@ -22,7 +28,6 @@ function ShiftModal({emp,dayIdx,day,shift,onSave,onDelete,onClose,types}){
   const[dep,setDep]=useState(shift?.depannage||false);
   const needsT=['work','communication','meeting'].includes(type);
   const h=needsT?calcH(s,e,brk):0;
-
   return(
     <div className="overlay" onClick={onClose}>
       <div className="modal" onClick={ev=>ev.stopPropagation()}>
@@ -66,8 +71,9 @@ function ShiftModal({emp,dayIdx,day,shift,onSave,onDelete,onClose,types}){
             </div>
           </div>
           {h>0&&<div style={{background:'var(--teal-light)',border:'1.5px solid var(--teal-mid)',borderRadius:9,padding:'10px 14px',marginBottom:12,display:'flex',gap:10,alignItems:'center'}}>
-            <span>⏱</span><span style={{color:'var(--teal-dark)',fontWeight:700,fontSize:16}}>{h.toFixed(2)}h</span>
-            <span style={{color:'var(--muted)',fontSize:13}}>{s}→{e} - {brk}h pause</span>
+            <span>⏱</span>
+            <span style={{color:'var(--teal-dark)',fontWeight:700,fontSize:16}}>{h.toFixed(2)}h effectives</span>
+            <span style={{color:'var(--muted)',fontSize:13}}>{s}→{e} — {brk}h pause</span>
           </div>}
         </>}
         <div style={{marginBottom:12}}><div className="lbl">Note</div><input className="inp" type="text" placeholder="Remarque..." value={note} onChange={ev=>setNote(ev.target.value)}/></div>
@@ -87,23 +93,48 @@ function ShiftModal({emp,dayIdx,day,shift,onSave,onDelete,onClose,types}){
   );
 }
 
-/* ── AUTO-GENERATE MODAL — respect contract hours ─────── */
+/* ── AUTO-GENERATE MODAL ──────────────────────────────────── */
 function AutoModal({store,emps,weekDates,onGenerate,onClose}){
+  const[step,setStep]=useState(1); // 1=horaires, 2=preview
   const[restDay,setRestDay]=useState(1);
   const[brk,setBrk]=useState(1);
-  const[startH,setStartH]=useState('09:00');
-  const[endH,setEndH]=useState('19:00');
-  const DAY_NAMES=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  const[openStart,setOpenStart]=useState('09:00');
+  const[openEnd,setOpenEnd]=useState('13:30');
+  const[closeStart,setCloseStart]=useState('12:00');
+  const[closeEnd,setCloseEnd]=useState('19:30');
 
-  // Calculate hours per day based on contract
-  const getContractDayHours = (emp) => {
-    const workDays = 5; // 5 days work per week
-    return (emp.contractHours / workDays).toFixed(1);
+  const openH=parseFloat(calcH(openStart,openEnd,brk).toFixed(2));
+  const closeH=parseFloat(calcH(closeStart,closeEnd,brk).toFixed(2));
+
+  // Distribute employees across opening/closing per day
+  // Goal: cover both opening AND closing each day with different employees
+  const buildPreview=()=>{
+    const preview={}; // empId -> dayIdx -> 'open'|'close'|'rest'
+    emps.forEach(emp=>{ preview[emp.id]={}; });
+
+    weekDates.forEach((wd,di)=>{
+      const dow=wd.date.getDay();
+      const mapped=dow===0?6:dow-1; // Mon=0..Sun=6
+      const isRest=mapped===6||mapped===restDay;
+      if(isRest){
+        emps.forEach(emp=>{ preview[emp.id][di]='rest'; });
+        return;
+      }
+      // Alternate opening/closing: odd index employees start on closing
+      emps.forEach((emp,ei)=>{
+        // Shift by day index too so it's not the same every day
+        const slot=(ei+di)%2===0?'open':'close';
+        preview[emp.id][di]=slot;
+      });
+    });
+    return preview;
   };
+
+  const preview=step===2?buildPreview():null;
 
   return(
     <div className="overlay" onClick={onClose}>
-      <div className="modal" style={{maxWidth:520}} onClick={ev=>ev.stopPropagation()}>
+      <div className="modal" style={{maxWidth:580}} onClick={ev=>ev.stopPropagation()}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:18}}>
           <div>
             <h3 style={{fontFamily:'var(--font-h)',fontWeight:800,fontSize:20}}>⚡ Génération automatique</h3>
@@ -111,111 +142,205 @@ function AutoModal({store,emps,weekDates,onGenerate,onClose}){
           </div>
           <button className="btn btn-ghost btn-xs" onClick={onClose}>✕</button>
         </div>
-        <div style={{background:'var(--teal-light)',border:'1.5px solid var(--teal-mid)',borderRadius:10,padding:'12px 16px',marginBottom:18,fontSize:14,color:'var(--teal-dark)'}}>
-          ℹ️ Les horaires sont ajustés selon le <strong>contrat individuel</strong> de chaque employé.<br/>
-          Dimanche + 1 jour de repos choisi.
+
+        {/* Step indicator */}
+        <div style={{display:'flex',gap:0,marginBottom:22,background:'var(--card2)',borderRadius:10,padding:3,border:'1px solid var(--border)'}}>
+          {['1. Horaires magasin','2. Aperçu & Confirmer'].map((s,i)=>(
+            <div key={i} style={{
+              flex:1,padding:'8px 12px',borderRadius:8,textAlign:'center',
+              background:step===i+1?'white':'transparent',
+              color:step===i+1?'var(--text)':'var(--dim)',
+              fontSize:13,fontWeight:step===i+1?700:500,
+              boxShadow:step===i+1?'var(--shadow)':'none',
+              transition:'all .15s',
+            }}>{s}</div>
+          ))}
         </div>
-        <div style={{marginBottom:16}}>
-          <div className="lbl">Jour de repos en semaine</div>
-          <div style={{display:'flex',gap:7,flexWrap:'wrap'}}>
-            {DAY_NAMES.map((d,i)=>(
-              <button key={i} onClick={()=>setRestDay(i)} style={{
-                padding:'9px 16px',borderRadius:30,cursor:'pointer',
-                border:`2px solid ${restDay===i?'var(--teal)':'var(--border)'}`,
-                background:restDay===i?'var(--teal-light)':'#fff',
-                color:restDay===i?'var(--teal-dark)':'var(--muted)',
-                fontWeight:restDay===i?700:500,fontSize:13,fontFamily:'var(--font-b)',
-              }}>{d}</button>
-            ))}
+
+        {step===1&&<>
+          <div style={{background:'var(--teal-light)',border:'1.5px solid var(--teal-mid)',borderRadius:10,padding:'12px 16px',marginBottom:18,fontSize:13,color:'var(--teal-dark)',lineHeight:1.6}}>
+            ℹ️ Définissez les <strong>horaires d'ouverture et fermeture</strong> du magasin.<br/>
+            Le système distribuera les employés pour couvrir les deux créneaux chaque jour.
           </div>
-        </div>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
-          <div><div className="lbl">Heure d'ouverture</div><input className="inp" type="time" value={startH} onChange={e=>setStartH(e.target.value)}/></div>
-          <div><div className="lbl">Heure de fermeture</div><input className="inp" type="time" value={endH} onChange={e=>setEndH(e.target.value)}/></div>
-        </div>
-        <div style={{marginBottom:16}}>
-          <div className="lbl">Pause déjeuner</div>
-          <div style={{display:'flex',gap:8}}>
-            {BREAKS.map(b=>(
-              <button key={b.v} onClick={()=>setBrk(b.v)} style={{
-                flex:1,padding:'9px',borderRadius:9,cursor:'pointer',
-                border:`2px solid ${brk===b.v?'var(--teal)':'var(--border)'}`,
-                background:brk===b.v?'var(--teal-light)':'#fff',
-                color:brk===b.v?'var(--teal-dark)':'var(--muted)',
-                fontWeight:brk===b.v?700:500,fontSize:13,fontFamily:'var(--font-b)',
-              }}>{b.l}</button>
-            ))}
+
+          {/* Rest day */}
+          <div style={{marginBottom:16}}>
+            <div className="lbl">Jour de repos en semaine (+ dimanche automatique)</div>
+            <div style={{display:'flex',gap:7,flexWrap:'wrap'}}>
+              {['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'].map((d,i)=>(
+                <button key={i} onClick={()=>setRestDay(i)} style={{
+                  padding:'9px 14px',borderRadius:30,cursor:'pointer',
+                  border:`2px solid ${restDay===i?'var(--teal)':'var(--border)'}`,
+                  background:restDay===i?'var(--teal-light)':'#fff',
+                  color:restDay===i?'var(--teal-dark)':'var(--muted)',
+                  fontWeight:restDay===i?700:500,fontSize:13,fontFamily:'var(--font-b)',
+                }}>{d}</button>
+              ))}
+            </div>
           </div>
-        </div>
-        {/* Preview per employee */}
-        <div style={{background:'var(--card2)',borderRadius:10,padding:'12px 16px',marginBottom:18,border:'1px solid var(--border)'}}>
-          <div className="lbl" style={{marginBottom:8}}>Aperçu des horaires</div>
-          {emps.map(emp=>{
-            const dh=(emp.contractHours/5).toFixed(1);
-            return(
-              <div key={emp.id} style={{display:'flex',alignItems:'center',gap:10,marginBottom:6}}>
-                <div style={{width:26,height:26,borderRadius:'50%',background:emp.color||'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:'#fff',flexShrink:0}}>{emp.name[0]}</div>
-                <span style={{fontSize:14,fontWeight:600}}>{emp.name}</span>
-                <span style={{color:'var(--muted)',fontSize:13}}>· {emp.contractHours}h/sem → <strong style={{color:'var(--teal-dark)'}}>{dh}h/jour</strong></span>
-              </div>
-            );
-          })}
-        </div>
-        <button className="btn btn-primary" style={{width:'100%',justifyContent:'center',padding:'14px',fontSize:15,borderRadius:12}}
-          onClick={()=>onGenerate({restDay,brk,startH,endH})}>
-          ⚡ Générer le planning
-        </button>
+
+          {/* Opening hours */}
+          <div style={{background:'#EBF8FF',borderRadius:12,padding:'14px 16px',marginBottom:12,border:'1px solid #B3E0FF'}}>
+            <div className="lbl" style={{color:'#1D6FD8',marginBottom:10}}>🌅 Créneau ouverture</div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+              <div><div className="lbl">Début</div><input className="inp" type="time" value={openStart} onChange={e=>setOpenStart(e.target.value)}/></div>
+              <div><div className="lbl">Fin</div><input className="inp" type="time" value={openEnd} onChange={e=>setOpenEnd(e.target.value)}/></div>
+            </div>
+            {openH>0&&<div style={{marginTop:8,fontSize:13,color:'#1D6FD8',fontWeight:600}}>⏱ {openH}h effectives</div>}
+          </div>
+
+          {/* Closing hours */}
+          <div style={{background:'#FFF3E0',borderRadius:12,padding:'14px 16px',marginBottom:12,border:'1px solid #FFCC80'}}>
+            <div className="lbl" style={{color:'#D05B00',marginBottom:10}}>🌆 Créneau fermeture</div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+              <div><div className="lbl">Début</div><input className="inp" type="time" value={closeStart} onChange={e=>setCloseStart(e.target.value)}/></div>
+              <div><div className="lbl">Fin</div><input className="inp" type="time" value={closeEnd} onChange={e=>setCloseEnd(e.target.value)}/></div>
+            </div>
+            {closeH>0&&<div style={{marginTop:8,fontSize:13,color:'#D05B00',fontWeight:600}}>⏱ {closeH}h effectives</div>}
+          </div>
+
+          {/* Break */}
+          <div style={{marginBottom:20}}>
+            <div className="lbl">Pause déjeuner</div>
+            <div style={{display:'flex',gap:8}}>
+              {BREAKS.map(b=>(
+                <button key={b.v} onClick={()=>setBrk(b.v)} style={{
+                  flex:1,padding:'9px',borderRadius:9,cursor:'pointer',
+                  border:`2px solid ${brk===b.v?'var(--teal)':'var(--border)'}`,
+                  background:brk===b.v?'var(--teal-light)':'#fff',
+                  color:brk===b.v?'var(--teal-dark)':'var(--muted)',
+                  fontWeight:brk===b.v?700:500,fontSize:13,fontFamily:'var(--font-b)',
+                }}>{b.l}</button>
+              ))}
+            </div>
+          </div>
+
+          <button className="btn btn-primary" style={{width:'100%',justifyContent:'center',padding:'14px',fontSize:15,borderRadius:12}}
+            onClick={()=>setStep(2)} disabled={openH<=0||closeH<=0}>
+            Voir l'aperçu →
+          </button>
+        </>}
+
+        {step===2&&preview&&<>
+          <div style={{overflowX:'auto',marginBottom:18}}>
+            <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+              <thead>
+                <tr style={{background:'var(--card2)'}}>
+                  <th style={{padding:'8px 12px',textAlign:'left',color:'var(--muted)',fontWeight:700,fontSize:12}}>Employé</th>
+                  {weekDates.map((wd,i)=>{
+                    const dow=wd.date.getDay();
+                    const mapped=dow===0?6:dow-1;
+                    const isRest=mapped===6||mapped===restDay;
+                    return(
+                      <th key={i} style={{padding:'8px 6px',textAlign:'center',color:isRest?'#C8002B':'var(--muted)',fontWeight:700,fontSize:12}}>
+                        {wd.day.slice(0,3)}<br/>
+                        <span style={{fontSize:10,opacity:.7}}>{wd.date.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})}</span>
+                      </th>
+                    );
+                  })}
+                </tr>
+              </thead>
+              <tbody>
+                {emps.map(emp=>(
+                  <tr key={emp.id} style={{borderTop:'1px solid var(--border)'}}>
+                    <td style={{padding:'8px 12px'}}>
+                      <div style={{display:'flex',alignItems:'center',gap:7}}>
+                        <div style={{width:26,height:26,borderRadius:'50%',background:emp.color||'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:'#fff'}}>{emp.name[0]}</div>
+                        <span style={{fontWeight:600,fontSize:13}}>{emp.name}</span>
+                        <span style={{fontSize:11,color:'var(--dim)'}}>{emp.contractHours}h</span>
+                      </div>
+                    </td>
+                    {weekDates.map((_,di)=>{
+                      const slot=preview[emp.id][di];
+                      if(slot==='rest') return(
+                        <td key={di} style={{padding:'5px 3px',textAlign:'center'}}>
+                          <span style={{background:'#FEF9C3',color:'#B07D00',borderRadius:6,padding:'3px 6px',fontSize:11,fontWeight:700}}>Repos</span>
+                        </td>
+                      );
+                      if(slot==='open') return(
+                        <td key={di} style={{padding:'5px 3px',textAlign:'center'}}>
+                          <span style={{background:'#EBF8FF',color:'#1D6FD8',borderRadius:6,padding:'3px 5px',fontSize:10,fontWeight:700}}>
+                            🌅 {openStart}
+                          </span>
+                        </td>
+                      );
+                      return(
+                        <td key={di} style={{padding:'5px 3px',textAlign:'center'}}>
+                          <span style={{background:'#FFF3E0',color:'#D05B00',borderRadius:6,padding:'3px 5px',fontSize:10,fontWeight:700}}>
+                            🌆 {closeEnd}
+                          </span>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Hours summary */}
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:18}}>
+            <div style={{background:'#EBF8FF',borderRadius:10,padding:'10px 14px',border:'1px solid #B3E0FF'}}>
+              <div style={{fontSize:12,color:'#1D6FD8',fontWeight:700}}>🌅 Ouverture</div>
+              <div style={{fontSize:13,color:'var(--muted)',marginTop:2}}>{openStart} → {openEnd} · {openH}h</div>
+            </div>
+            <div style={{background:'#FFF3E0',borderRadius:10,padding:'10px 14px',border:'1px solid #FFCC80'}}>
+              <div style={{fontSize:12,color:'#D05B00',fontWeight:700}}>🌆 Fermeture</div>
+              <div style={{fontSize:13,color:'var(--muted)',marginTop:2}}>{closeStart} → {closeEnd} · {closeH}h</div>
+            </div>
+          </div>
+
+          <div style={{display:'flex',gap:10}}>
+            <button className="btn btn-ghost" style={{padding:'12px 18px'}} onClick={()=>setStep(1)}>← Modifier</button>
+            <button className="btn btn-primary" style={{flex:1,justifyContent:'center',padding:'14px',fontSize:15,borderRadius:12}}
+              onClick={()=>onGenerate({restDay,brk,openStart,openEnd,closeStart,closeEnd,preview})}>
+              ⚡ Générer le planning
+            </button>
+          </div>
+        </>}
       </div>
     </div>
   );
 }
 
-/* ── BORROW EMPLOYEE MODAL ─────────────────────────────── */
-function BorrowModal({store,allEmployees,allStores,currentEmps,weekDates,onBorrow,onClose}){
+/* ── BORROW MODAL ─────────────────────────────────────────── */
+function BorrowModal({store,allEmployees,allStores,currentEmps,onBorrow,onClose}){
   const[selected,setSelected]=useState('');
   const available=allEmployees.filter(e=>!currentEmps.find(c=>c.id===e.id));
-
   return(
     <div className="overlay" onClick={onClose}>
-      <div className="modal" style={{maxWidth:480}} onClick={ev=>ev.stopPropagation()}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:18}}>
+      <div className="modal" style={{maxWidth:460}} onClick={ev=>ev.stopPropagation()}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:16}}>
           <div>
             <h3 style={{fontFamily:'var(--font-h)',fontWeight:800,fontSize:20}}>👥 Ajouter un employé</h3>
-            <p style={{color:'var(--muted)',fontSize:14,marginTop:3}}>Pour une journée dans <strong>{store.name}</strong></p>
+            <p style={{color:'var(--muted)',fontSize:14,marginTop:3}}>Pour ce planning · <strong>{store.name}</strong></p>
           </div>
           <button className="btn btn-ghost btn-xs" onClick={onClose}>✕</button>
         </div>
-        <div style={{background:'#FFF7E0',border:'1.5px solid #F5D06A',borderRadius:10,padding:'11px 15px',marginBottom:16,fontSize:13,color:'#B07D00'}}>
-          ⚡ L'employé restera dans son magasin d'origine. Il apparaîtra temporairement ici.
+        <div style={{background:'#FFF7E0',border:'1.5px solid #F5D06A',borderRadius:10,padding:'10px 14px',marginBottom:14,fontSize:13,color:'#B07D00'}}>
+          ⚡ Employé ajouté temporairement · Son magasin d'origine reste inchangé
         </div>
-        <div style={{marginBottom:18}}>
-          <div className="lbl">Choisir l'employé</div>
-          <div style={{display:'grid',gap:7,maxHeight:300,overflowY:'auto'}}>
-            {available.map(emp=>{
-              const homeStore=allStores.find(s=>s.id===(emp.originalStoreId||emp.storeId));
-              return(
-                <button key={emp.id} onClick={()=>setSelected(emp.id)} style={{
-                  display:'flex',alignItems:'center',gap:12,padding:'12px 14px',borderRadius:11,cursor:'pointer',
-                  border:`2px solid ${selected===emp.id?store.color:'var(--border)'}`,
-                  background:selected===emp.id?store.color+'15':'#fff',
-                  fontFamily:'var(--font-b)',textAlign:'left',transition:'all .15s',
-                }}>
-                  <div style={{width:36,height:36,borderRadius:'50%',background:emp.color||'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:15,fontWeight:700,color:'#fff',flexShrink:0}}>
-                    {emp.name[0]}
-                  </div>
-                  <div style={{flex:1}}>
-                    <div style={{fontWeight:700,fontSize:14,color:'var(--text)'}}>{emp.name}</div>
-                    <div style={{fontSize:12,color:'var(--dim)',marginTop:1}}>
-                      {homeStore?.name||'Magasin inconnu'} · {emp.contractHours}h/sem
-                    </div>
-                  </div>
-                  {homeStore&&<div style={{width:8,height:8,borderRadius:'50%',background:homeStore.color,flexShrink:0}}/>}
-                </button>
-              );
-            })}
-          </div>
+        <div style={{display:'grid',gap:7,maxHeight:320,overflowY:'auto',marginBottom:16}}>
+          {available.map(emp=>{
+            const homeStore=allStores.find(s=>s.id===(emp.originalStoreId||emp.storeId));
+            return(
+              <button key={emp.id} onClick={()=>setSelected(emp.id)} style={{
+                display:'flex',alignItems:'center',gap:12,padding:'11px 14px',borderRadius:11,cursor:'pointer',
+                border:`2px solid ${selected===emp.id?store.color:'var(--border)'}`,
+                background:selected===emp.id?store.color+'12':'#fff',
+                fontFamily:'var(--font-b)',textAlign:'left',transition:'all .15s',
+              }}>
+                <div style={{width:36,height:36,borderRadius:'50%',background:emp.color||'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:15,fontWeight:700,color:'#fff',flexShrink:0}}>{emp.name[0]}</div>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:700,fontSize:14}}>{emp.name}</div>
+                  <div style={{fontSize:12,color:'var(--dim)',marginTop:1}}>{homeStore?.name} · {emp.contractHours}h/sem</div>
+                </div>
+                {homeStore&&<div style={{width:8,height:8,borderRadius:'50%',background:homeStore.color,flexShrink:0}}/>}
+              </button>
+            );
+          })}
         </div>
-        <button className="btn btn-primary" style={{width:'100%',justifyContent:'center',padding:'14px',fontSize:15,borderRadius:12,opacity:!selected?.6:1}}
+        <button className="btn btn-primary" style={{width:'100%',justifyContent:'center',padding:'13px',fontSize:15,borderRadius:12,opacity:!selected?.6:1}}
           onClick={()=>selected&&onBorrow(selected)} disabled={!selected}>
           ✓ Ajouter au planning
         </button>
@@ -224,7 +349,7 @@ function BorrowModal({store,allEmployees,allStores,currentEmps,weekDates,onBorro
   );
 }
 
-/* ── WEEK NAV ──────────────────────────────────────────── */
+/* ── WEEK NAV ─────────────────────────────────────────────── */
 function WeekNav({cw,setCw}){
   return(
     <div style={{display:'flex',alignItems:'center',gap:8}}>
@@ -237,7 +362,7 @@ function WeekNav({cw,setCw}){
   );
 }
 
-/* ── MAIN ─────────────────────────────────────────────── */
+/* ── MAIN ─────────────────────────────────────────────────── */
 export default function PlanningEditor(){
   const{stores,employees,shiftTypes,getSchedule,setShift,setBulkSchedule,currentWeek,setCurrentWeek,currentYear,selectedStore,setSelectedStore,getWeekDatesForCurrentWeek}=useApp();
   const[activeStore,setAS]=useState(selectedStore||stores[0]?.id||'');
@@ -249,9 +374,10 @@ export default function PlanningEditor(){
   const[showBorrow,setShowBorrow]=useState(false);
   const[confirmWknd,setConfirmWknd]=useState(null);
   const[generating,setGenerating]=useState(false);
-  const[borrowedEmps,setBorrowedEmps]=useState([]); // extra employees for this store view
-  // Drag state
-  const[dragSrc,setDragSrc]=useState(null); // {empId, dayIdx}
+  const[borrowedEmps,setBorrowedEmps]=useState([]);
+
+  // Drag state — use refs for performance during drag
+  const dragSrcRef=useRef(null);
   const[dragOver,setDragOver]=useState(null);
 
   const store=stores.find(s=>s.id===activeStore);
@@ -274,75 +400,120 @@ export default function PlanningEditor(){
   const handleSave=data=>{ if(!editCell) return; setShift(activeStore,currentWeek,currentYear,editCell.empId,editCell.dayIdx,data); setEditCell(null); };
   const handleDelete=()=>{ if(!editCell) return; setShift(activeStore,currentWeek,currentYear,editCell.empId,editCell.dayIdx,null); setEditCell(null); };
 
-  /* ── AUTO GENERATE ─────────────────────────────────── */
-  const handleAutoGen=async({restDay,brk,startH,endH})=>{
+  /* ── AUTO GENERATE WITH OPEN/CLOSE DISTRIBUTION ─────────── */
+  const handleAutoGen=async({restDay,brk,openStart,openEnd,closeStart,closeEnd,preview})=>{
     setGenerating(true); setShowAuto(false);
+    const openH=parseFloat(calcH(openStart,openEnd,brk).toFixed(2));
+    const closeH=parseFloat(calcH(closeStart,closeEnd,brk).toFixed(2));
     const bulk={};
-    storeEmps.forEach(emp=>{
-      const dailyH=parseFloat((emp.contractHours/5).toFixed(2));
-      // Calculate end time from start + daily hours + break
-      const [sh,sm]=startH.split(':').map(Number);
-      const totalMins=(dailyH+brk)*60;
-      const endTotalMins=sh*60+sm+totalMins;
-      const autoEnd=`${String(Math.floor(endTotalMins/60)).padStart(2,'0')}:${String(endTotalMins%60).padStart(2,'0')}`;
+
+    storeEmps.forEach((emp,ei)=>{
       weekDates.forEach((wd,di)=>{
         const dow=wd.date.getDay();
         const mapped=dow===0?6:dow-1;
-        if(mapped===6||mapped===restDay){
-          bulk[`${emp.id}_${di}`]={type:'rest',startTime:null,endTime:null,breakH:0,hours:null,note:'',depannage:false};
+        const isRest=mapped===6||mapped===restDay;
+        const cellKey=`${emp.id}_${di}`;
+        if(isRest){
+          bulk[cellKey]={type:'rest',startTime:null,endTime:null,breakH:0,hours:null,note:'',depannage:false};
         } else {
-          bulk[`${emp.id}_${di}`]={type:'work',startTime:startH,endTime:autoEnd,breakH:brk,hours:dailyH,note:'',depannage:false};
+          // Use preview to determine open/close
+          const slot=preview?.[emp.id]?.[di]||((ei+di)%2===0?'open':'close');
+          const isOpen=slot==='open';
+          bulk[cellKey]={
+            type:'work',
+            startTime:isOpen?openStart:closeStart,
+            endTime:  isOpen?openEnd:closeEnd,
+            breakH:brk,
+            hours:isOpen?openH:closeH,
+            note:isOpen?'Ouverture':'Fermeture',
+            depannage:false,
+          };
         }
       });
     });
+
     await setBulkSchedule(activeStore,currentWeek,currentYear,bulk);
     setGenerating(false);
   };
 
-  /* ── DRAG & DROP ───────────────────────────────────── */
-  const handleDragStart=(empId,dayIdx,e)=>{
+  /* ── DRAG & DROP — ATOMIC SWAP ───────────────────────────── */
+  const handleDragStart=useCallback((empId,dayIdx,e)=>{
     const sh=schedule[`${empId}_${dayIdx}`];
-    if(!sh) return;
-    setDragSrc({empId,dayIdx});
+    if(!sh){ e.preventDefault(); return; }
+    dragSrcRef.current={empId,dayIdx};
     e.dataTransfer.effectAllowed='move';
-  };
-  const handleDragOver=(empId,dayIdx,e)=>{
+    // Store shift data in dataTransfer as backup
+    e.dataTransfer.setData('text/plain',JSON.stringify({empId,dayIdx}));
+  },[schedule]);
+
+  const handleDragOver=useCallback((empId,dayIdx,e)=>{
     e.preventDefault();
     e.dataTransfer.dropEffect='move';
     setDragOver({empId,dayIdx});
-  };
-  const handleDrop=(empId,dayIdx,e)=>{
-    e.preventDefault();
-    if(!dragSrc) return;
-    const src=schedule[`${dragSrc.empId}_${dragSrc.dayIdx}`];
-    const dst=schedule[`${empId}_${dayIdx}`];
-    if(!src) { setDragSrc(null); setDragOver(null); return; }
-    // Swap or move
-    setShift(activeStore,currentWeek,currentYear,empId,dayIdx,{...src,depannage:empId!==dragSrc.empId});
-    if(dst) setShift(activeStore,currentWeek,currentYear,dragSrc.empId,dragSrc.dayIdx,{...dst});
-    else setShift(activeStore,currentWeek,currentYear,dragSrc.empId,dragSrc.dayIdx,null);
-    setDragSrc(null); setDragOver(null);
-  };
-  const handleDragEnd=()=>{ setDragSrc(null); setDragOver(null); };
+  },[]);
 
-  const handleBorrow=(empId)=>{
-    setBorrowedEmps(prev=>[...prev,empId]);
-    setShowBorrow(false);
-  };
+  const handleDrop=useCallback((empId,dayIdx,e)=>{
+    e.preventDefault();
+    e.stopPropagation();
+    const src=dragSrcRef.current;
+    if(!src) return;
+
+    // Same cell: nothing to do
+    if(src.empId===empId&&src.dayIdx===dayIdx){
+      dragSrcRef.current=null; setDragOver(null); return;
+    }
+
+    const srcKey=`${src.empId}_${src.dayIdx}`;
+    const dstKey=`${empId}_${dayIdx}`;
+    const srcShift=schedule[srcKey];
+    const dstShift=schedule[dstKey];
+
+    if(!srcShift){ dragSrcRef.current=null; setDragOver(null); return; }
+
+    // Build atomic update — both changes in one object
+    const key=`${activeStore}_${currentYear}_W${currentWeek}`;
+    // We need to read the current full schedule and apply both changes at once
+    // Get current schedule from AppContext state
+    const currentFull={...schedule};
+
+    if(dstShift){
+      // SWAP: src goes to dst, dst goes to src
+      currentFull[dstKey]={...srcShift};
+      currentFull[srcKey]={...dstShift};
+    } else {
+      // MOVE: src goes to dst, src becomes empty
+      currentFull[dstKey]={...srcShift};
+      delete currentFull[srcKey];
+    }
+
+    // Write both changes atomically
+    setBulkSchedule(activeStore,currentWeek,currentYear,currentFull);
+    dragSrcRef.current=null; setDragOver(null);
+  },[schedule,activeStore,currentWeek,currentYear,setBulkSchedule]);
+
+  const handleDragEnd=useCallback(()=>{
+    dragSrcRef.current=null; setDragOver(null);
+  },[]);
+
+  const handleBorrow=id=>{ setBorrowedEmps(prev=>[...prev,id]); setShowBorrow(false); };
 
   return(
     <div className="anim-up" style={{width:'100%'}}>
       {/* HEADER */}
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:26,flexWrap:'wrap',gap:12}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:24,flexWrap:'wrap',gap:12}}>
         <div>
           <h1 className="page-title">📅 Plannings</h1>
-          <p className="page-sub">{store?.name||'Sélectionnez un magasin'} · S{currentWeek} · {allDisplayEmps.length} employé(s)</p>
+          <p className="page-sub">{store?.name||'—'} · S{currentWeek} · {allDisplayEmps.length} employé(s)</p>
         </div>
         <div style={{display:'flex',gap:9,flexWrap:'wrap',alignItems:'center'}}>
           <WeekNav cw={currentWeek} setCw={setCurrentWeek}/>
           <button className="btn btn-ghost btn-sm" onClick={()=>setShowWknd(!showWknd)}>{showWknd?'Masquer dim.':'Voir dim.'}</button>
-          {store&&storeEmps.length>0&&<button className="btn btn-sec btn-sm" disabled={generating} onClick={()=>setShowAuto(true)}>{generating?'⏳ Génération...':'⚡ Auto-générer'}</button>}
-          <button className="btn btn-sec btn-sm" onClick={()=>setShowBorrow(true)}>👥 Ajouter employé</button>
+          {store&&storeEmps.length>0&&(
+            <button className="btn btn-sec btn-sm" disabled={generating} onClick={()=>setShowAuto(true)}>
+              {generating?'⏳ Génération...':'⚡ Auto-générer'}
+            </button>
+          )}
+          <button className="btn btn-sec btn-sm" onClick={()=>setShowBorrow(true)}>👥 Ajouter</button>
           <button className="btn btn-primary btn-sm" onClick={()=>window.dispatchEvent(new CustomEvent('exportPDF',{detail:{storeId:activeStore,week:currentWeek}}))}>📄 PDF</button>
           <button className="btn btn-ghost btn-sm" onClick={()=>window.dispatchEvent(new CustomEvent('exportNotion',{detail:{storeId:activeStore,week:currentWeek}}))}>📋 Notion</button>
         </div>
@@ -362,7 +533,7 @@ export default function PlanningEditor(){
         ))}
       </div>
 
-      {/* VIEW TOGGLE */}
+      {/* VIEW TOGGLE + borrowed employees */}
       <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16,flexWrap:'wrap'}}>
         <div style={{background:'var(--card2)',borderRadius:10,padding:3,border:'1px solid var(--border)',display:'inline-flex'}}>
           {['week','day'].map(m=>(
@@ -383,9 +554,8 @@ export default function PlanningEditor(){
             fontFamily:'var(--font-b)',fontSize:13,fontWeight:activeDay===i?700:500,
           }}>{wd.day.slice(0,3)} {wd.date.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})}</button>
         ))}
-        {/* Borrowed employees list */}
         {extraEmps.length>0&&(
-          <div style={{display:'flex',gap:5,flexWrap:'wrap',marginLeft:'auto'}}>
+          <div style={{display:'flex',gap:5,marginLeft:'auto',flexWrap:'wrap'}}>
             {extraEmps.map(e=>(
               <span key={e.id} style={{display:'flex',alignItems:'center',gap:5,background:'#FFF7E0',border:'1.5px solid #F5D06A',borderRadius:20,padding:'4px 10px',fontSize:12,color:'#B07D00',fontWeight:600}}>
                 ⚡{e.name}
@@ -404,15 +574,14 @@ export default function PlanningEditor(){
             {st.label}
           </span>
         ))}
-        <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'5px 12px',background:'var(--card2)',borderRadius:20,border:'1.5px solid var(--border)',fontSize:12,color:'var(--dim)'}}>
-          ↔️ Glisser-déposer pour déplacer
+        <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'5px 12px',background:'var(--card2)',borderRadius:20,border:'1.5px solid var(--border)',fontSize:12,color:'var(--muted)'}}>
+          ↔ Glisser pour déplacer / échanger
         </span>
       </div>
 
-      {/* GRID */}
       {generating&&(
-        <div style={{textAlign:'center',padding:'36px',background:'var(--teal-light)',borderRadius:14,marginBottom:16,border:'2px solid var(--teal-mid)'}}>
-          <div style={{fontSize:32,marginBottom:8,animation:'spin 1s linear infinite',display:'inline-block'}}>⚡</div>
+        <div style={{textAlign:'center',padding:'32px',background:'var(--teal-light)',borderRadius:14,marginBottom:16,border:'2px solid var(--teal-mid)'}}>
+          <div style={{fontSize:28,marginBottom:8,animation:'spin 1s linear infinite',display:'inline-block'}}>⚡</div>
           <p style={{color:'var(--teal-dark)',fontWeight:700,fontSize:15}}>Génération en cours...</p>
         </div>
       )}
@@ -424,13 +593,20 @@ export default function PlanningEditor(){
       )}
       {!generating&&allDisplayEmps.length>0&&(
         viewMode==='week'
-          ?<WeekView emps={allDisplayEmps} days={displayDays} allDays={weekDates} sched={schedule} types={shiftTypes}
-            onCell={handleCell} totalH={totalH}
-            onDragStart={handleDragStart} onDragOver={handleDragOver} onDrop={handleDrop} onDragEnd={handleDragEnd}
-            dragSrc={dragSrc} dragOver={dragOver} extraEmpIds={extraEmps.map(e=>e.id)}/>
-          :<DayView emps={allDisplayEmps} day={weekDates[activeDay]} dayIdx={activeDay} sched={schedule} types={shiftTypes}
-            onCell={handleCell} onDragStart={handleDragStart} onDragOver={handleDragOver} onDrop={handleDrop} onDragEnd={handleDragEnd}
-            dragSrc={dragSrc} dragOver={dragOver}/>
+          ?<WeekView
+            emps={allDisplayEmps} days={displayDays} allDays={weekDates}
+            sched={schedule} types={shiftTypes} onCell={handleCell} totalH={totalH}
+            onDragStart={handleDragStart} onDragOver={handleDragOver}
+            onDrop={handleDrop} onDragEnd={handleDragEnd}
+            dragOver={dragOver} extraEmpIds={extraEmps.map(e=>e.id)}
+          />
+          :<DayView
+            emps={allDisplayEmps} day={weekDates[activeDay]} dayIdx={activeDay}
+            sched={schedule} types={shiftTypes} onCell={handleCell}
+            onDragStart={handleDragStart} onDragOver={handleDragOver}
+            onDrop={handleDrop} onDragEnd={handleDragEnd}
+            dragOver={dragOver}
+          />
       )}
 
       {/* MODALS */}
@@ -453,19 +629,13 @@ export default function PlanningEditor(){
         </div>
       )}
       {showAuto&&store&&<AutoModal store={store} emps={storeEmps} weekDates={weekDates} onGenerate={handleAutoGen} onClose={()=>setShowAuto(false)}/>}
-      {showBorrow&&store&&(
-        <BorrowModal
-          store={store} allEmployees={employees} allStores={stores}
-          currentEmps={allDisplayEmps} weekDates={weekDates}
-          onBorrow={handleBorrow} onClose={()=>setShowBorrow(false)}
-        />
-      )}
+      {showBorrow&&store&&<BorrowModal store={store} allEmployees={employees} allStores={stores} currentEmps={allDisplayEmps} onBorrow={handleBorrow} onClose={()=>setShowBorrow(false)}/>}
     </div>
   );
 }
 
-/* ── WEEK VIEW ─────────────────────────────────────────── */
-function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDragOver,onDrop,onDragEnd,dragSrc,dragOver,extraEmpIds}){
+/* ── WEEK VIEW ────────────────────────────────────────────── */
+function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDragOver,onDrop,onDragEnd,dragOver,extraEmpIds}){
   return(
     <div className="card" style={{overflow:'hidden'}}>
       <div style={{overflowX:'auto'}}>
@@ -475,7 +645,7 @@ function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDra
               <th style={{padding:'15px 20px',textAlign:'left',fontSize:13,color:'var(--muted)',fontWeight:700,textTransform:'uppercase',letterSpacing:'.05em',width:190}}>Employé</th>
               {days.map((wd,i)=>(
                 <th key={i} style={{padding:'13px 8px',textAlign:'center',minWidth:100}}>
-                  <div style={{fontWeight:700,fontSize:15,color:'var(--text)'}}>{wd.day.slice(0,3)}</div>
+                  <div style={{fontWeight:700,fontSize:15,color:wd.date.getDay()===0?'#C8002B':'var(--text)'}}>{wd.day.slice(0,3)}</div>
                   <div style={{fontSize:12,color:'var(--dim)',marginTop:2}}>{wd.date.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}</div>
                 </th>
               ))}
@@ -488,14 +658,17 @@ function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDra
               const isBorrowed=extraEmpIds.includes(emp.id);
               return(
                 <tr key={emp.id} style={{borderBottom:'1px solid var(--border)',background:isBorrowed?'#FFFDE7':ei%2===0?'#fff':'var(--card2)'}}>
-                  <td style={{padding:'11px 20px'}}>
-                    <div style={{display:'flex',alignItems:'center',gap:11}}>
-                      <div style={{width:38,height:38,borderRadius:'50%',background:emp.color||'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:15,fontWeight:800,color:'#fff',flexShrink:0,boxShadow:'0 2px 6px rgba(0,0,0,.12)'}}>
+                  <td style={{padding:'10px 20px'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:10}}>
+                      <div style={{width:36,height:36,borderRadius:'50%',background:emp.color||'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,fontWeight:800,color:'#fff',flexShrink:0}}>
                         {emp.name[0]}
                       </div>
                       <div>
-                        <div style={{fontWeight:700,fontSize:15}}>{emp.name}{isBorrowed&&<span style={{marginLeft:6,fontSize:11,background:'#FFF7E0',color:'#B07D00',borderRadius:5,padding:'1px 6px',fontWeight:700}}>⚡</span>}</div>
-                        <div style={{fontSize:12,color:'var(--dim)',textTransform:'capitalize'}}>{emp.role} · {c}h/sem</div>
+                        <div style={{fontWeight:700,fontSize:14}}>
+                          {emp.name}
+                          {isBorrowed&&<span style={{marginLeft:6,fontSize:10,background:'#FFF7E0',color:'#B07D00',borderRadius:5,padding:'1px 5px',fontWeight:700}}>⚡</span>}
+                        </div>
+                        <div style={{fontSize:11,color:'var(--dim)',textTransform:'capitalize'}}>{emp.role} · {c}h</div>
                       </div>
                     </div>
                   </td>
@@ -503,7 +676,6 @@ function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDra
                     const ri=allDays.indexOf(wd);
                     const sh=sched[`${emp.id}_${ri}`];
                     const st=sh?getMeta(types,sh.type):null;
-                    const isDragSrc=dragSrc?.empId===emp.id&&dragSrc?.dayIdx===ri;
                     const isDragOver=dragOver?.empId===emp.id&&dragOver?.dayIdx===ri;
                     return(
                       <td key={di} style={{padding:'5px 5px'}}
@@ -512,43 +684,45 @@ function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDra
                       >
                         {sh?(
                           <div
-                            draggable onClick={()=>onCell(emp.id,ri)}
+                            draggable
+                            onClick={()=>onCell(emp.id,ri)}
                             onDragStart={e=>onDragStart(emp.id,ri,e)}
                             onDragEnd={onDragEnd}
                             style={{
                               background:isDragOver?'var(--teal-light)':st.bgColor,
-                              border:`1.5px solid ${isDragOver?'var(--teal)':isDragSrc?'var(--teal)':st.color+'50'}`,
+                              border:`1.5px solid ${isDragOver?'var(--teal)':st.color+'50'}`,
                               borderRadius:10,padding:'7px 5px',minHeight:60,
-                              cursor:'grab',transition:'all .15s',opacity:isDragSrc?.5:1,
+                              cursor:'grab',transition:'background .12s,border .12s',
                               display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:2,
                               userSelect:'none',
                             }}
                           >
-                            <span style={{fontSize:12,fontWeight:700,color:st.color}}>{st.label}</span>
+                            <span style={{fontSize:12,fontWeight:700,color:isDragOver?'var(--teal-dark)':st.color}}>{st.label}</span>
                             {sh.startTime&&<span style={{fontSize:11,color:st.color,opacity:.85}}>{sh.startTime}–{sh.endTime}</span>}
                             {sh.hours>0&&<span style={{fontSize:10,color:st.color,opacity:.7}}>{sh.hours}h</span>}
                             {sh.note&&<span style={{fontSize:9,color:st.color,opacity:.6,fontStyle:'italic',maxWidth:85,textAlign:'center',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{sh.note}</span>}
                           </div>
                         ):(
                           <div
-                            onClick={()=>onCell(emp.id,ri)}
                             onDragOver={e=>onDragOver(emp.id,ri,e)}
                             onDrop={e=>onDrop(emp.id,ri,e)}
+                            onClick={()=>onCell(emp.id,ri)}
                             style={{
                               minHeight:60,borderRadius:10,
                               border:`2px dashed ${isDragOver?'var(--teal)':'var(--border)'}`,
                               background:isDragOver?'var(--teal-light)':'transparent',
                               display:'flex',alignItems:'center',justifyContent:'center',
-                              cursor:'pointer',transition:'all .15s',color:isDragOver?'var(--teal)':'var(--dim)',fontSize:22,
+                              cursor:'pointer',transition:'all .12s',
+                              color:isDragOver?'var(--teal-dark)':'var(--dim)',fontSize:22,
                             }}
-                            onMouseEnter={e=>{e.currentTarget.style.background='var(--teal-light)';e.currentTarget.style.borderColor='var(--teal)';e.currentTarget.style.color='var(--teal-dark)';}}
+                            onMouseEnter={e=>{if(!isDragOver){e.currentTarget.style.background='var(--teal-light)';e.currentTarget.style.borderColor='var(--teal)';e.currentTarget.style.color='var(--teal-dark)';}}}
                             onMouseLeave={e=>{if(!isDragOver){e.currentTarget.style.background='transparent';e.currentTarget.style.borderColor='var(--border)';e.currentTarget.style.color='var(--dim)';}}}
                           >+</div>
                         )}
                       </td>
                     );
                   })}
-                  <td style={{padding:'11px 16px',textAlign:'center'}}>
+                  <td style={{padding:'10px 16px',textAlign:'center'}}>
                     <div style={{fontFamily:'var(--font-h)',fontWeight:800,fontSize:17,color:diff>3?'#C8002B':diff<-3?'var(--dim)':'var(--teal-dark)'}}>{t.toFixed(1)}h</div>
                     <div style={{fontSize:11,fontWeight:700,color:diff>0?'#C8002B':'#1A8A42',marginTop:1}}>{diff>0?`+${diff.toFixed(1)}`:diff.toFixed(1)}</div>
                   </td>
@@ -562,11 +736,11 @@ function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDra
   );
 }
 
-/* ── DAY VIEW ──────────────────────────────────────────── */
-function DayView({emps,day,dayIdx,sched,types,onCell,onDragStart,onDragOver,onDrop,onDragEnd,dragSrc,dragOver}){
+/* ── DAY VIEW ─────────────────────────────────────────────── */
+function DayView({emps,day,dayIdx,sched,types,onCell,onDragStart,onDragOver,onDrop,onDragEnd,dragOver}){
   return(
     <div>
-      <div style={{background:'var(--teal-light)',border:'2px solid var(--teal-mid)',borderRadius:13,padding:'14px 20px',marginBottom:16}}>
+      <div style={{background:'var(--teal-light)',border:'2px solid var(--teal-mid)',borderRadius:13,padding:'14px 20px',marginBottom:14}}>
         <h3 style={{fontFamily:'var(--font-h)',fontWeight:700,fontSize:19,color:'var(--teal-dark)',textTransform:'capitalize'}}>
           {day.day} — {day.date.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}
         </h3>
@@ -575,7 +749,6 @@ function DayView({emps,day,dayIdx,sched,types,onCell,onDragStart,onDragOver,onDr
         {emps.map(emp=>{
           const sh=sched[`${emp.id}_${dayIdx}`];
           const st=sh?getMeta(types,sh.type):null;
-          const isDragSrc=dragSrc?.empId===emp.id&&dragSrc?.dayIdx===dayIdx;
           const isDragOver=dragOver?.empId===emp.id&&dragOver?.dayIdx===dayIdx;
           return(
             <div key={emp.id}
@@ -587,14 +760,13 @@ function DayView({emps,day,dayIdx,sched,types,onCell,onDragStart,onDragOver,onDr
               onClick={()=>onCell(emp.id,dayIdx)}
               className="card"
               style={{
-                display:'flex',alignItems:'center',gap:16,padding:'16px 22px',cursor:sh?'grab':'pointer',
+                display:'flex',alignItems:'center',gap:16,padding:'15px 22px',
+                cursor:sh?'grab':'pointer',transition:'all .15s',
                 background:isDragOver?'var(--teal-light)':sh?st.bgColor:'#fff',
-                borderLeft:sh?`5px solid ${st.color}`:isDragOver?'5px solid var(--teal)':'5px solid var(--border)',
-                opacity:isDragSrc?.5:1,transition:'all .15s',
-                border:isDragOver?'2px solid var(--teal)':undefined,
+                borderLeft:isDragOver?'5px solid var(--teal)':sh?`5px solid ${st.color}`:'5px solid var(--border)',
               }}
             >
-              <div style={{width:44,height:44,borderRadius:'50%',background:emp.color||'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,color:'#fff',fontSize:17,flexShrink:0}}>{emp.name[0]}</div>
+              <div style={{width:42,height:42,borderRadius:'50%',background:emp.color||'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,color:'#fff',fontSize:17,flexShrink:0}}>{emp.name[0]}</div>
               <div style={{flex:1}}>
                 <div style={{fontWeight:700,fontSize:15}}>{emp.name}</div>
                 <div style={{color:'var(--dim)',fontSize:13}}>{emp.role} · {emp.contractHours}h/sem</div>

@@ -127,20 +127,41 @@ export function AppProvider({ children }) {
 
   const approveLeaveRequest=async(reqId)=>{
     const req=leaveRequests.find(r=>r.id===reqId); if(!req) return;
+    // Mark approved
     await saveLeaveRequest({...req,status:'approved',reviewedAt:new Date().toISOString()});
     const emp=employees.find(e=>e.id===req.employeeId); if(!emp) return;
-    // Use storeId from request (original store at submission time)
     const storeId = req.storeId || emp.originalStoreId || emp.storeId;
-    for(const we of req.weeks){
-      const fresh=await fetchSchedule(storeId,we.week,we.year);
-      const upd={...fresh};
-      we.days.forEach(di=>{
-        upd[`${emp.id}_${di}`]={type:'vacation',startTime:null,endTime:null,breakH:0,hours:null,note:'Congé approuvé',depannage:false};
-      });
-      const key=schedKey(storeId,we.week,we.year);
-      setSchedules(prev=>({...prev,[key]:upd}));
-      await saveSchedule(storeId,we.week,we.year,upd);
+    
+    if(!req.weeks || req.weeks.length===0){
+      console.error('No weeks in leave request', req);
+      return;
     }
+    
+    for(const we of req.weeks){
+      if(!we.week || !we.year || !we.days || we.days.length===0) continue;
+      // Always fetch fresh from Firebase — never rely on cached state
+      const fresh = await fetchSchedule(storeId, we.week, we.year);
+      const upd = { ...fresh };
+      we.days.forEach(di => {
+        upd[`${emp.id}_${di}`] = {
+          type:'vacation', startTime:null, endTime:null,
+          breakH:0, hours:null, note:'Congé approuvé', depannage:false
+        };
+      });
+      const key = schedKey(storeId, we.week, we.year);
+      // Update local state immediately
+      setSchedules(prev => ({ ...prev, [key]: upd }));
+      // Write to Firebase
+      await saveSchedule(storeId, we.week, we.year, upd);
+      // Force listener for this store+week if not already listening
+      if(!listeners.current[key]){
+        const unsub = listenSchedule(storeId, we.week, we.year, data => {
+          setSchedules(prev => ({ ...prev, [key]: data }));
+        });
+        listeners.current[key] = unsub;
+      }
+    }
+    console.log('✅ Congé approuvé et planning mis à jour pour', emp.name);
   };
 
   const cancelApprovedLeave=async(reqId)=>{
