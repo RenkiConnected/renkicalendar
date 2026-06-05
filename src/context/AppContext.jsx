@@ -4,164 +4,118 @@ import {
   saveStore, removeStore,
   saveEmployee, removeEmployee,
   saveShiftType,
-  saveSchedule, fetchSchedule,
+  saveSchedule,
   seedIfEmpty,
 } from '../firebaseService';
 
 const AppContext = createContext(null);
 const CURRENT_WEEK = 23;
-const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+const DAYS = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
 
-function getWeekDates(weekNumber, year = 2026) {
+function getWeekDates(weekNumber, year=2026) {
   const jan4 = new Date(year, 0, 4);
-  const startOfWeek1 = new Date(jan4);
-  startOfWeek1.setDate(jan4.getDate() - jan4.getDay() + 1);
-  const weekStart = new Date(startOfWeek1);
-  weekStart.setDate(startOfWeek1.getDate() + (weekNumber - 1) * 7);
-  return DAYS.map((day, i) => {
-    const d = new Date(weekStart);
-    d.setDate(weekStart.getDate() + i);
-    return { day, date: d };
-  });
+  const s = new Date(jan4);
+  s.setDate(jan4.getDate() - jan4.getDay() + 1);
+  const ws = new Date(s);
+  ws.setDate(s.getDate() + (weekNumber-1)*7);
+  return DAYS.map((day,i)=>{ const d=new Date(ws); d.setDate(ws.getDate()+i); return {day,date:d}; });
 }
 
 export function AppProvider({ children }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(() => localStorage.getItem('care_auth') === 'true');
-  const [authRole, setAuthRole] = useState(() => localStorage.getItem('care_role') || null);
-
+  const [isAuthenticated, setIsAuthenticated] = useState(()=>localStorage.getItem('care_auth')==='true');
+  const [authRole, setAuthRole] = useState(()=>localStorage.getItem('care_role')||null);
   const [stores, setStores] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [shiftTypes, setShiftTypes] = useState([]);
   const [schedules, setSchedules] = useState({});
   const [loading, setLoading] = useState(true);
-
   const [currentWeek, setCurrentWeek] = useState(CURRENT_WEEK);
   const [currentYear] = useState(2026);
   const [selectedStore, setSelectedStore] = useState(null);
+  const listeners = useRef({});
 
-  const scheduleListeners = useRef({});
+  useEffect(()=>{
+    seedIfEmpty().then(()=>setLoading(false));
+    const u1=listenStores(setStores);
+    const u2=listenEmployees(setEmployees);
+    const u3=listenShiftTypes(setShiftTypes);
+    return()=>{ u1(); u2(); u3(); };
+  },[]);
 
-  // ── INIT FIREBASE ──────────────────────────────────
-  useEffect(() => {
-    seedIfEmpty().then(() => setLoading(false));
-
-    const unsubStores = listenStores(setStores);
-    const unsubEmps = listenEmployees(setEmployees);
-    const unsubShifts = listenShiftTypes(setShiftTypes);
-
-    return () => { unsubStores(); unsubEmps(); unsubShifts(); };
-  }, []);
-
-  // ── ÉCOUTER LE PLANNING EN TEMPS RÉEL ─────────────
-  useEffect(() => {
-    if (!selectedStore) return;
-    const key = `${selectedStore}_${currentYear}_W${currentWeek}`;
-
-    if (scheduleListeners.current[key]) return; // déjà écouté
-
-    const unsub = listenSchedule(selectedStore, currentWeek, currentYear, (data) => {
-      setSchedules(prev => ({ ...prev, [key]: data }));
+  useEffect(()=>{
+    if(!selectedStore) return;
+    const key=`${selectedStore}_${currentYear}_W${currentWeek}`;
+    if(listeners.current[key]) return;
+    const unsub=listenSchedule(selectedStore,currentWeek,currentYear,data=>{
+      setSchedules(prev=>({...prev,[key]:data}));
     });
-    scheduleListeners.current[key] = unsub;
+    listeners.current[key]=unsub;
+    return()=>{ unsub(); delete listeners.current[key]; };
+  },[selectedStore,currentWeek,currentYear]);
 
-    return () => {
-      unsub();
-      delete scheduleListeners.current[key];
-    };
-  }, [selectedStore, currentWeek, currentYear]);
-
-  // ── AUTH ───────────────────────────────────────────
-  const login = (password, username) => {
-    if (password === 'Raphael2232') {
+  const login=(password,username)=>{
+    if(password==='Raphael2232'){
       setIsAuthenticated(true); setAuthRole('admin');
-      localStorage.setItem('care_auth', 'true');
-      localStorage.setItem('care_role', 'admin');
-      return { success: true, role: 'admin' };
+      localStorage.setItem('care_auth','true'); localStorage.setItem('care_role','admin');
+      return {success:true,role:'admin'};
     }
-    const emp = employees.find(e => e.name.toLowerCase() === username.toLowerCase());
-    if (emp) {
+    const emp=employees.find(e=>e.name.toLowerCase()===username.toLowerCase());
+    if(emp){
       setIsAuthenticated(true); setAuthRole(emp.role);
-      localStorage.setItem('care_auth', 'true');
-      localStorage.setItem('care_role', emp.role);
-      return { success: true, role: emp.role };
+      localStorage.setItem('care_auth','true'); localStorage.setItem('care_role',emp.role);
+      return {success:true,role:emp.role};
     }
-    return { success: false };
+    return {success:false};
   };
 
-  const logout = () => {
+  const logout=()=>{
     setIsAuthenticated(false); setAuthRole(null);
-    localStorage.removeItem('care_auth');
-    localStorage.removeItem('care_role');
+    localStorage.removeItem('care_auth'); localStorage.removeItem('care_role');
   };
 
-  // ── SCHEDULES ──────────────────────────────────────
-  const getScheduleKey = (storeId, week, year) => `${storeId}_${year}_W${week}`;
+  const schedKey=(storeId,week,year)=>`${storeId}_${year}_W${week}`;
+  const getSchedule=(storeId,week,year)=>schedules[schedKey(storeId,week,year)]||{};
 
-  const getSchedule = (storeId, week, year) => {
-    const key = getScheduleKey(storeId, week, year);
-    return schedules[key] || {};
-  };
-
-  const setShift = async (storeId, week, year, employeeId, dayIndex, shift) => {
-    const key = getScheduleKey(storeId, week, year);
-    const current = schedules[key] || {};
-    const cellKey = `${employeeId}_${dayIndex}`;
-    let updated;
-    if (shift === null) {
-      updated = { ...current };
-      delete updated[cellKey];
-    } else {
-      updated = { ...current, [cellKey]: shift };
-    }
-    setSchedules(prev => ({ ...prev, [key]: updated }));
-    await saveSchedule(storeId, week, year, updated);
+  // Single shift — update local + Firebase
+  const setShift=async(storeId,week,year,employeeId,dayIndex,shift)=>{
+    const key=schedKey(storeId,week,year);
+    const current=schedules[key]||{};
+    const cellKey=`${employeeId}_${dayIndex}`;
+    const updated={...current};
+    if(shift===null) delete updated[cellKey];
+    else updated[cellKey]=shift;
+    setSchedules(prev=>({...prev,[key]:updated}));
+    await saveSchedule(storeId,week,year,updated);
   };
 
-  // ── STORES ─────────────────────────────────────────
-  const addStore = async (store) => {
-    const newStore = { ...store, id: `store_${Date.now()}` };
-    await saveStore(newStore);
-    return newStore;
-  };
-  const updateStore = async (id, updates) => {
-    const store = stores.find(s => s.id === id);
-    if (store) await saveStore({ ...store, ...updates });
-  };
-  const deleteStore = async (id) => { await removeStore(id); };
-
-  // ── EMPLOYEES ──────────────────────────────────────
-  const addEmployee = async (emp) => {
-    const newEmp = { ...emp, id: `emp_${Date.now()}` };
-    await saveEmployee(newEmp);
-    return newEmp;
-  };
-  const updateEmployee = async (id, updates) => {
-    const emp = employees.find(e => e.id === id);
-    if (emp) await saveEmployee({ ...emp, ...updates });
-  };
-  const deleteEmployee = async (id) => { await removeEmployee(id); };
-
-  // ── SHIFT TYPES ────────────────────────────────────
-  const updateShiftType = async (id, updates) => {
-    const st = shiftTypes.find(s => s.id === id);
-    if (st) await saveShiftType({ ...st, ...updates });
+  // Bulk — write entire schedule at once (for auto-generate)
+  const setBulkSchedule=async(storeId,week,year,bulkData)=>{
+    const key=schedKey(storeId,week,year);
+    setSchedules(prev=>({...prev,[key]:bulkData}));
+    await saveSchedule(storeId,week,year,bulkData);
   };
 
-  const getStoreEmployees = (storeId) => employees.filter(e => e.storeId === storeId);
-  const getWeekDatesForCurrentWeek = (week) => getWeekDates(week, currentYear);
+  const addStore=async s=>{ const n={...s,id:`store_${Date.now()}`}; await saveStore(n); return n; };
+  const updateStore=async(id,u)=>{ const s=stores.find(x=>x.id===id); if(s) await saveStore({...s,...u}); };
+  const deleteStore=async id=>{ await removeStore(id); };
+
+  const addEmployee=async e=>{ const n={...e,id:`emp_${Date.now()}`}; await saveEmployee(n); return n; };
+  const updateEmployee=async(id,u)=>{ const e=employees.find(x=>x.id===id); if(e) await saveEmployee({...e,...u}); };
+  const deleteEmployee=async id=>{ await removeEmployee(id); };
+
+  const updateShiftType=async(id,u)=>{ const s=shiftTypes.find(x=>x.id===id); if(s) await saveShiftType({...s,...u}); };
 
   return (
     <AppContext.Provider value={{
-      isAuthenticated, authRole, login, logout,
-      loading,
-      stores, addStore, updateStore, deleteStore,
-      employees, addEmployee, updateEmployee, deleteEmployee, getStoreEmployees,
-      shiftTypes, updateShiftType,
-      schedules, getSchedule, setShift,
-      currentWeek, setCurrentWeek,
-      currentYear,
-      selectedStore, setSelectedStore,
-      getWeekDatesForCurrentWeek,
+      isAuthenticated,authRole,login,logout,loading,
+      stores,addStore,updateStore,deleteStore,
+      employees,addEmployee,updateEmployee,deleteEmployee,
+      getStoreEmployees:storeId=>employees.filter(e=>e.storeId===storeId),
+      shiftTypes,updateShiftType,
+      schedules,getSchedule,setShift,setBulkSchedule,
+      currentWeek,setCurrentWeek,currentYear,
+      selectedStore,setSelectedStore,
+      getWeekDatesForCurrentWeek:w=>getWeekDates(w,currentYear),
       DAYS,
     }}>
       {children}
@@ -169,10 +123,5 @@ export function AppProvider({ children }) {
   );
 }
 
-export const useApp = () => {
-  const ctx = useContext(AppContext);
-  if (!ctx) throw new Error('useApp must be used within AppProvider');
-  return ctx;
-};
-
+export const useApp=()=>{ const c=useContext(AppContext); if(!c) throw new Error('useApp outside provider'); return c; };
 export { DAYS, getWeekDates };
