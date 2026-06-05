@@ -135,3 +135,10 @@ export async function seedIfEmpty() {
   // Forcer la migration complète
   await forceResetAll();
 }
+
+// ── FETCH SCHEDULE (one-time read) ────────────────────
+export async function fetchSchedule(storeId, week, year) {
+  const key = `${storeId}_${year}_W${week}`;
+  const snap = await getDoc(doc(db, 'schedules', key));
+  return snap.exists() ? snap.data() : {};
+}

@@ -19,10 +19,11 @@ function StatusBadge({status}){
 }
 
 export default function LeaveAdmin(){
-  const{leaveRequests,approveLeaveRequest,rejectLeaveRequest,deleteLeaveRequest,employees,stores}=useApp();
+  const{leaveRequests,approveLeaveRequest,rejectLeaveRequest,cancelApprovedLeave,deleteLeaveRequest,employees,stores}=useApp();
   const[filter,setFilter]=useState('all'); // all|pending|approved|rejected
   const[storeFilter,setStoreFilter]=useState('all');
   const[approving,setApproving]=useState(null);
+  const[cancelling,setCancelling]=useState(null);
   const[rejecting,setRejecting]=useState(null);
 
   const filtered=leaveRequests
@@ -43,6 +44,11 @@ export default function LeaveAdmin(){
     setApproving(id);
     await approveLeaveRequest(id);
     setApproving(null);
+  };
+  const handleCancel=async(id)=>{
+    setCancelling(id);
+    await cancelApprovedLeave(id);
+    setCancelling(null);
   };
   const handleReject=async(id)=>{
     setRejecting(id);
@@ -188,9 +194,15 @@ export default function LeaveAdmin(){
                   )}
 
                   {req.status==='approved'&&(
-                    <div style={{background:'#E8FAF0',borderRadius:12,padding:'10px 16px',textAlign:'center',flexShrink:0,border:'1.5px solid var(--teal-mid)'}}>
-                      <div style={{fontSize:22}}>✅</div>
-                      <div style={{fontSize:11,color:'#1A8A42',fontWeight:700,marginTop:2}}>Planning<br/>mis à jour</div>
+                    <div style={{display:'flex',flexDirection:'column',gap:8,flexShrink:0}}>
+                      <div style={{background:'#E8FAF0',borderRadius:12,padding:'8px 14px',textAlign:'center',border:'1.5px solid var(--teal-mid)',display:'flex',alignItems:'center',gap:8}}>
+                        <span style={{fontSize:18}}>✅</span>
+                        <span style={{fontSize:12,color:'#1A8A42',fontWeight:700}}>Planning<br/>mis à jour</span>
+                      </div>
+                      <button className="btn btn-danger btn-xs" onClick={()=>handleCancel(req.id)} disabled={cancelling===req.id}
+                        style={{justifyContent:'center',fontSize:12}}>
+                        {cancelling===req.id?'⏳':'🗑 Annuler'}
+                      </button>
                     </div>
                   )}
 

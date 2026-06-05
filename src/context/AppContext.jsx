@@ -6,6 +6,7 @@ import {
   saveEmployee, removeEmployee,
   saveShiftType, saveSchedule, saveSettings,
   saveLeaveRequest, removeLeaveRequest,
+  fetchSchedule,
   seedIfEmpty, forceResetAll, ALL_EMPLOYEES,
 } from '../firebaseService';
 
@@ -129,13 +130,30 @@ export function AppProvider({ children }) {
     await saveLeaveRequest({...req,status:'approved',reviewedAt:new Date().toISOString()});
     const emp=employees.find(e=>e.id===req.employeeId); if(!emp) return;
     for(const we of req.weeks){
+      // Fetch fresh from Firebase to avoid stale cache
+      const fresh=await fetchSchedule(emp.storeId,we.week,we.year);
+      const upd={...fresh};
+      we.days.forEach(di=>{
+        upd[`${emp.id}_${di}`]={type:'vacation',startTime:null,endTime:null,breakH:0,hours:null,note:'Congé approuvé',depannage:false};
+      });
       const key=schedKey(emp.storeId,we.week,we.year);
-      const cur=schedules[key]||{};
-      const upd={...cur};
-      we.days.forEach(di=>{ upd[`${emp.id}_${di}`]={type:'vacation',startTime:null,endTime:null,breakH:0,hours:null,note:'Congé approuvé',depannage:false}; });
       setSchedules(prev=>({...prev,[key]:upd}));
       await saveSchedule(emp.storeId,we.week,we.year,upd);
     }
+  };
+
+  const cancelApprovedLeave=async(reqId)=>{
+    const req=leaveRequests.find(r=>r.id===reqId); if(!req) return;
+    const emp=employees.find(e=>e.id===req.employeeId); if(!emp) return;
+    for(const we of req.weeks){
+      const fresh=await fetchSchedule(emp.storeId,we.week,we.year);
+      const upd={...fresh};
+      we.days.forEach(di=>{ delete upd[`${emp.id}_${di}`]; });
+      const key=schedKey(emp.storeId,we.week,we.year);
+      setSchedules(prev=>({...prev,[key]:upd}));
+      await saveSchedule(emp.storeId,we.week,we.year,upd);
+    }
+    await removeLeaveRequest(reqId);
   };
 
   const rejectLeaveRequest=async(reqId)=>{
@@ -172,7 +190,7 @@ export function AppProvider({ children }) {
       getStoreEmployees:sid=>employees.filter(e=>e.storeId===sid),
       shiftTypes,updateShiftType,
       schedules,getSchedule,setShift,setBulkSchedule,
-      leaveRequests,submitLeaveRequest,approveLeaveRequest,rejectLeaveRequest,deleteLeaveRequest,
+      leaveRequests,submitLeaveRequest,approveLeaveRequest,rejectLeaveRequest,cancelApprovedLeave,deleteLeaveRequest,
       appSettings,updateSettings,
       doResetEmployees,
       currentWeek,setCurrentWeek,currentYear,
