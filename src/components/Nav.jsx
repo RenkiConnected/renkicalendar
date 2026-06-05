@@ -1,93 +1,79 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 
-const NAV_ADMIN = [
-  { id:'dashboard', label:'Dashboard', icon:'⚡' },
-  { id:'planning',  label:'Plannings', icon:'📅' },
-  { id:'employees', label:'Employés',  icon:'👥' },
-  { id:'stores',    label:'Magasins',  icon:'🏪' },
-  { id:'settings',  label:'Paramètres',icon:'⚙️' },
+const ITEMS_ADMIN = [
+  { id:'dashboard', label:'Dashboard',  icon:'⚡' },
+  { id:'planning',  label:'Plannings',  icon:'📅' },
+  { id:'employees', label:'Employés',   icon:'👥' },
+  { id:'stores',    label:'Magasins',   icon:'🏪' },
+  { id:'settings',  label:'Paramètres', icon:'⚙️' },
 ];
-const NAV_VENDEUR = [
-  { id:'view', label:'Mon Planning', icon:'📅' },
-];
+const ITEMS_VENDEUR = [{ id:'view', label:'Mon Planning', icon:'📅' }];
 
-export default function Nav({ currentPage, setCurrentPage }) {
+export default function Nav({ page, setPage }) {
   const { logout, authRole, stores, selectedStore, setSelectedStore, currentWeek } = useApp();
-  const [collapsed, setCollapsed] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [mob, setMob] = useState(false);
+  const items = (authRole==='admin'||authRole==='manager') ? ITEMS_ADMIN : ITEMS_VENDEUR;
 
-  const items = (authRole === 'admin' || authRole === 'manager') ? NAV_ADMIN : NAV_VENDEUR;
-
-  const NavItem = ({ item }) => (
-    <button
-      onClick={() => { setCurrentPage(item.id); setMobileOpen(false); }}
-      style={{
-        width:'100%', display:'flex', alignItems:'center', gap:12,
-        padding: collapsed ? '12px 0' : '11px 16px',
-        justifyContent: collapsed ? 'center' : 'flex-start',
-        background: currentPage === item.id
-          ? 'linear-gradient(90deg, rgba(0,201,177,0.12), rgba(0,201,177,0.04))'
-          : 'transparent',
-        border:'none', cursor:'pointer',
-        color: currentPage === item.id ? 'var(--care-teal-dark)' : 'var(--text-muted)',
-        fontFamily:'var(--font-body)', fontSize:14,
-        fontWeight: currentPage === item.id ? 700 : 500,
-        transition:'all 0.15s',
-        borderLeft: currentPage === item.id ? '3px solid var(--care-teal)' : '3px solid transparent',
-        borderRadius: '0 8px 8px 0',
-        textAlign:'left',
-      }}
+  const Item = ({ it }) => (
+    <button onClick={()=>{ setPage(it.id); setMob(false); }} style={{
+      width:'100%', display:'flex', alignItems:'center', gap:13,
+      padding:'13px 20px', background: page===it.id ? 'var(--teal-light)' : 'transparent',
+      border:'none', cursor:'pointer',
+      color: page===it.id ? 'var(--teal-dark)' : 'var(--muted)',
+      fontFamily:'var(--font-b)', fontSize:15, fontWeight: page===it.id ? 700 : 500,
+      transition:'all .15s', textAlign:'left',
+      borderLeft: page===it.id ? '3px solid var(--teal)' : '3px solid transparent',
+    }}
+      onMouseEnter={e=>{ if(page!==it.id) e.currentTarget.style.background='var(--card2)'; }}
+      onMouseLeave={e=>{ if(page!==it.id) e.currentTarget.style.background='transparent'; }}
     >
-      <span style={{ fontSize:18, minWidth:22, textAlign:'center' }}>{item.icon}</span>
-      {!collapsed && <span>{item.label}</span>}
+      <span style={{ fontSize:20, width:24, textAlign:'center' }}>{it.icon}</span>
+      <span>{it.label}</span>
     </button>
   );
 
-  const SidebarContent = () => (
+  const Sidebar = () => (
     <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
       {/* Logo */}
-      <div style={{ padding:'20px 16px 16px', borderBottom:'1px solid var(--border-dark)', display:'flex', alignItems:'center', gap:12 }}>
-        <img src="care-logo.png" alt="Care"
-          style={{ height: collapsed ? 32 : 36, objectFit:'contain', transition:'height 0.2s' }}
-          onError={e => { e.target.style.display='none'; }}
-        />
-        {!collapsed && (
+      <div style={{ padding:'22px 20px 18px', borderBottom:'1px solid var(--border)' }}>
+        <img src="care-logo.png" alt="Care" style={{ height:40, objectFit:'contain', display:'block' }}
+          onError={e=>{ e.target.style.display='none'; e.target.nextSibling.style.display='flex'; }} />
+        <div style={{ display:'none', alignItems:'center', gap:8 }}>
+          <div style={{ width:38,height:38,borderRadius:10,background:'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,color:'#fff',flexShrink:0 }}>📅</div>
           <div>
-            <div style={{ fontFamily:'var(--font-head)', fontWeight:800, fontSize:17, color:'var(--text)', lineHeight:1 }}>
-              Planning
-            </div>
-            <div style={{ fontSize:11, color:'var(--text-dim)', marginTop:2 }}>Semaine {currentWeek} · 2026</div>
+            <div style={{ fontFamily:'var(--font-h)', fontWeight:800, fontSize:17, color:'var(--text)' }}>Care</div>
+            <div style={{ fontSize:11, color:'var(--muted)' }}>Planning</div>
           </div>
-        )}
+        </div>
+        <div style={{ marginTop:8, fontSize:12, color:'var(--dim)' }}>Semaine <strong style={{color:'var(--teal-dark)'}}>S{currentWeek}</strong> · 2026</div>
       </div>
 
       {/* Store selector */}
-      {!collapsed && (authRole==='admin'||authRole==='manager') && (
-        <div style={{ padding:'12px 14px', borderBottom:'1px solid var(--border-dark)' }}>
-          <label className="label" style={{ fontSize:10 }}>Magasin actif</label>
-          <select className="input" style={{ fontSize:13, padding:'8px 10px' }} value={selectedStore||''} onChange={e=>setSelectedStore(e.target.value||null)}>
-            <option value="">Tous</option>
+      {(authRole==='admin'||authRole==='manager') && (
+        <div style={{ padding:'14px 16px', borderBottom:'1px solid var(--border)' }}>
+          <div className="lbl" style={{ marginBottom:6 }}>Magasin actif</div>
+          <select className="inp" style={{ fontSize:14, padding:'9px 12px' }}
+            value={selectedStore||''} onChange={e=>setSelectedStore(e.target.value||null)}>
+            <option value="">Tous les magasins</option>
             {stores.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
         </div>
       )}
 
-      {/* Nav */}
-      <nav style={{ flex:1, padding:'8px 0', overflowY:'auto' }}>
-        {items.map(item => <NavItem key={item.id} item={item} />)}
+      {/* Nav items */}
+      <nav style={{ flex:1, paddingTop:8, paddingBottom:8 }}>
+        {items.map(it=><Item key={it.id} it={it} />)}
       </nav>
 
-      {/* Role + logout */}
-      <div style={{ padding:'14px 12px', borderTop:'1px solid var(--border-dark)' }}>
-        {!collapsed && (
-          <div style={{ background:'var(--care-teal-light)', borderRadius:9, padding:'8px 12px', marginBottom:10, border:'1px solid var(--care-teal-mid)' }}>
-            <div style={{ fontSize:11, color:'var(--text-dim)' }}>Connecté</div>
-            <div style={{ fontSize:13, color:'var(--care-teal-dark)', fontWeight:700, textTransform:'capitalize' }}>{authRole}</div>
-          </div>
-        )}
-        <button className="btn btn-ghost btn-sm" style={{ width:'100%', justifyContent: collapsed?'center':'flex-start' }} onClick={logout}>
-          <span>🚪</span>{!collapsed && 'Déconnexion'}
+      {/* User + logout */}
+      <div style={{ padding:'14px 16px', borderTop:'1px solid var(--border)' }}>
+        <div style={{ background:'var(--teal-light)', borderRadius:10, padding:'10px 13px', marginBottom:10, border:'1px solid var(--teal-mid)' }}>
+          <div style={{ fontSize:11, color:'var(--dim)', marginBottom:2 }}>Connecté en tant que</div>
+          <div style={{ fontSize:14, color:'var(--teal-dark)', fontWeight:700, textTransform:'capitalize' }}>{authRole}</div>
+        </div>
+        <button className="btn btn-ghost" style={{ width:'100%', justifyContent:'flex-start', fontSize:14 }} onClick={logout}>
+          🚪 Déconnexion
         </button>
       </div>
     </div>
@@ -95,61 +81,44 @@ export default function Nav({ currentPage, setCurrentPage }) {
 
   return (
     <>
-      {/* Desktop sidebar */}
+      {/* Desktop */}
       <aside className="no-print" style={{
         position:'fixed', left:0, top:0, bottom:0,
-        width: collapsed ? 68 : 230,
-        background:'var(--bg-card)',
-        borderRight:'1px solid var(--border-dark)',
-        transition:'width 0.22s',
-        zIndex:40,
-        overflow:'hidden',
-        boxShadow:'2px 0 12px rgba(0,0,0,0.06)',
+        width:'var(--sidebar)',
+        background:'var(--card)',
+        borderRight:'1px solid var(--border)',
+        zIndex:40, overflow:'hidden',
         display:'flex', flexDirection:'column',
+        boxShadow:'2px 0 10px rgba(0,0,0,.05)',
       }}>
-        <SidebarContent />
-        {/* Collapse toggle */}
-        <button onClick={()=>setCollapsed(!collapsed)} style={{
-          position:'absolute', right:-13, top:72,
-          width:26, height:26, borderRadius:'50%',
-          background:'var(--bg-card)', border:'1.5px solid var(--border-dark)',
-          cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
-          fontSize:11, color:'var(--text-muted)', boxShadow:'0 2px 6px rgba(0,0,0,0.1)',
-          zIndex:10, transition:'all 0.2s',
-        }}>
-          {collapsed ? '›' : '‹'}
-        </button>
+        <Sidebar />
       </aside>
 
       {/* Mobile top bar */}
-      <div className="no-print" style={{
+      <div className="no-print" id="mob-bar" style={{
         display:'none', position:'fixed', top:0, left:0, right:0, zIndex:50,
-        background:'var(--bg-card)', borderBottom:'1px solid var(--border-dark)',
-        padding:'10px 16px', alignItems:'center', justifyContent:'space-between',
-        boxShadow:'0 2px 8px rgba(0,0,0,0.07)',
-      }} id="mobile-bar">
-        <img src="care-logo.png" alt="Care" style={{ height:32, objectFit:'contain' }} onError={e=>e.target.style.display='none'} />
-        <button className="btn btn-ghost btn-sm" onClick={()=>setMobileOpen(!mobileOpen)}>☰</button>
+        background:'var(--card)', borderBottom:'1px solid var(--border)',
+        padding:'11px 16px', alignItems:'center', justifyContent:'space-between',
+        boxShadow:'0 2px 8px rgba(0,0,0,.07)',
+      }}>
+        <img src="care-logo.png" alt="Care" style={{ height:34, objectFit:'contain' }} onError={e=>e.target.style.display='none'} />
+        <button className="btn btn-ghost btn-sm" onClick={()=>setMob(true)}>☰ Menu</button>
       </div>
 
       {/* Mobile drawer */}
-      {mobileOpen && (
-        <div style={{ position:'fixed', inset:0, zIndex:100 }}>
-          <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.3)' }} onClick={()=>setMobileOpen(false)} />
-          <div style={{ position:'absolute', left:0, top:0, bottom:0, width:240, background:'var(--bg-card)', boxShadow:'4px 0 20px rgba(0,0,0,0.15)' }}>
-            <SidebarContent />
+      {mob && (
+        <div style={{ position:'fixed', inset:0, zIndex:200 }}>
+          <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,.35)' }} onClick={()=>setMob(false)} />
+          <div style={{ position:'absolute', left:0, top:0, bottom:0, width:260, background:'var(--card)', boxShadow:'4px 0 20px rgba(0,0,0,.15)', overflow:'auto' }}>
+            <Sidebar />
           </div>
         </div>
       )}
 
-      {/* Main content spacer */}
-      <div id="nav-spacer" style={{ marginLeft: collapsed ? 68 : 230, transition:'margin-left 0.22s', minHeight:'100vh', flex:1 }} />
-
       <style>{`
-        @media (max-width:768px) {
-          aside { display: none !important; }
-          #mobile-bar { display: flex !important; }
-          #nav-spacer { margin-left: 0 !important; padding-top: 56px; }
+        @media(max-width:860px){
+          aside.no-print { display:none !important; }
+          #mob-bar { display:flex !important; }
         }
       `}</style>
     </>
