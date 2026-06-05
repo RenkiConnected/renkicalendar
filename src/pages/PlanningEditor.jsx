@@ -94,210 +94,115 @@ function ShiftModal({emp,dayIdx,day,shift,onSave,onDelete,onClose,types}){
 }
 
 /* ── AUTO-GENERATE MODAL ──────────────────────────────────── */
-function AutoModal({store,emps,weekDates,onGenerate,onClose}){
-  const[step,setStep]=useState(1); // 1=horaires, 2=preview
-  const[restDay,setRestDay]=useState(1);
-  const[brk,setBrk]=useState(1);
+function AutoModal({store,emps,weekDates,currentWeek,currentYear,leaveRequests,onGenerate,onClose}){
   const[openStart,setOpenStart]=useState('09:00');
-  const[openEnd,setOpenEnd]=useState('13:30');
-  const[closeStart,setCloseStart]=useState('12:00');
-  const[closeEnd,setCloseEnd]=useState('19:30');
+  const[openEnd,setOpenEnd]=useState('19:30');
+  const[brk,setBrk]=useState(1);
 
-  const openH=parseFloat(calcH(openStart,openEnd,brk).toFixed(2));
-  const closeH=parseFloat(calcH(closeStart,closeEnd,brk).toFixed(2));
-
-  // Distribute employees across opening/closing per day
-  // Goal: cover both opening AND closing each day with different employees
-  const buildPreview=()=>{
-    const preview={}; // empId -> dayIdx -> 'open'|'close'|'rest'
-    emps.forEach(emp=>{ preview[emp.id]={}; });
-
-    weekDates.forEach((wd,di)=>{
-      const dow=wd.date.getDay();
-      const mapped=dow===0?6:dow-1; // Mon=0..Sun=6
-      const isRest=mapped===6||mapped===restDay;
-      if(isRest){
-        emps.forEach(emp=>{ preview[emp.id][di]='rest'; });
-        return;
-      }
-      // Alternate opening/closing: odd index employees start on closing
-      emps.forEach((emp,ei)=>{
-        // Shift by day index too so it's not the same every day
-        const slot=(ei+di)%2===0?'open':'close';
-        preview[emp.id][di]=slot;
+  const openH=parseFloat(calcH(openStart,openEnd,brk).toFixed(2)); // full day span
+  
+  // Show approved leaves for this week for each emp
+  const getEmpLeaves=(empId)=>{
+    const leaves=[];
+    leaveRequests.filter(r=>r.employeeId===empId&&r.status==='approved').forEach(req=>{
+      req.weeks?.forEach(we=>{
+        if(we.week===currentWeek&&we.year===currentYear){
+          we.days.forEach(di=>leaves.push(di));
+        }
       });
     });
-    return preview;
+    return leaves;
   };
-
-  const preview=step===2?buildPreview():null;
 
   return(
     <div className="overlay" onClick={onClose}>
-      <div className="modal" style={{maxWidth:580}} onClick={ev=>ev.stopPropagation()}>
+      <div className="modal" style={{maxWidth:520}} onClick={ev=>ev.stopPropagation()}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:18}}>
           <div>
             <h3 style={{fontFamily:'var(--font-h)',fontWeight:800,fontSize:20}}>⚡ Génération automatique</h3>
-            <p style={{color:'var(--muted)',fontSize:14,marginTop:3}}>{store.name} · {emps.length} employé(s)</p>
+            <p style={{color:'var(--muted)',fontSize:14,marginTop:3}}>{store.name} · S{currentWeek}</p>
           </div>
           <button className="btn btn-ghost btn-xs" onClick={onClose}>✕</button>
         </div>
 
-        {/* Step indicator */}
-        <div style={{display:'flex',gap:0,marginBottom:22,background:'var(--card2)',borderRadius:10,padding:3,border:'1px solid var(--border)'}}>
-          {['1. Horaires magasin','2. Aperçu & Confirmer'].map((s,i)=>(
-            <div key={i} style={{
-              flex:1,padding:'8px 12px',borderRadius:8,textAlign:'center',
-              background:step===i+1?'white':'transparent',
-              color:step===i+1?'var(--text)':'var(--dim)',
-              fontSize:13,fontWeight:step===i+1?700:500,
-              boxShadow:step===i+1?'var(--shadow)':'none',
-              transition:'all .15s',
-            }}>{s}</div>
-          ))}
+        {/* Info */}
+        <div style={{background:'var(--teal-light)',border:'1.5px solid var(--teal-mid)',borderRadius:10,padding:'12px 16px',marginBottom:20,fontSize:13,color:'var(--teal-dark)',lineHeight:1.7}}>
+          ✅ Les <strong>congés approuvés</strong> sont intégrés automatiquement<br/>
+          ✅ Les heures hebdomadaires de <strong>chaque contrat</strong> sont respectées<br/>
+          ✅ Les employés alternent <strong>ouverture / fermeture</strong>
         </div>
 
-        {step===1&&<>
-          <div style={{background:'var(--teal-light)',border:'1.5px solid var(--teal-mid)',borderRadius:10,padding:'12px 16px',marginBottom:18,fontSize:13,color:'var(--teal-dark)',lineHeight:1.6}}>
-            ℹ️ Définissez les <strong>horaires d'ouverture et fermeture</strong> du magasin.<br/>
-            Le système distribuera les employés pour couvrir les deux créneaux chaque jour.
-          </div>
-
-          {/* Rest day */}
-          <div style={{marginBottom:16}}>
-            <div className="lbl">Jour de repos en semaine (+ dimanche automatique)</div>
-            <div style={{display:'flex',gap:7,flexWrap:'wrap'}}>
-              {['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'].map((d,i)=>(
-                <button key={i} onClick={()=>setRestDay(i)} style={{
-                  padding:'9px 14px',borderRadius:30,cursor:'pointer',
-                  border:`2px solid ${restDay===i?'var(--teal)':'var(--border)'}`,
-                  background:restDay===i?'var(--teal-light)':'#fff',
-                  color:restDay===i?'var(--teal-dark)':'var(--muted)',
-                  fontWeight:restDay===i?700:500,fontSize:13,fontFamily:'var(--font-b)',
-                }}>{d}</button>
-              ))}
+        {/* Horaires magasin */}
+        <div style={{marginBottom:16}}>
+          <div className="lbl">Horaires d'ouverture du magasin</div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+            <div>
+              <div className="lbl" style={{fontSize:10}}>Ouverture</div>
+              <input className="inp" type="time" value={openStart} onChange={e=>setOpenStart(e.target.value)}/>
+            </div>
+            <div>
+              <div className="lbl" style={{fontSize:10}}>Fermeture</div>
+              <input className="inp" type="time" value={openEnd} onChange={e=>setOpenEnd(e.target.value)}/>
             </div>
           </div>
+          {openH>0&&<div style={{marginTop:8,fontSize:13,color:'var(--teal-dark)',fontWeight:600}}>Amplitude : {openH}h ({openStart}→{openEnd})</div>}
+        </div>
 
-          {/* Opening hours */}
-          <div style={{background:'#EBF8FF',borderRadius:12,padding:'14px 16px',marginBottom:12,border:'1px solid #B3E0FF'}}>
-            <div className="lbl" style={{color:'#1D6FD8',marginBottom:10}}>🌅 Créneau ouverture</div>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
-              <div><div className="lbl">Début</div><input className="inp" type="time" value={openStart} onChange={e=>setOpenStart(e.target.value)}/></div>
-              <div><div className="lbl">Fin</div><input className="inp" type="time" value={openEnd} onChange={e=>setOpenEnd(e.target.value)}/></div>
-            </div>
-            {openH>0&&<div style={{marginTop:8,fontSize:13,color:'#1D6FD8',fontWeight:600}}>⏱ {openH}h effectives</div>}
+        {/* Pause */}
+        <div style={{marginBottom:20}}>
+          <div className="lbl">Pause déjeuner</div>
+          <div style={{display:'flex',gap:8}}>
+            {BREAKS.map(b=>(
+              <button key={b.v} onClick={()=>setBrk(b.v)} style={{
+                flex:1,padding:'9px',borderRadius:9,cursor:'pointer',
+                border:`2px solid ${brk===b.v?'var(--teal)':'var(--border)'}`,
+                background:brk===b.v?'var(--teal-light)':'#fff',
+                color:brk===b.v?'var(--teal-dark)':'var(--muted)',
+                fontWeight:brk===b.v?700:500,fontSize:13,fontFamily:'var(--font-b)',
+              }}>{b.l}</button>
+            ))}
           </div>
+        </div>
 
-          {/* Closing hours */}
-          <div style={{background:'#FFF3E0',borderRadius:12,padding:'14px 16px',marginBottom:12,border:'1px solid #FFCC80'}}>
-            <div className="lbl" style={{color:'#D05B00',marginBottom:10}}>🌆 Créneau fermeture</div>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
-              <div><div className="lbl">Début</div><input className="inp" type="time" value={closeStart} onChange={e=>setCloseStart(e.target.value)}/></div>
-              <div><div className="lbl">Fin</div><input className="inp" type="time" value={closeEnd} onChange={e=>setCloseEnd(e.target.value)}/></div>
-            </div>
-            {closeH>0&&<div style={{marginTop:8,fontSize:13,color:'#D05B00',fontWeight:600}}>⏱ {closeH}h effectives</div>}
-          </div>
+        {/* Aperçu congés */}
+        <div style={{background:'var(--card2)',borderRadius:10,padding:'12px 16px',marginBottom:20,border:'1px solid var(--border)'}}>
+          <div className="lbl" style={{marginBottom:8}}>Aperçu congés approuvés cette semaine</div>
+          {emps.map(emp=>{
+            const leaves=getEmpLeaves(emp.id);
+            const workDaysCount=weekDates.filter((_,di)=>{
+              const dow=weekDates[di].date.getDay();
+              return dow!==0&&!leaves.includes(di);
+            }).length;
+            const dailyH=workDaysCount>0?parseFloat((emp.contractHours/5).toFixed(2)):0;
+            return(
+              <div key={emp.id} style={{display:'flex',alignItems:'center',gap:10,marginBottom:8,padding:'8px 10px',background:'white',borderRadius:8,border:'1px solid var(--border)'}}>
+                <div style={{width:28,height:28,borderRadius:'50%',background:emp.color||'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,color:'#fff',flexShrink:0}}>{emp.name[0]}</div>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:700,fontSize:14}}>{emp.name}</div>
+                  <div style={{fontSize:12,color:'var(--muted)',marginTop:1}}>
+                    Contrat <strong>{emp.contractHours}h</strong>/sem · {workDaysCount} jours travaillés · <strong style={{color:'var(--teal-dark)'}}>{dailyH}h/jour</strong>
+                  </div>
+                </div>
+                {leaves.length>0?(
+                  <div style={{display:'flex',gap:4,flexWrap:'wrap',justifyContent:'flex-end'}}>
+                    {leaves.map(di=>(
+                      <span key={di} style={{background:'#EDE9FE',color:'#7C3AED',borderRadius:6,padding:'2px 7px',fontSize:11,fontWeight:700}}>
+                        🌴 {['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'][di]}
+                      </span>
+                    ))}
+                  </div>
+                ):(
+                  <span style={{fontSize:12,color:'var(--dim)'}}>Aucun congé</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
 
-          {/* Break */}
-          <div style={{marginBottom:20}}>
-            <div className="lbl">Pause déjeuner</div>
-            <div style={{display:'flex',gap:8}}>
-              {BREAKS.map(b=>(
-                <button key={b.v} onClick={()=>setBrk(b.v)} style={{
-                  flex:1,padding:'9px',borderRadius:9,cursor:'pointer',
-                  border:`2px solid ${brk===b.v?'var(--teal)':'var(--border)'}`,
-                  background:brk===b.v?'var(--teal-light)':'#fff',
-                  color:brk===b.v?'var(--teal-dark)':'var(--muted)',
-                  fontWeight:brk===b.v?700:500,fontSize:13,fontFamily:'var(--font-b)',
-                }}>{b.l}</button>
-              ))}
-            </div>
-          </div>
-
-          <button className="btn btn-primary" style={{width:'100%',justifyContent:'center',padding:'14px',fontSize:15,borderRadius:12}}
-            onClick={()=>setStep(2)} disabled={openH<=0||closeH<=0}>
-            Voir l'aperçu →
-          </button>
-        </>}
-
-        {step===2&&preview&&<>
-          <div style={{overflowX:'auto',marginBottom:18}}>
-            <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
-              <thead>
-                <tr style={{background:'var(--card2)'}}>
-                  <th style={{padding:'8px 12px',textAlign:'left',color:'var(--muted)',fontWeight:700,fontSize:12}}>Employé</th>
-                  {weekDates.map((wd,i)=>{
-                    const dow=wd.date.getDay();
-                    const mapped=dow===0?6:dow-1;
-                    const isRest=mapped===6||mapped===restDay;
-                    return(
-                      <th key={i} style={{padding:'8px 6px',textAlign:'center',color:isRest?'#C8002B':'var(--muted)',fontWeight:700,fontSize:12}}>
-                        {wd.day.slice(0,3)}<br/>
-                        <span style={{fontSize:10,opacity:.7}}>{wd.date.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})}</span>
-                      </th>
-                    );
-                  })}
-                </tr>
-              </thead>
-              <tbody>
-                {emps.map(emp=>(
-                  <tr key={emp.id} style={{borderTop:'1px solid var(--border)'}}>
-                    <td style={{padding:'8px 12px'}}>
-                      <div style={{display:'flex',alignItems:'center',gap:7}}>
-                        <div style={{width:26,height:26,borderRadius:'50%',background:emp.color||'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:'#fff'}}>{emp.name[0]}</div>
-                        <span style={{fontWeight:600,fontSize:13}}>{emp.name}</span>
-                        <span style={{fontSize:11,color:'var(--dim)'}}>{emp.contractHours}h</span>
-                      </div>
-                    </td>
-                    {weekDates.map((_,di)=>{
-                      const slot=preview[emp.id][di];
-                      if(slot==='rest') return(
-                        <td key={di} style={{padding:'5px 3px',textAlign:'center'}}>
-                          <span style={{background:'#FEF9C3',color:'#B07D00',borderRadius:6,padding:'3px 6px',fontSize:11,fontWeight:700}}>Repos</span>
-                        </td>
-                      );
-                      if(slot==='open') return(
-                        <td key={di} style={{padding:'5px 3px',textAlign:'center'}}>
-                          <span style={{background:'#EBF8FF',color:'#1D6FD8',borderRadius:6,padding:'3px 5px',fontSize:10,fontWeight:700}}>
-                            🌅 {openStart}
-                          </span>
-                        </td>
-                      );
-                      return(
-                        <td key={di} style={{padding:'5px 3px',textAlign:'center'}}>
-                          <span style={{background:'#FFF3E0',color:'#D05B00',borderRadius:6,padding:'3px 5px',fontSize:10,fontWeight:700}}>
-                            🌆 {closeEnd}
-                          </span>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Hours summary */}
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:18}}>
-            <div style={{background:'#EBF8FF',borderRadius:10,padding:'10px 14px',border:'1px solid #B3E0FF'}}>
-              <div style={{fontSize:12,color:'#1D6FD8',fontWeight:700}}>🌅 Ouverture</div>
-              <div style={{fontSize:13,color:'var(--muted)',marginTop:2}}>{openStart} → {openEnd} · {openH}h</div>
-            </div>
-            <div style={{background:'#FFF3E0',borderRadius:10,padding:'10px 14px',border:'1px solid #FFCC80'}}>
-              <div style={{fontSize:12,color:'#D05B00',fontWeight:700}}>🌆 Fermeture</div>
-              <div style={{fontSize:13,color:'var(--muted)',marginTop:2}}>{closeStart} → {closeEnd} · {closeH}h</div>
-            </div>
-          </div>
-
-          <div style={{display:'flex',gap:10}}>
-            <button className="btn btn-ghost" style={{padding:'12px 18px'}} onClick={()=>setStep(1)}>← Modifier</button>
-            <button className="btn btn-primary" style={{flex:1,justifyContent:'center',padding:'14px',fontSize:15,borderRadius:12}}
-              onClick={()=>onGenerate({restDay,brk,openStart,openEnd,closeStart,closeEnd,preview})}>
-              ⚡ Générer le planning
-            </button>
-          </div>
-        </>}
+        <button className="btn btn-primary" style={{width:'100%',justifyContent:'center',padding:'14px',fontSize:15,borderRadius:12}}
+          onClick={()=>onGenerate({openStart,openEnd,brk})} disabled={openH<=0}>
+          ⚡ Générer le planning
+        </button>
       </div>
     </div>
   );
@@ -364,7 +269,7 @@ function WeekNav({cw,setCw}){
 
 /* ── MAIN ─────────────────────────────────────────────────── */
 export default function PlanningEditor(){
-  const{stores,employees,shiftTypes,getSchedule,setShift,setBulkSchedule,currentWeek,setCurrentWeek,currentYear,selectedStore,setSelectedStore,getWeekDatesForCurrentWeek}=useApp();
+  const{stores,employees,shiftTypes,getSchedule,setShift,setBulkSchedule,currentWeek,setCurrentWeek,currentYear,selectedStore,setSelectedStore,getWeekDatesForCurrentWeek,leaveRequests}=useApp();
   const[activeStore,setAS]=useState(selectedStore||stores[0]?.id||'');
   const[viewMode,setViewMode]=useState('week');
   const[activeDay,setActiveDay]=useState(0);
@@ -400,31 +305,83 @@ export default function PlanningEditor(){
   const handleSave=data=>{ if(!editCell) return; setShift(activeStore,currentWeek,currentYear,editCell.empId,editCell.dayIdx,data); setEditCell(null); };
   const handleDelete=()=>{ if(!editCell) return; setShift(activeStore,currentWeek,currentYear,editCell.empId,editCell.dayIdx,null); setEditCell(null); };
 
-  /* ── AUTO GENERATE WITH OPEN/CLOSE DISTRIBUTION ─────────── */
-  const handleAutoGen=async({restDay,brk,openStart,openEnd,closeStart,closeEnd,preview})=>{
+  /* ── AUTO GENERATE — SMART ALGORITHM ───────────────────────── */
+  const handleAutoGen=async({openStart,openEnd,brk})=>{
     setGenerating(true); setShowAuto(false);
-    const openH=parseFloat(calcH(openStart,openEnd,brk).toFixed(2));
-    const closeH=parseFloat(calcH(closeStart,closeEnd,brk).toFixed(2));
+    
+    // 1. Get approved leaves for this week for each employee
+    const getEmpLeaveDays=(empId)=>{
+      const days=new Set();
+      leaveRequests.filter(r=>r.employeeId===empId&&r.status==='approved').forEach(req=>{
+        req.weeks?.forEach(we=>{
+          if(we.week===currentWeek&&we.year===currentYear){
+            we.days.forEach(di=>days.add(di));
+          }
+        });
+      });
+      return days;
+    };
+
+    // 2. Calculate opening/closing slots from store hours + contract hours
+    // Opening slot = start of day, Closing slot = end of day
+    // Each slot length = contractH/5 + break
     const bulk={};
 
-    storeEmps.forEach((emp,ei)=>{
+    storeEmps.forEach((emp,empIdx)=>{
+      const leaveDays=getEmpLeaveDays(emp.id);
+      const contractH=emp.contractHours||35;
+      // Hours per work day (respecting weekly contract over 5 work days)
+      const dailyH=parseFloat((contractH/5).toFixed(2));
+      const dailyMins=Math.round(dailyH*60)+Math.round(brk*60);
+
+      // Parse store opening/closing times
+      const[oh,om]=openStart.split(':').map(Number);
+      const[ch,cm]=openEnd.split(':').map(Number);
+      const storeOpenMins=oh*60+om;
+      const storeCloseMins=ch*60+cm;
+
+      // Opening shift: starts at store open, lasts dailyMins
+      const openShiftEndMins=storeOpenMins+dailyMins;
+      const openShiftEnd=`${String(Math.floor(openShiftEndMins/60)).padStart(2,'0')}:${String(openShiftEndMins%60).padStart(2,'0')}`;
+
+      // Closing shift: ends at store close, starts dailyMins before
+      const closeShiftStartMins=storeCloseMins-dailyMins;
+      const closeShiftStart=`${String(Math.floor(closeShiftStartMins/60)).padStart(2,'0')}:${String(closeShiftStartMins%60).padStart(2,'0')}`;
+
       weekDates.forEach((wd,di)=>{
-        const dow=wd.date.getDay();
-        const mapped=dow===0?6:dow-1;
-        const isRest=mapped===6||mapped===restDay;
+        const dow=wd.date.getDay(); // 0=Sun
+        const isSunday=dow===0;
+        const isLeaveDay=leaveDays.has(di);
         const cellKey=`${emp.id}_${di}`;
-        if(isRest){
+
+        if(isSunday){
+          // Always rest on Sunday
           bulk[cellKey]={type:'rest',startTime:null,endTime:null,breakH:0,hours:null,note:'',depannage:false};
+        } else if(isLeaveDay){
+          // Approved vacation
+          bulk[cellKey]={type:'vacation',startTime:null,endTime:null,breakH:0,hours:null,note:'Congé approuvé',depannage:false};
         } else {
-          // Use preview to determine open/close
-          const slot=preview?.[emp.id]?.[di]||((ei+di)%2===0?'open':'close');
-          const isOpen=slot==='open';
+          // Alternate opening/closing: odd employees start on closing each day
+          // Also rotate per day so it's not the same person always opening
+          const isOpen=(empIdx+di)%2===0;
+          
+          // Make sure end time doesn't exceed store closing
+          let sStart=isOpen?openStart:closeShiftStart;
+          let sEnd=isOpen?openShiftEnd:openEnd;
+          
+          // Safety: cap end time to store closing
+          const sEndMins=parseInt(sEnd.split(':')[0])*60+parseInt(sEnd.split(':')[1]);
+          if(sEndMins>storeCloseMins) sEnd=openEnd;
+          // Safety: cap start to not be before store opening
+          const sStartMins=parseInt(sStart.split(':')[0])*60+parseInt(sStart.split(':')[1]);
+          if(sStartMins<storeOpenMins) sStart=openStart;
+
           bulk[cellKey]={
             type:'work',
-            startTime:isOpen?openStart:closeStart,
-            endTime:  isOpen?openEnd:closeEnd,
+            startTime:sStart,
+            endTime:sEnd,
             breakH:brk,
-            hours:isOpen?openH:closeH,
+            hours:dailyH,
             note:isOpen?'Ouverture':'Fermeture',
             depannage:false,
           };
@@ -628,7 +585,7 @@ export default function PlanningEditor(){
           </div>
         </div>
       )}
-      {showAuto&&store&&<AutoModal store={store} emps={storeEmps} weekDates={weekDates} onGenerate={handleAutoGen} onClose={()=>setShowAuto(false)}/>}
+      {showAuto&&store&&<AutoModal store={store} emps={storeEmps} weekDates={weekDates} currentWeek={currentWeek} currentYear={currentYear} leaveRequests={leaveRequests} onGenerate={handleAutoGen} onClose={()=>setShowAuto(false)}/>}
       {showBorrow&&store&&<BorrowModal store={store} allEmployees={employees} allStores={stores} currentEmps={allDisplayEmps} onBorrow={handleBorrow} onClose={()=>setShowBorrow(false)}/>}
     </div>
   );
