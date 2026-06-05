@@ -129,16 +129,17 @@ export function AppProvider({ children }) {
     const req=leaveRequests.find(r=>r.id===reqId); if(!req) return;
     await saveLeaveRequest({...req,status:'approved',reviewedAt:new Date().toISOString()});
     const emp=employees.find(e=>e.id===req.employeeId); if(!emp) return;
+    // Use storeId from request (original store at submission time)
+    const storeId = req.storeId || emp.originalStoreId || emp.storeId;
     for(const we of req.weeks){
-      // Fetch fresh from Firebase to avoid stale cache
-      const fresh=await fetchSchedule(emp.storeId,we.week,we.year);
+      const fresh=await fetchSchedule(storeId,we.week,we.year);
       const upd={...fresh};
       we.days.forEach(di=>{
         upd[`${emp.id}_${di}`]={type:'vacation',startTime:null,endTime:null,breakH:0,hours:null,note:'Congé approuvé',depannage:false};
       });
-      const key=schedKey(emp.storeId,we.week,we.year);
+      const key=schedKey(storeId,we.week,we.year);
       setSchedules(prev=>({...prev,[key]:upd}));
-      await saveSchedule(emp.storeId,we.week,we.year,upd);
+      await saveSchedule(storeId,we.week,we.year,upd);
     }
   };
 
