@@ -2,128 +2,154 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 
 export default function ViewPlanning() {
-  const { stores, employees, shiftTypes, getSchedule, currentWeek, setCurrentWeek, currentYear, getWeekDatesForCurrentWeek } = useApp();
-  const [selectedStore, setSelectedStore] = useState(stores[0]?.id || '');
+  const { stores, employees, shiftTypes, getSchedule, currentWeek, setCurrentWeek, currentYear, currentEmpId, authRole, getWeekDatesForCurrentWeek } = useApp();
+  const [selectedStore, setSelectedStore] = useState('');
   const weekDates = getWeekDatesForCurrentWeek(currentWeek);
-  const schedule = getSchedule(selectedStore, currentWeek, currentYear);
-  const storeEmployees = employees.filter(e => e.storeId === selectedStore);
 
-  const getShift = (empId, dayIdx) => schedule[`${empId}_${dayIdx}`];
-  const getShiftStyle = (typeId) => {
-    const st = shiftTypes.find(s => s.id === typeId);
-    if (!st) return { background: '#1E3A5F', color: '#93C5FD' };
-    return { background: st.bgColor, color: st.color };
-  };
+  // For vendeurs, default to their own store
+  const myEmp = employees.find(e => e.id === currentEmpId);
+  const effectiveStore = selectedStore || myEmp?.storeId || stores[0]?.id || '';
+  const store = stores.find(s => s.id === effectiveStore);
+  const storeEmps = employees.filter(e => e.storeId === effectiveStore);
+  const schedule = getSchedule(effectiveStore, currentWeek, currentYear);
+
+  const getShift = (empId, di) => schedule[`${empId}_${di}`];
+  const getShiftMeta = (typeId) => shiftTypes.find(s => s.id === typeId) || { label: typeId, color: '#6366F1', bgColor: '#EEF2FF' };
 
   return (
-    <div style={{ animation: 'fadeIn 0.3s ease' }}>
-      <div style={{ marginBottom: 24 }}>
-        <h2 style={{ fontFamily: 'var(--font-head)', fontWeight: 800, fontSize: 24 }}>📅 Planning</h2>
-        <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Consultation des plannings</p>
-      </div>
-
-      {/* Controls */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap', alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button className="btn btn-secondary" style={{ padding: '8px 12px' }} onClick={() => setCurrentWeek(w => Math.max(1, w - 1))}>‹</button>
-          <div style={{
-            background: 'rgba(0,184,212,0.12)', border: '1px solid rgba(0,184,212,0.3)',
-            borderRadius: 10, padding: '8px 20px', textAlign: 'center',
-          }}>
-            <span style={{ fontFamily: 'var(--font-head)', fontWeight: 700, color: 'var(--primary)', fontSize: 16 }}>Semaine {currentWeek}</span>
-          </div>
-          <button className="btn btn-secondary" style={{ padding: '8px 12px' }} onClick={() => setCurrentWeek(w => Math.min(52, w + 1))}>›</button>
+    <div className="anim-up">
+      {/* Header */}
+      <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:26, flexWrap:'wrap', gap:12 }}>
+        <div>
+          <h1 className="page-title">📅 Planning</h1>
+          <p className="page-sub">Consultation · Semaine <strong style={{ color:'var(--teal-dark)' }}>S{currentWeek}</strong></p>
         </div>
-        <select className="input" value={selectedStore} onChange={e => setSelectedStore(e.target.value)} style={{ maxWidth: 200 }}>
-          {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
+        <div style={{ display:'flex', gap:10, flexWrap:'wrap', alignItems:'center' }}>
+          <button className="btn btn-ghost btn-sm" onClick={() => setCurrentWeek(w => Math.max(1, w-1))}>‹ Préc.</button>
+          <div style={{ background:'var(--teal-light)', border:'2px solid var(--teal-mid)', borderRadius:10, padding:'9px 18px', fontFamily:'var(--font-h)', fontWeight:800, color:'var(--teal-dark)', fontSize:17 }}>S{currentWeek}</div>
+          <button className="btn btn-ghost btn-sm" onClick={() => setCurrentWeek(w => Math.min(52, w+1))}>Suiv. ›</button>
+        </div>
       </div>
 
-      {/* Week dates header */}
-      <div style={{
-        display: 'grid', gridTemplateColumns: '140px repeat(7, 1fr)',
-        gap: 4, marginBottom: 8,
-      }}>
-        <div />
-        {weekDates.map((wd, i) => (
-          <div key={i} style={{ textAlign: 'center', padding: '8px 4px' }}>
-            <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>{wd.day.slice(0, 3)}</div>
-            <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-              {wd.date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-            </div>
-          </div>
+      {/* Store tabs */}
+      <div style={{ display:'flex', gap:8, marginBottom:20, overflowX:'auto', paddingBottom:4 }}>
+        {stores.map(s => (
+          <button key={s.id} onClick={() => setSelectedStore(s.id)} style={{
+            padding:'9px 18px', borderRadius:30, cursor:'pointer', flexShrink:0,
+            border:`2px solid ${effectiveStore===s.id?s.color:s.color+'40'}`,
+            background:effectiveStore===s.id?s.color:'#fff',
+            color:effectiveStore===s.id?'#fff':s.color,
+            fontFamily:'var(--font-b)', fontSize:14, fontWeight:effectiveStore===s.id?700:500,
+            transition:'all .15s', boxShadow:effectiveStore===s.id?`0 4px 12px ${s.color}40`:'none',
+          }}>{s.name}</button>
         ))}
       </div>
 
-      {/* Planning rows */}
-      <div style={{ display: 'grid', gap: 4 }}>
-        {storeEmployees.map(emp => (
-          <div key={emp.id} style={{
-            display: 'grid', gridTemplateColumns: '140px repeat(7, 1fr)', gap: 4,
-            background: 'rgba(255,255,255,0.02)', borderRadius: 10, padding: 4,
-          }}>
-            <div style={{ padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{
-                width: 28, height: 28, borderRadius: '50%', background: emp.color || 'var(--primary)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 12, fontWeight: 700, color: 'white', flexShrink: 0,
-              }}>{emp.name[0]}</div>
-              <div style={{ overflow: 'hidden' }}>
-                <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {emp.name}
-                </div>
-                <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>{emp.contractHours}h</div>
+      {/* Mobile: card per employee */}
+      <div style={{ display:'none' }} className="mobile-view">
+        {storeEmps.map(emp => (
+          <div key={emp.id} className="card" style={{ marginBottom:12, padding:'16px' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:12 }}>
+              <div style={{ width:40,height:40,borderRadius:'50%',background:emp.color||'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,color:'#fff',fontSize:17 }}>{emp.name[0]}</div>
+              <div>
+                <div style={{ fontWeight:700, fontSize:16 }}>{emp.name}</div>
+                <div style={{ fontSize:13, color:'var(--dim)' }}>{emp.role} · {emp.contractHours}h</div>
               </div>
             </div>
-            {weekDates.map((_, i) => {
-              const shift = getShift(emp.id, i);
-              const style = shift ? getShiftStyle(shift.type) : null;
-              const st = shift ? shiftTypes.find(s => s.id === shift.type) : null;
-              return (
-                <div key={i} style={{
-                  borderRadius: 8,
-                  background: shift ? style.background : 'rgba(255,255,255,0.03)',
-                  border: `1px solid ${shift ? style.color + '40' : 'rgba(255,255,255,0.06)'}`,
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                  padding: '6px 4px', minHeight: 52,
-                }}>
-                  {shift ? (
-                    <>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: style.color }}>{st?.label}</span>
-                      {shift.startTime && (
-                        <span style={{ fontSize: 9, color: style.color, opacity: 0.8 }}>
-                          {shift.startTime}–{shift.endTime}
-                        </span>
-                      )}
-                      {shift.hours && (
-                        <span style={{ fontSize: 9, color: style.color, opacity: 0.7 }}>{shift.hours}h</span>
-                      )}
-                      {shift.depannage && (
-                        <span style={{ fontSize: 8, color: '#F59E0B', marginTop: 1 }}>⚡Dep.</span>
-                      )}
-                    </>
-                  ) : (
-                    <span style={{ color: 'rgba(255,255,255,0.1)', fontSize: 16 }}>—</span>
-                  )}
-                </div>
-              );
-            })}
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:4 }}>
+              {weekDates.map((wd, di) => {
+                const sh = getShift(emp.id, di);
+                const st = sh ? getShiftMeta(sh.type) : null;
+                return (
+                  <div key={di} style={{ textAlign:'center' }}>
+                    <div style={{ fontSize:10, color:'var(--dim)', marginBottom:3 }}>{wd.day.slice(0,1)}</div>
+                    <div style={{
+                      borderRadius:7, padding:'5px 2px', minHeight:40,
+                      background:sh?st.bgColor:'var(--card2)',
+                      border:`1px solid ${sh?st.color+'40':'var(--border)'}`,
+                      display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+                    }}>
+                      {sh ? (
+                        <>
+                          <span style={{ fontSize:9, fontWeight:700, color:st.color }}>{st.label.slice(0,3)}</span>
+                          {sh.startTime && <span style={{ fontSize:8, color:st.color, opacity:.8 }}>{sh.startTime.slice(0,5)}</span>}
+                        </>
+                      ) : <span style={{ color:'var(--border)', fontSize:14 }}>—</span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         ))}
+      </div>
+
+      {/* Desktop: table view */}
+      <div className="desktop-view card" style={{ overflow:'hidden' }}>
+        <div style={{ overflowX:'auto' }}>
+          <table style={{ width:'100%', borderCollapse:'collapse', minWidth:750 }}>
+            <thead>
+              <tr style={{ background:'var(--card2)', borderBottom:'2px solid var(--border)' }}>
+                <th style={{ padding:'16px 20px', textAlign:'left', fontSize:13, color:'var(--muted)', fontWeight:700, textTransform:'uppercase', width:180 }}>Employé</th>
+                {weekDates.map((wd, i) => (
+                  <th key={i} style={{ padding:'14px 10px', textAlign:'center', minWidth:100 }}>
+                    <div style={{ fontWeight:700, fontSize:15, color:'var(--text)' }}>{wd.day.slice(0,3)}</div>
+                    <div style={{ fontSize:12, color:'var(--dim)', marginTop:3 }}>{wd.date.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}</div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {storeEmps.map((emp, ei) => (
+                <tr key={emp.id} style={{ borderBottom:'1px solid var(--border)', background:ei%2===0?'#fff':'var(--card2)' }}>
+                  <td style={{ padding:'12px 20px' }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:11 }}>
+                      <div style={{ width:38,height:38,borderRadius:'50%',background:emp.color||'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:15,fontWeight:800,color:'#fff',flexShrink:0 }}>{emp.name[0]}</div>
+                      <div>
+                        <div style={{ fontWeight:700, fontSize:15 }}>{emp.name}</div>
+                        <div style={{ fontSize:12, color:'var(--dim)' }}>{emp.contractHours}h/sem</div>
+                      </div>
+                    </div>
+                  </td>
+                  {weekDates.map((_, di) => {
+                    const sh = getShift(emp.id, di);
+                    const st = sh ? getShiftMeta(sh.type) : null;
+                    return (
+                      <td key={di} style={{ padding:'6px 6px' }}>
+                        {sh ? (
+                          <div style={{ background:st.bgColor, border:`1.5px solid ${st.color}50`, borderRadius:10, padding:'7px 5px', minHeight:58, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:2 }}>
+                            <span style={{ fontSize:12, fontWeight:700, color:st.color }}>{st.label}</span>
+                            {sh.startTime && <span style={{ fontSize:11, color:st.color, opacity:.8 }}>{sh.startTime}–{sh.endTime}</span>}
+                            {sh.hours > 0 && <span style={{ fontSize:11, color:st.color, opacity:.7 }}>{sh.hours}h</span>}
+                          </div>
+                        ) : (
+                          <div style={{ minHeight:58, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--border)', fontSize:20 }}>—</div>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Legend */}
-      <div style={{ marginTop: 20, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+      <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginTop:18 }}>
         {shiftTypes.map(st => (
-          <div key={st.id} style={{
-            display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px',
-            background: st.bgColor, borderRadius: 20, border: `1px solid ${st.color}30`,
-          }}>
-            <div style={{ width: 6, height: 6, borderRadius: '50%', background: st.color }} />
-            <span style={{ fontSize: 11, color: st.color, fontWeight: 600 }}>{st.label}</span>
-          </div>
+          <span key={st.id} style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'6px 14px', background:st.bgColor, borderRadius:20, border:`1.5px solid ${st.color}35`, fontSize:13, color:st.color, fontWeight:700 }}>
+            <span style={{ width:8, height:8, borderRadius:'50%', background:st.color, display:'inline-block' }}/>{st.label}
+          </span>
         ))}
       </div>
+
+      <style>{`
+        @media (max-width: 860px) {
+          .mobile-view { display: block !important; }
+          .desktop-view { display: none !important; }
+        }
+      `}</style>
     </div>
   );
 }
