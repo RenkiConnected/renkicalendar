@@ -11,7 +11,20 @@ import Nav from './components/Nav';
 import { exportToPDF, exportToNotion } from './utils/pdfExport';
 
 function AppContent() {
-  const { isAuthenticated, authRole, stores, employees, schedules, shiftTypes, currentWeek, currentYear, getWeekDatesForCurrentWeek, selectedStore } = useApp();
+  const { isAuthenticated, authRole, stores, employees, schedules, shiftTypes, currentWeek, currentYear, getWeekDatesForCurrentWeek, selectedStore, loading } = useApp();
+
+  if (loading) return (
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
+      <div style={{ fontSize: 48, marginBottom: 20, animation: 'float 2s ease-in-out infinite' }}>📅</div>
+      <div style={{ fontFamily: 'var(--font-head)', fontSize: 22, fontWeight: 800, marginBottom: 8 }}>
+        Care <span className="gradient-text">Planning</span>
+      </div>
+      <div style={{ color: 'var(--text-dim)', fontSize: 14 }}>Connexion à Firebase...</div>
+      <div style={{ marginTop: 20, width: 200, height: 3, background: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
+        <div style={{ height: '100%', background: 'var(--primary)', borderRadius: 2, animation: 'shimmer 1.5s infinite', backgroundSize: '200% 100%', backgroundImage: 'linear-gradient(90deg, var(--primary) 25%, #00E5FF 50%, var(--primary) 75%)' }} />
+      </div>
+    </div>
+  );
   const [currentPage, setCurrentPage] = useState(
     authRole === 'vendeur' ? 'view' : 'dashboard'
   );

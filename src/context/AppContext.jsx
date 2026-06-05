@@ -1,38 +1,15 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import {
+  listenStores, listenEmployees, listenShiftTypes, listenSchedule,
+  saveStore, removeStore,
+  saveEmployee, removeEmployee,
+  saveShiftType,
+  saveSchedule, fetchSchedule,
+  seedIfEmpty,
+} from '../firebaseService';
 
 const AppContext = createContext(null);
-
 const CURRENT_WEEK = 23;
-
-const DEFAULT_STORES = [
-  { id: 'cogolin', name: 'Cogolin', color: '#00B8D4' },
-  { id: 'saint-raphael', name: 'Saint Raphaël', color: '#FF6B35' },
-  { id: 'coriolis-brignoles', name: 'Coriolis Brignoles', color: '#7C3AED' },
-  { id: 'save-brignoles', name: 'Save Brignoles', color: '#059669' },
-  { id: 'save-hyeres', name: 'Save Hyères', color: '#DC2626' },
-  { id: 'care-vitrolles', name: 'Care Vitrolles', color: '#D97706' },
-  { id: 'care-le-pontet', name: 'Care Le Pontet', color: '#2563EB' },
-];
-
-const DEFAULT_SHIFT_TYPES = [
-  { id: 'work', label: 'Travail', color: '#2563EB', bgColor: '#DBEAFE' },
-  { id: 'communication', label: 'Communication', color: '#EA580C', bgColor: '#FED7AA' },
-  { id: 'vacation', label: 'Vacances', color: '#7C3AED', bgColor: '#EDE9FE' },
-  { id: 'holiday', label: 'Férié', color: '#DC2626', bgColor: '#FEE2E2' },
-  { id: 'rest', label: 'Repos', color: '#CA8A04', bgColor: '#FEF9C3' },
-  { id: 'meeting', label: 'Réunion', color: '#16A34A', bgColor: '#DCFCE7' },
-  { id: 'school', label: 'École', color: '#CA8A04', bgColor: '#FEF08A' },
-];
-
-const DEFAULT_EMPLOYEES = [
-  { id: 'emp1', name: 'Yasmine', role: 'vendeur', storeId: 'cogolin', contractHours: 35, color: '#EC4899' },
-  { id: 'emp2', name: 'Quentin', role: 'manager', storeId: 'cogolin', contractHours: 39, color: '#8B5CF6' },
-  { id: 'emp3', name: 'Mika', role: 'vendeur', storeId: 'cogolin', contractHours: 28, color: '#06B6D4' },
-  { id: 'emp4', name: 'Jeff', role: 'vendeur', storeId: 'saint-raphael', contractHours: 35, color: '#F59E0B' },
-  { id: 'emp5', name: 'David', role: 'manager', storeId: 'saint-raphael', contractHours: 39, color: '#10B981' },
-  { id: 'emp6', name: 'Yanis', role: 'vendeur', storeId: 'saint-raphael', contractHours: 28, color: '#F97316' },
-];
-
 const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 
 function getWeekDates(weekNumber, year = 2026) {
@@ -49,58 +26,61 @@ function getWeekDates(weekNumber, year = 2026) {
 }
 
 export function AppProvider({ children }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return localStorage.getItem('care_auth') === 'true';
-  });
-  const [authRole, setAuthRole] = useState(() => {
-    return localStorage.getItem('care_role') || null;
-  });
-  const [stores, setStores] = useState(() => {
-    const saved = localStorage.getItem('care_stores');
-    return saved ? JSON.parse(saved) : DEFAULT_STORES;
-  });
-  const [employees, setEmployees] = useState(() => {
-    const saved = localStorage.getItem('care_employees');
-    return saved ? JSON.parse(saved) : DEFAULT_EMPLOYEES;
-  });
-  const [shiftTypes, setShiftTypes] = useState(() => {
-    const saved = localStorage.getItem('care_shift_types');
-    return saved ? JSON.parse(saved) : DEFAULT_SHIFT_TYPES;
-  });
-  const [schedules, setSchedules] = useState(() => {
-    const saved = localStorage.getItem('care_schedules');
-    return saved ? JSON.parse(saved) : {};
-  });
+  const [isAuthenticated, setIsAuthenticated] = useState(() => localStorage.getItem('care_auth') === 'true');
+  const [authRole, setAuthRole] = useState(() => localStorage.getItem('care_role') || null);
+
+  const [stores, setStores] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [shiftTypes, setShiftTypes] = useState([]);
+  const [schedules, setSchedules] = useState({});
+  const [loading, setLoading] = useState(true);
+
   const [currentWeek, setCurrentWeek] = useState(CURRENT_WEEK);
   const [currentYear] = useState(2026);
   const [selectedStore, setSelectedStore] = useState(null);
 
-  useEffect(() => {
-    localStorage.setItem('care_stores', JSON.stringify(stores));
-  }, [stores]);
-  useEffect(() => {
-    localStorage.setItem('care_employees', JSON.stringify(employees));
-  }, [employees]);
-  useEffect(() => {
-    localStorage.setItem('care_shift_types', JSON.stringify(shiftTypes));
-  }, [shiftTypes]);
-  useEffect(() => {
-    localStorage.setItem('care_schedules', JSON.stringify(schedules));
-  }, [schedules]);
+  const scheduleListeners = useRef({});
 
+  // ── INIT FIREBASE ──────────────────────────────────
+  useEffect(() => {
+    seedIfEmpty().then(() => setLoading(false));
+
+    const unsubStores = listenStores(setStores);
+    const unsubEmps = listenEmployees(setEmployees);
+    const unsubShifts = listenShiftTypes(setShiftTypes);
+
+    return () => { unsubStores(); unsubEmps(); unsubShifts(); };
+  }, []);
+
+  // ── ÉCOUTER LE PLANNING EN TEMPS RÉEL ─────────────
+  useEffect(() => {
+    if (!selectedStore) return;
+    const key = `${selectedStore}_${currentYear}_W${currentWeek}`;
+
+    if (scheduleListeners.current[key]) return; // déjà écouté
+
+    const unsub = listenSchedule(selectedStore, currentWeek, currentYear, (data) => {
+      setSchedules(prev => ({ ...prev, [key]: data }));
+    });
+    scheduleListeners.current[key] = unsub;
+
+    return () => {
+      unsub();
+      delete scheduleListeners.current[key];
+    };
+  }, [selectedStore, currentWeek, currentYear]);
+
+  // ── AUTH ───────────────────────────────────────────
   const login = (password, username) => {
     if (password === 'Raphael2232') {
-      setIsAuthenticated(true);
-      setAuthRole('admin');
+      setIsAuthenticated(true); setAuthRole('admin');
       localStorage.setItem('care_auth', 'true');
       localStorage.setItem('care_role', 'admin');
       return { success: true, role: 'admin' };
     }
-    // Check if employee
     const emp = employees.find(e => e.name.toLowerCase() === username.toLowerCase());
     if (emp) {
-      setIsAuthenticated(true);
-      setAuthRole(emp.role);
+      setIsAuthenticated(true); setAuthRole(emp.role);
       localStorage.setItem('care_auth', 'true');
       localStorage.setItem('care_role', emp.role);
       return { success: true, role: emp.role };
@@ -109,12 +89,12 @@ export function AppProvider({ children }) {
   };
 
   const logout = () => {
-    setIsAuthenticated(false);
-    setAuthRole(null);
+    setIsAuthenticated(false); setAuthRole(null);
     localStorage.removeItem('care_auth');
     localStorage.removeItem('care_role');
   };
 
+  // ── SCHEDULES ──────────────────────────────────────
   const getScheduleKey = (storeId, week, year) => `${storeId}_${year}_W${week}`;
 
   const getSchedule = (storeId, week, year) => {
@@ -122,58 +102,58 @@ export function AppProvider({ children }) {
     return schedules[key] || {};
   };
 
-  const setShift = (storeId, week, year, employeeId, dayIndex, shift) => {
+  const setShift = async (storeId, week, year, employeeId, dayIndex, shift) => {
     const key = getScheduleKey(storeId, week, year);
-    setSchedules(prev => ({
-      ...prev,
-      [key]: {
-        ...prev[key],
-        [`${employeeId}_${dayIndex}`]: shift,
-      }
-    }));
+    const current = schedules[key] || {};
+    const cellKey = `${employeeId}_${dayIndex}`;
+    let updated;
+    if (shift === null) {
+      updated = { ...current };
+      delete updated[cellKey];
+    } else {
+      updated = { ...current, [cellKey]: shift };
+    }
+    setSchedules(prev => ({ ...prev, [key]: updated }));
+    await saveSchedule(storeId, week, year, updated);
   };
 
-  const addEmployee = (employee) => {
-    const newEmp = { ...employee, id: `emp_${Date.now()}` };
-    setEmployees(prev => [...prev, newEmp]);
-    return newEmp;
-  };
-
-  const updateEmployee = (id, updates) => {
-    setEmployees(prev => prev.map(e => e.id === id ? { ...e, ...updates } : e));
-  };
-
-  const deleteEmployee = (id) => {
-    setEmployees(prev => prev.filter(e => e.id !== id));
-  };
-
-  const addStore = (store) => {
+  // ── STORES ─────────────────────────────────────────
+  const addStore = async (store) => {
     const newStore = { ...store, id: `store_${Date.now()}` };
-    setStores(prev => [...prev, newStore]);
+    await saveStore(newStore);
     return newStore;
   };
+  const updateStore = async (id, updates) => {
+    const store = stores.find(s => s.id === id);
+    if (store) await saveStore({ ...store, ...updates });
+  };
+  const deleteStore = async (id) => { await removeStore(id); };
 
-  const updateStore = (id, updates) => {
-    setStores(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+  // ── EMPLOYEES ──────────────────────────────────────
+  const addEmployee = async (emp) => {
+    const newEmp = { ...emp, id: `emp_${Date.now()}` };
+    await saveEmployee(newEmp);
+    return newEmp;
+  };
+  const updateEmployee = async (id, updates) => {
+    const emp = employees.find(e => e.id === id);
+    if (emp) await saveEmployee({ ...emp, ...updates });
+  };
+  const deleteEmployee = async (id) => { await removeEmployee(id); };
+
+  // ── SHIFT TYPES ────────────────────────────────────
+  const updateShiftType = async (id, updates) => {
+    const st = shiftTypes.find(s => s.id === id);
+    if (st) await saveShiftType({ ...st, ...updates });
   };
 
-  const deleteStore = (id) => {
-    setStores(prev => prev.filter(s => s.id !== id));
-  };
-
-  const updateShiftType = (id, updates) => {
-    setShiftTypes(prev => prev.map(st => st.id === id ? { ...st, ...updates } : st));
-  };
-
+  const getStoreEmployees = (storeId) => employees.filter(e => e.storeId === storeId);
   const getWeekDatesForCurrentWeek = (week) => getWeekDates(week, currentYear);
-
-  const getStoreEmployees = (storeId) => {
-    return employees.filter(e => e.storeId === storeId);
-  };
 
   return (
     <AppContext.Provider value={{
       isAuthenticated, authRole, login, logout,
+      loading,
       stores, addStore, updateStore, deleteStore,
       employees, addEmployee, updateEmployee, deleteEmployee, getStoreEmployees,
       shiftTypes, updateShiftType,
