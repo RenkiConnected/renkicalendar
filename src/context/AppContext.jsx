@@ -1,34 +1,42 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import {
   listenStores, listenEmployees, listenShiftTypes, listenSchedule,
+  listenLeaveRequests, listenSettings,
   saveStore, removeStore,
   saveEmployee, removeEmployee,
-  saveShiftType,
-  saveSchedule,
-  seedIfEmpty,
+  saveShiftType, saveSchedule, saveSettings,
+  saveLeaveRequest, removeLeaveRequest,
+  seedIfEmpty, forceResetAll, ALL_EMPLOYEES,
 } from '../firebaseService';
 
 const AppContext = createContext(null);
 const CURRENT_WEEK = 23;
 const DAYS = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
 
-function getWeekDates(weekNumber, year=2026) {
-  const jan4 = new Date(year, 0, 4);
-  const s = new Date(jan4);
-  s.setDate(jan4.getDate() - jan4.getDay() + 1);
-  const ws = new Date(s);
-  ws.setDate(s.getDate() + (weekNumber-1)*7);
+// Roles that require password
+export const MANAGER_ROLES = ['manager','dirigeant','admin'];
+
+function getWeekDates(wn, year=2026) {
+  const jan4=new Date(year,0,4); const s=new Date(jan4);
+  s.setDate(jan4.getDate()-jan4.getDay()+1);
+  const ws=new Date(s); ws.setDate(s.getDate()+(wn-1)*7);
   return DAYS.map((day,i)=>{ const d=new Date(ws); d.setDate(ws.getDate()+i); return {day,date:d}; });
 }
 
 export function AppProvider({ children }) {
   const [isAuthenticated, setIsAuthenticated] = useState(()=>localStorage.getItem('care_auth')==='true');
   const [authRole, setAuthRole] = useState(()=>localStorage.getItem('care_role')||null);
+  const [currentUser, setCurrentUser] = useState(()=>localStorage.getItem('care_user')||null);
+  const [currentEmpId, setCurrentEmpId] = useState(()=>localStorage.getItem('care_empid')||null);
+
   const [stores, setStores] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [shiftTypes, setShiftTypes] = useState([]);
   const [schedules, setSchedules] = useState({});
+  const [leaveRequests, setLeaveRequests] = useState([]);
+  const [appSettings, setAppSettings] = useState({});
   const [loading, setLoading] = useState(true);
+
   const [currentWeek, setCurrentWeek] = useState(CURRENT_WEEK);
   const [currentYear] = useState(2026);
   const [selectedStore, setSelectedStore] = useState(null);
@@ -39,7 +47,9 @@ export function AppProvider({ children }) {
     const u1=listenStores(setStores);
     const u2=listenEmployees(setEmployees);
     const u3=listenShiftTypes(setShiftTypes);
-    return()=>{ u1(); u2(); u3(); };
+    const u4=listenLeaveRequests(setLeaveRequests);
+    const u5=listenSettings(setAppSettings);
+    return()=>{ u1();u2();u3();u4();u5(); };
   },[]);
 
   useEffect(()=>{
@@ -53,66 +63,118 @@ export function AppProvider({ children }) {
     return()=>{ unsub(); delete listeners.current[key]; };
   },[selectedStore,currentWeek,currentYear]);
 
-  const login=(password,username)=>{
-    if(password==='Raphael2232'){
-      setIsAuthenticated(true); setAuthRole('admin');
-      localStorage.setItem('care_auth','true'); localStorage.setItem('care_role','admin');
-      return {success:true,role:'admin'};
-    }
-    const emp=employees.find(e=>e.name.toLowerCase()===username.toLowerCase());
-    if(emp){
-      setIsAuthenticated(true); setAuthRole(emp.role);
-      localStorage.setItem('care_auth','true'); localStorage.setItem('care_role',emp.role);
+  // ── AUTH ─────────────────────────────────────────────
+  const login=(selectedName, password, isManager)=>{
+    if(isManager){
+      // Manager/Dirigeant: need password
+      if(password!=='Raphael2232') return {success:false,error:'Mot de passe incorrect'};
+      const emp=employees.find(e=>e.name===selectedName&&MANAGER_ROLES.includes(e.role));
+      if(!emp) return {success:false,error:'Utilisateur introuvable'};
+      _doLogin(emp);
       return {success:true,role:emp.role};
+    } else {
+      // Vendeur: no password
+      const emp=employees.find(e=>e.name===selectedName&&e.role==='vendeur');
+      if(!emp) return {success:false,error:'Utilisateur introuvable'};
+      _doLogin(emp);
+      return {success:true,role:'vendeur'};
     }
-    return {success:false};
+  };
+
+  const _doLogin=(emp)=>{
+    setIsAuthenticated(true);
+    setAuthRole(emp.role);
+    setCurrentUser(emp.name);
+    setCurrentEmpId(emp.id);
+    localStorage.setItem('care_auth','true');
+    localStorage.setItem('care_role',emp.role);
+    localStorage.setItem('care_user',emp.name);
+    localStorage.setItem('care_empid',emp.id);
   };
 
   const logout=()=>{
-    setIsAuthenticated(false); setAuthRole(null);
+    setIsAuthenticated(false); setAuthRole(null); setCurrentUser(null); setCurrentEmpId(null);
     localStorage.removeItem('care_auth'); localStorage.removeItem('care_role');
+    localStorage.removeItem('care_user'); localStorage.removeItem('care_empid');
   };
 
+  // ── SCHEDULES ─────────────────────────────────────────
   const schedKey=(storeId,week,year)=>`${storeId}_${year}_W${week}`;
   const getSchedule=(storeId,week,year)=>schedules[schedKey(storeId,week,year)]||{};
 
-  // Single shift — update local + Firebase
-  const setShift=async(storeId,week,year,employeeId,dayIndex,shift)=>{
+  const setShift=async(storeId,week,year,empId,dayIdx,shift)=>{
     const key=schedKey(storeId,week,year);
-    const current=schedules[key]||{};
-    const cellKey=`${employeeId}_${dayIndex}`;
-    const updated={...current};
-    if(shift===null) delete updated[cellKey];
-    else updated[cellKey]=shift;
-    setSchedules(prev=>({...prev,[key]:updated}));
-    await saveSchedule(storeId,week,year,updated);
+    const cur=schedules[key]||{};
+    const upd={...cur};
+    if(shift===null) delete upd[`${empId}_${dayIdx}`];
+    else upd[`${empId}_${dayIdx}`]=shift;
+    setSchedules(prev=>({...prev,[key]:upd}));
+    await saveSchedule(storeId,week,year,upd);
   };
 
-  // Bulk — write entire schedule at once (for auto-generate)
-  const setBulkSchedule=async(storeId,week,year,bulkData)=>{
+  const setBulkSchedule=async(storeId,week,year,bulk)=>{
     const key=schedKey(storeId,week,year);
-    setSchedules(prev=>({...prev,[key]:bulkData}));
-    await saveSchedule(storeId,week,year,bulkData);
+    setSchedules(prev=>({...prev,[key]:bulk}));
+    await saveSchedule(storeId,week,year,bulk);
   };
 
+  // ── LEAVE ─────────────────────────────────────────────
+  const submitLeaveRequest=async(req)=>{
+    const n={...req,id:`leave_${Date.now()}`,status:'pending',createdAt:new Date().toISOString()};
+    await saveLeaveRequest(n); return n;
+  };
+
+  const approveLeaveRequest=async(reqId)=>{
+    const req=leaveRequests.find(r=>r.id===reqId); if(!req) return;
+    await saveLeaveRequest({...req,status:'approved',reviewedAt:new Date().toISOString()});
+    const emp=employees.find(e=>e.id===req.employeeId); if(!emp) return;
+    for(const we of req.weeks){
+      const key=schedKey(emp.storeId,we.week,we.year);
+      const cur=schedules[key]||{};
+      const upd={...cur};
+      we.days.forEach(di=>{ upd[`${emp.id}_${di}`]={type:'vacation',startTime:null,endTime:null,breakH:0,hours:null,note:'Congé approuvé',depannage:false}; });
+      setSchedules(prev=>({...prev,[key]:upd}));
+      await saveSchedule(emp.storeId,we.week,we.year,upd);
+    }
+  };
+
+  const rejectLeaveRequest=async(reqId)=>{
+    const req=leaveRequests.find(r=>r.id===reqId); if(!req) return;
+    await saveLeaveRequest({...req,status:'rejected',reviewedAt:new Date().toISOString()});
+  };
+
+  const deleteLeaveRequest=async(id)=>{ await removeLeaveRequest(id); };
+
+  // ── STORES ────────────────────────────────────────────
   const addStore=async s=>{ const n={...s,id:`store_${Date.now()}`}; await saveStore(n); return n; };
   const updateStore=async(id,u)=>{ const s=stores.find(x=>x.id===id); if(s) await saveStore({...s,...u}); };
   const deleteStore=async id=>{ await removeStore(id); };
 
+  // ── EMPLOYEES ─────────────────────────────────────────
   const addEmployee=async e=>{ const n={...e,id:`emp_${Date.now()}`}; await saveEmployee(n); return n; };
   const updateEmployee=async(id,u)=>{ const e=employees.find(x=>x.id===id); if(e) await saveEmployee({...e,...u}); };
   const deleteEmployee=async id=>{ await removeEmployee(id); };
 
+  // ── SHIFT TYPES ───────────────────────────────────────
   const updateShiftType=async(id,u)=>{ const s=shiftTypes.find(x=>x.id===id); if(s) await saveShiftType({...s,...u}); };
+
+  // ── SETTINGS ──────────────────────────────────────────
+  const updateSettings=async(u)=>{ await saveSettings({...appSettings,...u}); };
+
+  // ── RESET EMPLOYEES ───────────────────────────────────
+  const doResetEmployees=async()=>{ await forceResetAll(); };
 
   return (
     <AppContext.Provider value={{
-      isAuthenticated,authRole,login,logout,loading,
+      isAuthenticated,authRole,currentUser,currentEmpId,login,logout,loading,
       stores,addStore,updateStore,deleteStore,
       employees,addEmployee,updateEmployee,deleteEmployee,
-      getStoreEmployees:storeId=>employees.filter(e=>e.storeId===storeId),
+      getStoreEmployees:sid=>employees.filter(e=>e.storeId===sid),
       shiftTypes,updateShiftType,
       schedules,getSchedule,setShift,setBulkSchedule,
+      leaveRequests,submitLeaveRequest,approveLeaveRequest,rejectLeaveRequest,deleteLeaveRequest,
+      appSettings,updateSettings,
+      doResetEmployees,
       currentWeek,setCurrentWeek,currentYear,
       selectedStore,setSelectedStore,
       getWeekDatesForCurrentWeek:w=>getWeekDates(w,currentYear),
@@ -123,5 +185,5 @@ export function AppProvider({ children }) {
   );
 }
 
-export const useApp=()=>{ const c=useContext(AppContext); if(!c) throw new Error('useApp outside provider'); return c; };
+export const useApp=()=>{ const c=useContext(AppContext); if(!c) throw new Error('outside provider'); return c; };
 export { DAYS, getWeekDates };
