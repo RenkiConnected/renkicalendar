@@ -29,6 +29,88 @@ function addMinutes(time,mins){
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
 function getMeta(types,id){ return types.find(t=>t.id===id)||{label:id,color:'#6366F1',bgColor:'#EEF2FF'}; }
+/* ── SHIFT DETAIL POPUP (mobile tap) ─────────────────────── */
+function ShiftDetailPopup({emp,day,shift,onClose,types,onEdit}){
+  if(!shift) return null;
+  const st=getMeta(types,shift.type);
+  const st2=shift.split?getMeta(types,shift.split.type):null;
+  return(
+    <div className="overlay" onClick={onClose} style={{alignItems:'flex-end',padding:0}}>
+      <div onClick={e=>e.stopPropagation()} style={{
+        background:'#fff',borderRadius:'20px 20px 0 0',
+        width:'100%',maxWidth:480,margin:'0 auto',
+        padding:'20px 20px 32px',
+        boxShadow:'0 -8px 40px rgba(0,0,0,.2)',
+        animation:'slideUp .25s ease',
+      }}>
+        {/* Handle bar */}
+        <div style={{width:36,height:4,background:'#E2EBF0',borderRadius:2,margin:'0 auto 18px'}}/>
+
+        {/* Employee */}
+        <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:18}}>
+          <div style={{width:44,height:44,borderRadius:'50%',background:emp.color||'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,color:'#fff',fontSize:18,flexShrink:0}}>
+            {emp.name[0]}
+          </div>
+          <div>
+            <div style={{fontWeight:800,fontSize:18,color:'var(--text)'}}>{emp.name}</div>
+            <div style={{fontSize:13,color:'var(--muted)',marginTop:2}}>
+              {day.day} {day.date.toLocaleDateString('fr-FR',{day:'numeric',month:'long'})}
+            </div>
+          </div>
+        </div>
+
+        {/* Main shift */}
+        <div style={{background:st.bgColor,border:`2px solid ${st.color}50`,borderRadius:14,padding:'16px 18px',marginBottom:st2?10:16}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
+            <span style={{fontWeight:800,fontSize:18,color:st.color}}>{st.label}</span>
+            {shift.hours>0&&<span style={{fontWeight:700,fontSize:20,color:st.color}}>{shift.hours}h</span>}
+          </div>
+          {shift.startTime&&(
+            <div style={{display:'flex',alignItems:'center',gap:8}}>
+              <span style={{fontSize:15,color:st.color,opacity:.9}}>🕐 {shift.startTime}</span>
+              <span style={{color:st.color,opacity:.5}}>→</span>
+              <span style={{fontSize:15,color:st.color,opacity:.9}}>{shift.endTime}</span>
+              {shift.breakH>0&&<span style={{fontSize:13,color:st.color,opacity:.6}}>(-{shift.breakH}h pause)</span>}
+            </div>
+          )}
+          {shift.note&&<div style={{marginTop:8,fontSize:13,color:st.color,opacity:.7,fontStyle:'italic'}}>💬 {shift.note}</div>}
+          {shift.depannage&&<div style={{marginTop:6,fontSize:12,color:'#D05B00',fontWeight:600}}>⚡ Dépannage</div>}
+        </div>
+
+        {/* Split shift */}
+        {st2&&shift.split&&(
+          <div style={{background:st2.bgColor,border:`2px solid ${st2.color}50`,borderRadius:14,padding:'16px 18px',marginBottom:16}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
+              <span style={{fontWeight:800,fontSize:18,color:st2.color}}>{st2.label}</span>
+              {shift.split.hours>0&&<span style={{fontWeight:700,fontSize:20,color:st2.color}}>{shift.split.hours}h</span>}
+            </div>
+            {shift.split.startTime&&(
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <span style={{fontSize:15,color:st2.color,opacity:.9}}>🕐 {shift.split.startTime}</span>
+                <span style={{color:st2.color,opacity:.5}}>→</span>
+                <span style={{fontSize:15,color:st2.color,opacity:.9}}>{shift.split.endTime}</span>
+              </div>
+            )}
+            {shift.split.note&&<div style={{marginTop:8,fontSize:13,color:st2.color,opacity:.7,fontStyle:'italic'}}>💬 {shift.split.note}</div>}
+          </div>
+        )}
+
+        <div style={{display:'flex',gap:10}}>
+          <button className="btn btn-primary" style={{flex:1,justifyContent:'center',padding:'14px',fontSize:15}}
+            onClick={onEdit}>
+            ✏️ Modifier
+          </button>
+          <button className="btn btn-ghost" style={{padding:'14px 18px',fontSize:15}} onClick={onClose}>
+            Fermer
+          </button>
+        </div>
+      </div>
+      <style>{`@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}`}</style>
+    </div>
+  );
+}
+
+
 
 /* ── SHIFT MODAL WITH SPLIT-DAY ────────────────────────────── */
 function ShiftModal({emp,dayIdx,day,shift,onSave,onDelete,onClose,types}){
@@ -387,6 +469,7 @@ export default function PlanningEditor(){
   const[confirmWknd,setConfirmWknd]=useState(null);
   const[generating,setGenerating]=useState(false);
   const[borrowedEmps,setBorrowedEmps]=useState([]);
+  const[detailPopup,setDetailPopup]=useState(null); // {empId, dayIdx}
 
   // Drag state — use refs for performance during drag
   const dragSrcRef=useRef(null);
@@ -429,10 +512,17 @@ export default function PlanningEditor(){
     return parseFloat(t.toFixed(2));
   };
 
-  const handleCell=(empId,dayIdx)=>{
+  const handleCell=(empId,dayIdx,forceEdit=false)=>{
     const dow=weekDates[dayIdx].date.getDay();
     if(!showWknd&&dow===0){ setConfirmWknd({empId,dayIdx}); return; }
-    setEditCell({empId,dayIdx});
+    // On mobile: if shift exists, show detail popup first; if no shift, go straight to edit
+    const sh=schedule[`${empId}_${dayIdx}`];
+    const isMobile=window.innerWidth<=860;
+    if(isMobile&&sh&&!forceEdit){
+      setDetailPopup({empId,dayIdx});
+    } else {
+      setEditCell({empId,dayIdx});
+    }
   };
 
   const handleSave=data=>{ if(!editCell) return; setShift(activeStore,currentWeek,currentYear,editCell.empId,editCell.dayIdx,data); setEditCell(null); };
@@ -805,6 +895,17 @@ export default function PlanningEditor(){
           </div>
         </div>
       )}
+      {detailPopup&&(()=>{
+        const emp=employees.find(e=>e.id===detailPopup.empId);
+        const sh=schedule[`${detailPopup.empId}_${detailPopup.dayIdx}`];
+        const day=weekDates[detailPopup.dayIdx];
+        return <ShiftDetailPopup
+          emp={emp} day={day} shift={sh}
+          onClose={()=>setDetailPopup(null)}
+          types={shiftTypes}
+          onEdit={()=>{ setDetailPopup(null); setEditCell(detailPopup); }}
+        />;
+      })()}
       {showAuto&&store&&<AutoModal store={store} emps={storeEmps} weekDates={weekDates} currentWeek={currentWeek} currentYear={currentYear} leaveRequests={leaveRequests} onGenerate={handleAutoGen} onClose={()=>setShowAuto(false)}/>}
       {showBorrow&&store&&<BorrowModal store={store} allEmployees={employees} allStores={stores} currentEmps={allDisplayEmps} onBorrow={handleBorrow} onClose={()=>setShowBorrow(false)}/>}
     </div>

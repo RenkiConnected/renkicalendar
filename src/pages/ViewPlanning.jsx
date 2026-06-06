@@ -4,6 +4,7 @@ import { useApp } from '../context/AppContext';
 export default function ViewPlanning() {
   const { stores, employees, shiftTypes, getSchedule, currentWeek, setCurrentWeek, currentYear, currentEmpId, authRole, getWeekDatesForCurrentWeek } = useApp();
   const [selectedStore, setSelectedStore] = useState('');
+  const [detailPopup, setDetailPopup] = React.useState(null);
   const weekDates = getWeekDatesForCurrentWeek(currentWeek);
 
   // For vendeurs, default to their own store
@@ -15,6 +16,48 @@ export default function ViewPlanning() {
 
   const getShift = (empId, di) => schedule[`${empId}_${di}`];
   const getShiftMeta = (typeId) => shiftTypes.find(s => s.id === typeId) || { label: typeId, color: '#6366F1', bgColor: '#EEF2FF' };
+  const handleShiftClick=(emp,di,sh,wd)=>{ if(sh) setDetailPopup({empId:emp.id,sh,day:wd}); };
+
+  const ShiftPopup = () => {
+    if(!detailPopup) return null;
+    const emp=storeEmps.find(e=>e.id===detailPopup.empId);
+    const sh=detailPopup.sh;
+    if(!emp||!sh) return null;
+    const st=getShiftMeta(sh.type);
+    const st2=sh.split?getShiftMeta(sh.split.type):null;
+    return(
+      <div style={{position:'fixed',inset:0,background:'rgba(27,42,59,.5)',backdropFilter:'blur(5px)',zIndex:300,display:'flex',alignItems:'flex-end',justifyContent:'center'}} onClick={()=>setDetailPopup(null)}>
+        <div onClick={e=>e.stopPropagation()} style={{background:'#fff',borderRadius:'20px 20px 0 0',width:'100%',maxWidth:480,padding:'20px 20px 40px',boxShadow:'0 -8px 40px rgba(0,0,0,.2)',animation:'slideUp .25s ease'}}>
+          <div style={{width:36,height:4,background:'#E2EBF0',borderRadius:2,margin:'0 auto 18px'}}/>
+          <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:18}}>
+            <div style={{width:44,height:44,borderRadius:'50%',background:emp.color||'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,color:'#fff',fontSize:18}}>{emp.name[0]}</div>
+            <div>
+              <div style={{fontWeight:800,fontSize:18}}>{emp.name}</div>
+              <div style={{fontSize:13,color:'var(--muted)',marginTop:2}}>{detailPopup.day.day} {detailPopup.day.date.toLocaleDateString('fr-FR',{day:'numeric',month:'long'})}</div>
+            </div>
+          </div>
+          <div style={{background:st.bgColor,border:`2px solid ${st.color}50`,borderRadius:14,padding:'16px 18px',marginBottom:st2?10:0}}>
+            <div style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
+              <span style={{fontWeight:800,fontSize:18,color:st.color}}>{st.label}</span>
+              {sh.hours>0&&<span style={{fontWeight:700,fontSize:20,color:st.color}}>{sh.hours}h</span>}
+            </div>
+            {sh.startTime&&<div style={{fontSize:16,color:st.color}}>🕐 {sh.startTime} → {sh.endTime}{sh.breakH>0?` (-${sh.breakH}h pause)`:''}</div>}
+            {sh.note&&<div style={{marginTop:8,fontSize:13,color:st.color,opacity:.7,fontStyle:'italic'}}>💬 {sh.note}</div>}
+          </div>
+          {st2&&sh.split&&(
+            <div style={{background:st2.bgColor,border:`2px solid ${st2.color}50`,borderRadius:14,padding:'16px 18px'}}>
+              <div style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
+                <span style={{fontWeight:800,fontSize:18,color:st2.color}}>{st2.label}</span>
+                {sh.split.hours>0&&<span style={{fontWeight:700,fontSize:20,color:st2.color}}>{sh.split.hours}h</span>}
+              </div>
+              {sh.split.startTime&&<div style={{fontSize:16,color:st2.color}}>🕐 {sh.split.startTime} → {sh.split.endTime}</div>}
+            </div>
+          )}
+        </div>
+        <style>{`@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}`}</style>
+      </div>
+    );
+  };
 
   return (
     <div className="anim-up">
@@ -144,6 +187,7 @@ export default function ViewPlanning() {
         ))}
       </div>
 
+      <ShiftPopup/>
       <style>{`
         @media (max-width: 860px) {
           .mobile-view { display: block !important; }
