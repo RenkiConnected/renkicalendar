@@ -11,6 +11,18 @@ function calcH(s,e,b){
     return d>0?Math.max(0,d/60-b):0;
   }catch{return 0;}
 }
+
+// Round minutes to nearest 30min slot
+function roundTo30(mins) {
+  return Math.round(mins / 30) * 30;
+}
+
+// Format mins to HH:MM
+function minsToTime(mins) {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
 function addMinutes(time,mins){
   const[h,m]=time.split(':').map(Number);
   const total=h*60+m+mins;
@@ -453,9 +465,14 @@ export default function PlanningEditor(){
     storeEmps.forEach((emp,empIdx)=>{
       const leaveDays=getEmpLeaveDays(emp.id);
       const contractH=emp.contractHours||35;
-      // Hours per work day (respecting weekly contract over 5 work days)
+      // Hours per work day (weekly contract / 5 work days)
+      // Round to nearest 30min slot for clean times
       const dailyH=parseFloat((contractH/5).toFixed(2));
-      const dailyMins=Math.round(dailyH*60)+Math.round(brk*60);
+      const dailyMinsRaw=Math.round(dailyH*60)+Math.round(brk*60);
+      // Round to nearest 30 minutes
+      const dailyMins=roundTo30(dailyMinsRaw);
+      // Actual work hours after rounding (subtract break)
+      const actualDailyH=parseFloat(((dailyMins - Math.round(brk*60))/60).toFixed(2));
 
       // Parse store opening/closing times
       const[oh,om]=openStart.split(':').map(Number);
@@ -463,13 +480,15 @@ export default function PlanningEditor(){
       const storeOpenMins=oh*60+om;
       const storeCloseMins=ch*60+cm;
 
-      // Opening shift: starts at store open, lasts dailyMins
-      const openShiftEndMins=storeOpenMins+dailyMins;
-      const openShiftEnd=`${String(Math.floor(openShiftEndMins/60)).padStart(2,'0')}:${String(openShiftEndMins%60).padStart(2,'0')}`;
+      // Opening shift: starts at store open, lasts dailyMins → round end to 30min
+      const openShiftEndMinsRaw=storeOpenMins+dailyMins;
+      const openShiftEndMins=roundTo30(openShiftEndMinsRaw);
+      const openShiftEnd=minsToTime(openShiftEndMins);
 
-      // Closing shift: ends at store close, starts dailyMins before
-      const closeShiftStartMins=storeCloseMins-dailyMins;
-      const closeShiftStart=`${String(Math.floor(closeShiftStartMins/60)).padStart(2,'0')}:${String(closeShiftStartMins%60).padStart(2,'0')}`;
+      // Closing shift: ends at store close, starts dailyMins before → round start to 30min
+      const closeShiftStartMinsRaw=storeCloseMins-dailyMins;
+      const closeShiftStartMins=roundTo30(closeShiftStartMinsRaw);
+      const closeShiftStart=minsToTime(closeShiftStartMins);
 
       weekDates.forEach((wd,di)=>{
         const dow=wd.date.getDay(); // 0=Sun
@@ -514,7 +533,7 @@ export default function PlanningEditor(){
               startTime:isOpen?openStart:lunchE,
               endTime:isOpen?lunchS:openEnd,
               breakH:0,
-              hours:isOpen?Math.min(amH,persDailyH):Math.min(pmH,persDailyH),
+              hours:isOpen?parseFloat(Math.min(amH,actualDailyH).toFixed(2)):parseFloat(Math.min(pmH,actualDailyH).toFixed(2)),
               note:isOpen?'Matin':'Après-midi',
               depannage:false,
               split:null,
