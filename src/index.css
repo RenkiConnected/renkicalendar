@@ -171,20 +171,24 @@ textarea.inp { resize: vertical; }
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   z-index: 300;
-  display: flex; align-items: flex-start; justify-content: center;
-  padding: 32px 20px 48px; overflow-y: auto;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px 20px;
   animation: fadeIn .22s ease;
 }
 .modal {
   background: #fff;
   border-radius: var(--r-lg);
-  padding: 48px 56px;
-  width: 100%; max-width: 880px; margin: auto;
+  padding: 44px 52px;
+  width: 100%; max-width: 880px;
+  max-height: calc(100vh - 48px);   /* never taller than viewport */
+  overflow-y: auto;                 /* scroll INSIDE the modal, not the page */
+  -webkit-overflow-scrolling: touch;
   box-shadow: 0 28px 80px rgba(0,0,0,.22);
   animation: popIn .28s cubic-bezier(.34,1.56,.64,1);
   border: 1.5px solid var(--border);
-  flex-shrink: 0;
 }
+.modal::-webkit-scrollbar { width: 6px; }
+.modal::-webkit-scrollbar-thumb { background: var(--teal-mid); border-radius: 4px; }
 
 /* ─ typography */
 .grad {
@@ -215,9 +219,9 @@ textarea.inp { resize: vertical; }
   .mob-bottom { display: flex !important; }
   .page-title { font-size: 26px; }
   .page-sub { font-size: 16px; }
-  /* Modal on mobile: full width, scrollable */
-  .overlay { padding: 16px 12px 24px; align-items: flex-start; }
-  .modal { padding: 24px 22px 32px; border-radius: 18px; max-width: 100% !important; margin: 0 auto; }
+  /* Modal on mobile: full width, fits screen, internal scroll */
+  .overlay { padding: 12px 10px; align-items: center; }
+  .modal { padding: 22px 20px; border-radius: 18px; max-width: 100% !important; max-height: calc(100vh - 24px); }
   .btn { font-size: 15px; padding: 12px 20px; }
   .inp { font-size: 16px; padding: 14px 15px; }
   .lbl { font-size: 13px; }

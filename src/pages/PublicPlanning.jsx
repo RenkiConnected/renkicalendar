@@ -26,8 +26,10 @@ function ShiftPopup({ data, onClose }) {
         style={{
           background:'#fff',
           borderRadius: isMob ? '24px 24px 0 0' : 22,
-          width:'100%', maxWidth:460,
-          padding: isMob ? '8px 22px 44px' : '28px 32px',
+          width:'100%', maxWidth:520,
+          padding: isMob ? '8px 22px 44px' : '30px 36px',
+          maxHeight: isMob ? '90vh' : 'calc(100vh - 40px)',
+          overflowY: 'auto',
           boxShadow: isMob ? '0 -12px 60px rgba(0,0,0,.25)' : '0 24px 80px rgba(0,0,0,.22)',
           animation: isMob ? 'slideUp .28s cubic-bezier(.32,0,.67,0) forwards' : 'popIn .25s cubic-bezier(.34,1.56,.64,1) forwards',
         }}
