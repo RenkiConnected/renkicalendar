@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useApp, MANAGER_ROLES } from '../context/AppContext';
 
-export default function Login({ logoUrl }) {
+export default function Login({ logoUrl, onBack }) {
   const { login, employees, loading } = useApp();
   const [mode, setMode] = useState('manager');
   const [selected, setSelected] = useState('');
@@ -56,6 +56,11 @@ export default function Login({ logoUrl }) {
 
         {/* Card */}
         <div className="card" style={{ padding:'36px 40px', borderRadius:22 }}>
+          {onBack && (
+            <button onClick={onBack} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--muted)', fontSize:14, marginBottom:20, display:'flex', alignItems:'center', gap:6, fontFamily:'var(--font-b)' }}>
+              ← Voir le planning public
+            </button>
+          )}
           {/* Toggle */}
           <div style={{ display:'flex',background:'var(--card2)',borderRadius:13,padding:4,marginBottom:28,border:'1.5px solid var(--border)' }}>
             {[{v:'manager',l:'👔 Manager / Dirigeant'},{v:'vendeur',l:'🛍️ Vendeur'}].map(opt=>(

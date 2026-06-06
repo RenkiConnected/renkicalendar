@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AppProvider, useApp, MANAGER_ROLES } from './context/AppContext';
 import Login from './pages/Login';
+import PublicPlanning from './pages/PublicPlanning';
 import Dashboard from './pages/Dashboard';
 import PlanningEditor from './pages/PlanningEditor';
 import Employees from './pages/Employees';
@@ -15,54 +16,59 @@ import { exportToPDF, exportToNotion } from './utils/pdfExport';
 function AppContent() {
   const { isAuthenticated, authRole, stores, employees, schedules, shiftTypes,
     currentWeek, currentYear, getWeekDatesForCurrentWeek, loading, appSettings } = useApp();
+
   const [page, setPage] = useState('dashboard');
+  // Show public planning by default, login on demand
+  const [showLogin, setShowLogin] = useState(false);
 
   useEffect(() => { if (authRole === 'vendeur') setPage('view'); }, [authRole]);
 
   const logoUrl = appSettings?.logoDataUrl || appSettings?.logoUrl || 'care-logo.png';
-  const isManager = MANAGER_ROLES.includes(authRole);
 
   useEffect(() => {
-    const doExportPDF = async (e) => {
+    const pdf = async (e) => {
       const { storeId, week } = e.detail;
       const store = stores.find(s => s.id === storeId); if (!store) return;
       let logoDataUrl = null;
       if (appSettings?.logoDataUrl) logoDataUrl = appSettings.logoDataUrl;
       else {
-        try { const r = await fetch(appSettings?.logoUrl || 'care-logo.png'); const b = await r.blob(); logoDataUrl = await new Promise(res => { const rd = new FileReader(); rd.onload = ev => res(ev.target.result); rd.readAsDataURL(b); }); } catch {}
+        try { const r=await fetch(appSettings?.logoUrl||'care-logo.png'); const b=await r.blob(); logoDataUrl=await new Promise(res=>{const rd=new FileReader();rd.onload=ev=>res(ev.target.result);rd.readAsDataURL(b);}); } catch {}
       }
-      try { await exportToPDF({ store, employees: employees.filter(e => e.storeId === storeId), schedules, weekDates: getWeekDatesForCurrentWeek(week), shiftTypes, currentWeek: week, currentYear, logoDataUrl }); }
+      try { await exportToPDF({ store, employees: employees.filter(e=>e.storeId===storeId), schedules, weekDates: getWeekDatesForCurrentWeek(week), shiftTypes, currentWeek: week, currentYear, logoDataUrl }); }
       catch (err) { alert('Erreur PDF : ' + err.message); }
     };
-    const doNotion = (e) => {
+    const notion = (e) => {
       const { storeId, week } = e.detail;
-      const store = stores.find(s => s.id === storeId); if (!store) return;
-      exportToNotion({ store, employees: employees.filter(e => e.storeId === storeId), schedules, weekDates: getWeekDatesForCurrentWeek(week), shiftTypes, currentWeek: week, currentYear });
+      const store = stores.find(s=>s.id===storeId); if (!store) return;
+      exportToNotion({ store, employees: employees.filter(e=>e.storeId===storeId), schedules, weekDates: getWeekDatesForCurrentWeek(week), shiftTypes, currentWeek: week, currentYear });
     };
-    window.addEventListener('exportPDF', doExportPDF);
-    window.addEventListener('exportNotion', doNotion);
-    return () => { window.removeEventListener('exportPDF', doExportPDF); window.removeEventListener('exportNotion', doNotion); };
+    window.addEventListener('exportPDF', pdf);
+    window.addEventListener('exportNotion', notion);
+    return () => { window.removeEventListener('exportPDF', pdf); window.removeEventListener('exportNotion', notion); };
   }, [stores, employees, schedules, shiftTypes, currentWeek, currentYear, appSettings]);
 
-  // LOADING SCREEN
+  // Loading screen
   if (loading) return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(145deg,#EAF7F5,#F4F7F9)' }}>
-      <img src={logoUrl} alt="" style={{ height: 70, objectFit: 'contain', marginBottom: 28 }} onError={e => e.target.style.display = 'none'} />
-      <div style={{ fontFamily: 'var(--font-h)', fontSize: 28, fontWeight: 800, color: 'var(--text)', marginBottom: 10 }}>
+    <div style={{ minHeight:'100vh', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', background:'linear-gradient(145deg,#EAF7F5,#F4F7F9)' }}>
+      <img src={logoUrl} alt="" style={{ height:64, objectFit:'contain', marginBottom:24 }} onError={e=>e.target.style.display='none'}/>
+      <div style={{ fontFamily:'var(--font-h)', fontSize:24, fontWeight:800, color:'var(--text)', marginBottom:8 }}>
         Care <span className="grad">Planning</span>
       </div>
-      <div style={{ color: 'var(--muted)', fontSize: 16, marginBottom: 28 }}>Chargement...</div>
-      <div style={{ width: 240, height: 4, background: 'var(--border)', borderRadius: 4, overflow: 'hidden', position: 'relative' }}>
-        <div style={{ position: 'absolute', height: '100%', width: '45%', background: 'var(--teal)', borderRadius: 4, animation: 'sl 1.3s ease-in-out infinite' }} />
+      <div style={{ color:'var(--muted)', fontSize:15, marginBottom:24 }}>Chargement...</div>
+      <div style={{ width:220, height:4, background:'var(--border)', borderRadius:4, overflow:'hidden', position:'relative' }}>
+        <div style={{ position:'absolute', height:'100%', width:'45%', background:'var(--teal)', borderRadius:4, animation:'sl 1.3s ease-in-out infinite' }}/>
       </div>
       <style>{`@keyframes sl{0%{left:-45%}100%{left:100%}}`}</style>
     </div>
   );
 
-  // LOGIN
-  if (!isAuthenticated) return <Login logoUrl={logoUrl} />;
+  // NOT logged in: show public planning + login overlay
+  if (!isAuthenticated) {
+    if (showLogin) return <Login logoUrl={logoUrl} onBack={() => setShowLogin(false)} />;
+    return <PublicPlanning onLogin={() => setShowLogin(true)} />;
+  }
 
-  // PAGE ROUTER
+  // LOGGED IN
   const renderPage = () => {
     if (authRole === 'vendeur') {
       if (page === 'myleaves') return <LeaveRequestPage />;

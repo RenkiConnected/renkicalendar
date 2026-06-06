@@ -87,16 +87,27 @@ export function AppProvider({ children }) {
     return()=>{ u1();u2();u3();u4();u5(); };
   },[]);
 
+  // Listen to ALL stores for current week + selected store
   useEffect(()=>{
-    if(!selectedStore) return;
-    const key=`${selectedStore}_${currentYear}_W${currentWeek}`;
-    if(listeners.current[key]) return;
-    const unsub=listenSchedule(selectedStore,currentWeek,currentYear,data=>{
-      setSchedules(prev=>({...prev,[key]:data}));
+    // Always listen to all stores for current week (ensures mobile gets fresh data)
+    const storesToListen = stores.length > 0 ? stores.map(s=>s.id) : (selectedStore ? [selectedStore] : []);
+    const weeksToListen = [currentWeek, currentWeek-1, currentWeek+1].filter(w=>w>0&&w<=52);
+    
+    const newUnsubs = {};
+    storesToListen.forEach(storeId=>{
+      weeksToListen.forEach(wk=>{
+        const key=`${storeId}_${currentYear}_W${wk}`;
+        if(!listeners.current[key]){
+          const unsub=listenSchedule(storeId,wk,currentYear,data=>{
+            setSchedules(prev=>({...prev,[key]:data}));
+          });
+          listeners.current[key]=unsub;
+          newUnsubs[key]=unsub;
+        }
+      });
     });
-    listeners.current[key]=unsub;
-    return()=>{ unsub(); delete listeners.current[key]; };
-  },[selectedStore,currentWeek,currentYear]);
+    // No cleanup here - we want persistent listeners
+  },[stores,selectedStore,currentWeek,currentYear]);
 
   // ── AUTH ─────────────────────────────────────────────
   const login=(selectedName, password, isManager)=>{
