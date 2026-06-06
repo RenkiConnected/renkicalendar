@@ -7,14 +7,16 @@ const DAY_NAMES=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanch
 function calcH(s,e,b){
   try{
     const[sh,sm]=s.split(':').map(Number),[eh,em]=e.split(':').map(Number);
-    const d=(eh*60+em)-(sh*60+sm);
-    return d>0?Math.max(0,d/60-b):0;
+    const d=(eh*60+em)-(sh*60+sm); // duration in minutes
+    if(d<=0) return 0;
+    const worked=d-Math.round((b||0)*60); // subtract break (in minutes) to stay exact
+    return Math.max(0, parseFloat((worked/60).toFixed(2)));
   }catch{return 0;}
 }
 
-// Round minutes to nearest 30min slot
-function roundTo30(mins) {
-  return Math.round(mins / 30) * 30;
+// Round minutes to nearest 15min slot (clean times: :00, :15, :30, :45)
+function roundTo15(mins) {
+  return Math.round(mins / 15) * 15;
 }
 
 // Format mins to HH:MM
@@ -643,7 +645,7 @@ export default function PlanningEditor(){
       const dailyH=parseFloat((contractH/5).toFixed(2));
       const dailyMinsRaw=Math.round(dailyH*60)+Math.round(brk*60);
       // Round to nearest 30 minutes
-      const dailyMins=roundTo30(dailyMinsRaw);
+      const dailyMins=roundTo15(dailyMinsRaw);
       // Actual work hours after rounding (subtract break)
       const actualDailyH=parseFloat(((dailyMins - Math.round(brk*60))/60).toFixed(2));
 
@@ -712,12 +714,14 @@ export default function PlanningEditor(){
               split:null,
             };
           } else {
+            // Compute hours EXACTLY from the actual times so display always matches
+            const realHours=parseFloat(calcH(sStart,sEnd,brk).toFixed(2));
             bulk[cellKey]={
               type:'work',
               startTime:sStart,
               endTime:sEnd,
               breakH:brk,
-              hours:dailyH,
+              hours:realHours,
               note:isOpen?'Ouverture':'Fermeture',
               depannage:false,
             };
