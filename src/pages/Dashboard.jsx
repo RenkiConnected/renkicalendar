@@ -62,7 +62,7 @@ export default function Dashboard({ setPage }) {
                   {emps.slice(0,8).map(e=>(
                     <div key={e.id} title={e.name} style={{ width:30,height:30,borderRadius:'50%',background:e.color||'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,color:'#fff',border:'2.5px solid #fff',boxShadow:'0 1px 4px rgba(0,0,0,.1)' }}>{e.name[0]}</div>
                   ))}
-                  {emps.length>8&&<div style={{ width:30,height:30,borderRadius:'50%',background:'var(--card2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:'var(--muted)',border:'2.5px solid #fff' }}>+{emps.length-8}</div>}
+                  {emps.length>8&&<div style={{ width:30,height:30,borderRadius:'50%',background:'var(--card2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,color:'var(--muted)',border:'2.5px solid #fff' }}>+{emps.length-8}</div>}
                 </div>
                 <div style={{ fontSize:13, color:'var(--muted)', borderTop:'1px solid var(--border)', paddingTop:12 }}>
                   <span style={{ color:'var(--teal-dark)', fontWeight:700, fontSize:16 }}>{shifts}</span> créneaux S{currentWeek}
@@ -77,7 +77,7 @@ export default function Dashboard({ setPage }) {
         <h2 className="section-title" style={{ marginBottom:16 }}>Codes couleurs</h2>
         <div style={{ display:'flex', flexWrap:'wrap', gap:10 }}>
           {shiftTypes.map(st=>(
-            <span key={st.id} style={{ display:'inline-flex',alignItems:'center',gap:8,padding:'9px 18px',background:st.bgColor,borderRadius:30,border:`1.5px solid ${st.color}40`,fontSize:14,color:st.color,fontWeight:700 }}>
+            <span key={st.id} style={{ display:'inline-flex',alignItems:'center',gap:8,padding:'9px 18px',background:st.bgColor,borderRadius:30,border:`1.5px solid ${st.color}40`,fontSize:15,color:st.color,fontWeight:700 }}>
               <span style={{ width:9,height:9,borderRadius:'50%',background:st.color,display:'inline-block'}}/>
               {st.label}
             </span>

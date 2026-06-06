@@ -48,10 +48,10 @@ export default function Login({ logoUrl, onBack }) {
               <div style={{ width:72,height:72,borderRadius:18,background:'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:34,boxShadow:'0 6px 24px rgba(0,201,177,.38)' }}>📅</div>
             </div>
           </div>
-          <h1 style={{ fontFamily:'var(--font-h)',fontSize:34,fontWeight:800,color:'var(--text)',letterSpacing:'-.02em',margin:0 }}>
+          <h1 style={{ fontFamily:'var(--font-h)',fontSize:42,fontWeight:800,color:'var(--text)',letterSpacing:'-.02em',margin:0 }}>
             Care <span className="grad">Planning</span>
           </h1>
-          <p style={{ color:'var(--muted)',fontSize:16,marginTop:8 }}>Gestion des plannings · Tous magasins</p>
+          <p style={{ color:'var(--muted)',fontSize:18,marginTop:10 }}>Gestion des plannings · Tous magasins</p>
         </div>
 
         {/* Card */}
@@ -87,7 +87,7 @@ export default function Login({ logoUrl, onBack }) {
                     </option>
                   ))}
                 </select>
-                <span style={{ position:'absolute',right:15,top:'50%',transform:'translateY(-50%)',fontSize:13,color:'var(--dim)',pointerEvents:'none' }}>▼</span>
+                <span style={{ position:'absolute',right:15,top:'50%',transform:'translateY(-50%)',fontSize:15,color:'var(--dim)',pointerEvents:'none' }}>▼</span>
               </div>
             </div>
 
@@ -111,7 +111,7 @@ export default function Login({ logoUrl, onBack }) {
                 <span style={{ fontSize:28 }}>👋</span>
                 <div>
                   <div style={{ fontWeight:700,color:'var(--teal-dark)',fontSize:16 }}>Bonjour {selected} !</div>
-                  <div style={{ fontSize:14,color:'var(--muted)',marginTop:2 }}>Accès direct · Planning & Congés</div>
+                  <div style={{ fontSize:15,color:'var(--muted)',marginTop:2 }}>Accès direct · Planning & Congés</div>
                 </div>
               </div>
             )}
@@ -134,7 +134,7 @@ export default function Login({ logoUrl, onBack }) {
           </form>
         </div>
 
-        <p style={{ textAlign:'center',marginTop:22,fontSize:13,color:'var(--dim)' }}>Care Planning © 2026</p>
+        <p style={{ textAlign:'center',marginTop:22,fontSize:15,color:'var(--dim)' }}>Care Planning © 2026</p>
       </div>
 
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>

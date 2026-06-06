@@ -18,12 +18,12 @@
   --r: 14px; --r-sm: 10px; --r-lg: 22px;
   --font-h: 'Syne', sans-serif;
   --font-b: 'DM Sans', sans-serif;
-  --sidebar-w: 260px;
+  --sidebar-w: 280px;
   --mob-bottom: 68px;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { font-size: 17px; }
+html { font-size: 18px; }
 body {
   background: var(--bg);
   color: var(--text);
@@ -77,7 +77,7 @@ body {
 }
 .main-content {
   flex: 1;
-  padding: 44px 56px;
+  padding: 48px 64px;
   max-width: 1440px;
   margin-left: auto;
   margin-right: auto;
@@ -98,8 +98,8 @@ body {
 .btn {
   display: inline-flex; align-items: center; gap: 9px;
   border: none; border-radius: var(--r-sm); cursor: pointer;
-  font-family: var(--font-b); font-weight: 600; font-size: 15px;
-  padding: 12px 24px; transition: all .18s cubic-bezier(.22,1,.36,1);
+  font-family: var(--font-b); font-weight: 600; font-size: 16px;
+  padding: 13px 26px; transition: all .18s cubic-bezier(.22,1,.36,1);
   white-space: nowrap; line-height: 1; letter-spacing: .01em;
   position: relative; overflow: hidden;
 }
@@ -126,7 +126,7 @@ body {
 .btn-ghost:hover { background: var(--card2); color: var(--text); }
 .btn-danger { background: #FFF0F2; color: #C8002B; border: 1.5px solid #FFCCD4; }
 .btn-danger:hover { background: #FFE0E5; }
-.btn-sm { padding: 9px 18px; font-size: 14px; border-radius: 9px; }
+.btn-sm { padding: 10px 20px; font-size: 15px; border-radius: 9px; }
 .btn-xs { padding: 6px 12px; font-size: 13px; border-radius: 7px; }
 
 /* ─ inputs */
@@ -134,10 +134,10 @@ body {
   background: #fff;
   border: 1.5px solid var(--border);
   border-radius: var(--r-sm);
-  padding: 13px 16px;
+  padding: 14px 17px;
   color: var(--text);
   font-family: var(--font-b);
-  font-size: 15px;
+  font-size: 16px;
   width: 100%;
   transition: border-color .18s, box-shadow .18s;
 }
@@ -151,7 +151,7 @@ select.inp { cursor: pointer; }
 textarea.inp { resize: vertical; }
 
 .lbl {
-  font-size: 12px; color: var(--muted); margin-bottom: 8px;
+  font-size: 13px; color: var(--muted); margin-bottom: 8px;
   display: block; font-weight: 700;
   text-transform: uppercase; letter-spacing: .07em;
 }
@@ -164,14 +164,14 @@ textarea.inp { resize: vertical; }
   -webkit-backdrop-filter: blur(8px);
   z-index: 300;
   display: flex; align-items: flex-start; justify-content: center;
-  padding: 28px 16px; overflow-y: auto;
+  padding: 32px 20px 48px; overflow-y: auto;
   animation: fadeIn .22s ease;
 }
 .modal {
   background: #fff;
   border-radius: var(--r-lg);
-  padding: 40px 48px;
-  width: 100%; max-width: 680px; margin: auto;
+  padding: 44px 54px;
+  width: 100%; max-width: 780px; margin: auto;
   box-shadow: 0 28px 80px rgba(0,0,0,.22);
   animation: popIn .28s cubic-bezier(.34,1.56,.64,1);
   border: 1.5px solid var(--border);
@@ -185,11 +185,11 @@ textarea.inp { resize: vertical; }
   background-clip: text;
 }
 .page-title {
-  font-family: var(--font-h); font-weight: 800; font-size: 32px;
+  font-family: var(--font-h); font-weight: 800; font-size: 36px;
   color: var(--text); letter-spacing: -.025em;
 }
-.page-sub   { font-size: 16px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
-.section-title { font-family: var(--font-h); font-weight: 700; font-size: 20px; color: var(--text); }
+.page-sub   { font-size: 17px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+.section-title { font-family: var(--font-h); font-weight: 700; font-size: 22px; color: var(--text); }
 
 /* ─ print */
 @media print { .no-print { display: none !important; } }
@@ -205,10 +205,14 @@ textarea.inp { resize: vertical; }
   .main-content { padding: 16px 16px 90px; max-width: 100%; }
   .mob-topbar { display: flex !important; }
   .mob-bottom { display: flex !important; }
-  .page-title { font-size: 24px; }
-  .page-sub { font-size: 14px; }
-  .modal { padding: 24px 20px; border-radius: 18px; }
-  .btn { font-size: 14px; padding: 11px 18px; }
+  .page-title { font-size: 26px; }
+  .page-sub { font-size: 16px; }
+  /* Modal on mobile: full width, scrollable */
+  .overlay { padding: 16px 12px 24px; align-items: flex-start; }
+  .modal { padding: 24px 22px 32px; border-radius: 18px; max-width: 100% !important; margin: 0 auto; }
+  .btn { font-size: 15px; padding: 12px 20px; }
+  .inp { font-size: 16px; padding: 14px 15px; }
+  .lbl { font-size: 13px; }
 }
 .mob-topbar { display: none; }
 .mob-bottom { display: none; }

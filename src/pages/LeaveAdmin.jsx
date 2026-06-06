@@ -78,7 +78,7 @@ export default function LeaveAdmin(){
               <span style={{fontSize:30}}>{s.icon}</span>
               <div>
                 <div style={{fontFamily:'var(--font-h)',fontWeight:800,fontSize:30,color:s.color,lineHeight:1}}>{s.val}</div>
-                <div style={{fontSize:14,color:'var(--muted)',fontWeight:600,marginTop:4}}>{s.label}</div>
+                <div style={{fontSize:15,color:'var(--muted)',fontWeight:600,marginTop:4}}>{s.label}</div>
               </div>
             </div>
           </div>
@@ -95,7 +95,7 @@ export default function LeaveAdmin(){
               color:filter===v?'var(--text)':'var(--muted)',
               fontFamily:'var(--font-b)',fontSize:13,fontWeight:filter===v?700:500,
               boxShadow:filter===v?'var(--shadow)':'none',transition:'all .15s',
-            }}>{l}{v==='pending'&&pending.length>0&&<span style={{marginLeft:6,background:'#C8002B',color:'#fff',borderRadius:10,padding:'1px 7px',fontSize:11}}>{pending.length}</span>}</button>
+            }}>{l}{v==='pending'&&pending.length>0&&<span style={{marginLeft:6,background:'#C8002B',color:'#fff',borderRadius:10,padding:'1px 7px',fontSize:13}}>{pending.length}</span>}</button>
           ))}
         </div>
         <select className="inp" value={storeFilter} onChange={e=>setStoreFilter(e.target.value)} style={{maxWidth:180,fontSize:13,padding:'9px 12px'}}>
@@ -146,13 +146,13 @@ export default function LeaveAdmin(){
                     </div>
                     <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',marginBottom:8}}>
                       <span style={{fontSize:20}}>{lt.icon}</span>
-                      <span style={{fontWeight:600,fontSize:14,color:'var(--text)'}}>{lt.label}</span>
-                      <span style={{color:'var(--muted)',fontSize:13}}>·</span>
-                      <span style={{fontWeight:700,color:'var(--teal-dark)',fontSize:14}}>{total} jour(s)</span>
-                      <span style={{color:'var(--dim)',fontSize:12}}>· {new Date(req.createdAt).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}</span>
+                      <span style={{fontWeight:600,fontSize:15,color:'var(--text)'}}>{lt.label}</span>
+                      <span style={{color:'var(--muted)',fontSize:15}}>·</span>
+                      <span style={{fontWeight:700,color:'var(--teal-dark)',fontSize:15}}>{total} jour(s)</span>
+                      <span style={{color:'var(--dim)',fontSize:15}}>· {new Date(req.createdAt).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}</span>
                     </div>
                     {req.reason&&(
-                      <div style={{background:'var(--card2)',borderRadius:8,padding:'8px 12px',fontSize:13,color:'var(--muted)',marginBottom:8,fontStyle:'italic'}}>
+                      <div style={{background:'var(--card2)',borderRadius:8,padding:'8px 12px',fontSize:15,color:'var(--muted)',marginBottom:8,fontStyle:'italic'}}>
                         💬 "{req.reason}"
                       </div>
                     )}
@@ -162,7 +162,7 @@ export default function LeaveAdmin(){
                         const wd=getWD(w.week,w.year);
                         const dayNames=w.days.map(d=>wd[d]?wd[d].toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'}):d);
                         return(
-                          <div key={i} style={{background:req.status==='approved'?'#E8FAF0':req.status==='rejected'?'#FFF0F2':'#F8F9FA',border:`1px solid ${req.status==='approved'?'var(--teal-mid)':req.status==='rejected'?'#FFCCD4':'var(--border)'}`,borderRadius:8,padding:'6px 10px',fontSize:12}}>
+                          <div key={i} style={{background:req.status==='approved'?'#E8FAF0':req.status==='rejected'?'#FFF0F2':'#F8F9FA',border:`1px solid ${req.status==='approved'?'var(--teal-mid)':req.status==='rejected'?'#FFCCD4':'var(--border)'}`,borderRadius:8,padding:'6px 10px',fontSize:15}}>
                             <span style={{fontWeight:700,color:req.status==='approved'?'var(--teal-dark)':req.status==='rejected'?'#C8002B':'var(--text)'}}>S{w.week}</span>
                             <span style={{color:'var(--dim)',marginLeft:4}}>{dayNames.join(', ')}</span>
                           </div>
@@ -197,10 +197,10 @@ export default function LeaveAdmin(){
                     <div style={{display:'flex',flexDirection:'column',gap:8,flexShrink:0}}>
                       <div style={{background:'#E8FAF0',borderRadius:12,padding:'8px 14px',textAlign:'center',border:'1.5px solid var(--teal-mid)',display:'flex',alignItems:'center',gap:8}}>
                         <span style={{fontSize:18}}>✅</span>
-                        <span style={{fontSize:12,color:'#1A8A42',fontWeight:700}}>Planning<br/>mis à jour</span>
+                        <span style={{fontSize:14,color:'#1A8A42',fontWeight:700}}>Planning<br/>mis à jour</span>
                       </div>
                       <button className="btn btn-danger btn-xs" onClick={()=>handleCancel(req.id)} disabled={cancelling===req.id}
-                        style={{justifyContent:'center',fontSize:12}}>
+                        style={{justifyContent:'center',fontSize:15}}>
                         {cancelling===req.id?'⏳':'🗑 Annuler'}
                       </button>
                     </div>

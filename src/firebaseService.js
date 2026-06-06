@@ -169,3 +169,8 @@ export function listenOvertime(year, cb) {
     cb(records);
   });
 }
+
+export async function deleteOvertimeRecord(empId, year, month) {
+  const key = `${empId}_${year}_M${month}`;
+  await deleteDoc(doc(db, 'overtime', key));
+}

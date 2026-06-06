@@ -7,7 +7,7 @@ import {
   saveShiftType, saveSchedule, saveSettings,
   saveLeaveRequest, removeLeaveRequest,
   fetchSchedule,
-  saveOvertimeRecord, listenOvertime,
+  saveOvertimeRecord, deleteOvertimeRecord, listenOvertime,
   seedIfEmpty, forceResetAll, ALL_EMPLOYEES,
 } from '../firebaseService';
 
@@ -316,6 +316,21 @@ export function AppProvider({ children }) {
     return parseFloat(total.toFixed(2));
   };
 
+  const deleteOvertimeEntry = async (empId, year, month) => {
+    await deleteOvertimeRecord(empId, year, month);
+  };
+
+  const updateOvertimeHours = async (empId, year, month, newHours) => {
+    const key = `${empId}_${year}_M${month}`;
+    const existing = overtimeRecords[key];
+    if (!existing) return;
+    await saveOvertimeRecord(empId, year, month, {
+      ...existing,
+      extraHours: parseFloat(newHours.toFixed(2)),
+      updatedAt: new Date().toISOString(),
+    });
+  };
+
   const resolveOvertime = async (empId, week, year, action, extraH) => {
     const month = Math.ceil(week / 4.33);
     const key = `${empId}_${year}_M${month}`;
@@ -344,7 +359,7 @@ export function AppProvider({ children }) {
       appSettings,updateSettings,
       doResetEmployees,
       currentWeek,setCurrentWeek,currentYear,
-      overtimeRecords,getEmpOvertimeBalance,resolveOvertime,
+      overtimeRecords,getEmpOvertimeBalance,resolveOvertime,deleteOvertimeEntry,updateOvertimeHours,
       selectedStore,setSelectedStore,
       getWeekDatesForCurrentWeek:w=>getWeekDates(w,currentYear),
       DAYS,

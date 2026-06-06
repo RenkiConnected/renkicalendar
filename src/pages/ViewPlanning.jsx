@@ -33,7 +33,7 @@ export default function ViewPlanning() {
             <div style={{width:44,height:44,borderRadius:'50%',background:emp.color||'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,color:'#fff',fontSize:18}}>{emp.name[0]}</div>
             <div>
               <div style={{fontWeight:800,fontSize:18}}>{emp.name}</div>
-              <div style={{fontSize:13,color:'var(--muted)',marginTop:2}}>{detailPopup.day.day} {detailPopup.day.date.toLocaleDateString('fr-FR',{day:'numeric',month:'long'})}</div>
+              <div style={{fontSize:15,color:'var(--muted)',marginTop:2}}>{detailPopup.day.day} {detailPopup.day.date.toLocaleDateString('fr-FR',{day:'numeric',month:'long'})}</div>
             </div>
           </div>
           <div style={{background:st.bgColor,border:`2px solid ${st.color}50`,borderRadius:14,padding:'16px 18px',marginBottom:st2?10:0}}>
@@ -42,7 +42,7 @@ export default function ViewPlanning() {
               {sh.hours>0&&<span style={{fontWeight:700,fontSize:20,color:st.color}}>{sh.hours}h</span>}
             </div>
             {sh.startTime&&<div style={{fontSize:16,color:st.color}}>🕐 {sh.startTime} → {sh.endTime}{sh.breakH>0?` (-${sh.breakH}h pause)`:''}</div>}
-            {sh.note&&<div style={{marginTop:8,fontSize:13,color:st.color,opacity:.7,fontStyle:'italic'}}>💬 {sh.note}</div>}
+            {sh.note&&<div style={{marginTop:8,fontSize:15,color:st.color,opacity:.7,fontStyle:'italic'}}>💬 {sh.note}</div>}
           </div>
           {st2&&sh.split&&(
             <div style={{background:st2.bgColor,border:`2px solid ${st2.color}50`,borderRadius:14,padding:'16px 18px'}}>

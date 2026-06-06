@@ -244,7 +244,7 @@ function ShiftModal({emp,dayIdx,day,shift,onSave,onDelete,onClose,types}){
 
   return(
     <div className="overlay" onClick={onClose}>
-      <div className="modal" style={{maxWidth:700}} onClick={ev=>ev.stopPropagation()}>
+      <div className="modal" style={{maxWidth:780}} onClick={ev=>ev.stopPropagation()}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:22,paddingBottom:18,borderBottom:'1.5px solid var(--border)'}}>
           <div>
             <h3 style={{fontFamily:'var(--font-h)',fontWeight:800,fontSize:23}}>✏️ Modifier le créneau</h3>
@@ -387,7 +387,7 @@ function AutoModal({store,emps,weekDates,currentWeek,currentYear,leaveRequests,o
 
   return(
     <div className="overlay" onClick={onClose}>
-      <div className="modal" style={{maxWidth:620}} onClick={ev=>ev.stopPropagation()}>
+      <div className="modal" style={{maxWidth:740}} onClick={ev=>ev.stopPropagation()}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:18}}>
           <div>
             <h3 style={{fontFamily:'var(--font-h)',fontWeight:800,fontSize:22}}>⚡ Génération automatique</h3>
@@ -489,7 +489,7 @@ function BorrowModal({store,allEmployees,allStores,currentEmps,onBorrow,onClose}
   const available=allEmployees.filter(e=>!currentEmps.find(c=>c.id===e.id));
   return(
     <div className="overlay" onClick={onClose}>
-      <div className="modal" style={{maxWidth:560}} onClick={ev=>ev.stopPropagation()}>
+      <div className="modal" style={{maxWidth:700}} onClick={ev=>ev.stopPropagation()}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:16}}>
           <div>
             <h3 style={{fontFamily:'var(--font-h)',fontWeight:800,fontSize:20}}>👥 Ajouter un employé</h3>
@@ -544,7 +544,7 @@ function WeekNav({cw,setCw}){
 
 /* ── MAIN ─────────────────────────────────────────────────── */
 export default function PlanningEditor(){
-  const{stores,employees,shiftTypes,getSchedule,setShift,setBulkSchedule,currentWeek,setCurrentWeek,currentYear,selectedStore,setSelectedStore,getWeekDatesForCurrentWeek,leaveRequests,overtimeRecords,getEmpOvertimeBalance,resolveOvertime,authRole}=useApp();
+  const{stores,employees,shiftTypes,getSchedule,setShift,setBulkSchedule,currentWeek,setCurrentWeek,currentYear,selectedStore,setSelectedStore,getWeekDatesForCurrentWeek,leaveRequests,overtimeRecords,getEmpOvertimeBalance,resolveOvertime,deleteOvertimeEntry,updateOvertimeHours,authRole}=useApp();
   const[activeStore,setAS]=useState(selectedStore||stores[0]?.id||'');
   const[viewMode,setViewMode]=useState('week');
   const[activeDay,setActiveDay]=useState(0);
@@ -966,7 +966,7 @@ export default function PlanningEditor(){
       })()}
       {confirmWknd&&(
         <div className="overlay" onClick={()=>setConfirmWknd(null)}>
-          <div className="modal" style={{maxWidth:400,textAlign:'center'}} onClick={ev=>ev.stopPropagation()}>
+          <div className="modal" style={{maxWidth:480,textAlign:'center'}} onClick={ev=>ev.stopPropagation()}>
             <div style={{fontSize:44,marginBottom:12}}>⚠️</div>
             <h3 style={{fontFamily:'var(--font-h)',fontWeight:800,fontSize:19,marginBottom:9}}>Jour non travaillé</h3>
             <p style={{color:'var(--muted)',fontSize:14,marginBottom:20}}>Ce jour est un dimanche. Planifier quand même ?</p>
@@ -995,6 +995,7 @@ export default function PlanningEditor(){
           emp={emp} schedule={schedule} weekDates={weekDates}
           currentWeek={currentWeek} currentYear={currentYear}
           overtimeRecords={overtimeRecords} resolveOvertime={resolveOvertime}
+          deleteOvertimeEntry={deleteOvertimeEntry} updateOvertimeHours={updateOvertimeHours}
           onClose={()=>setOvertimeModal(null)}
           isManager={['manager','dirigeant','admin'].includes(authRole)}
         />;
@@ -1006,7 +1007,7 @@ export default function PlanningEditor(){
 }
 
 /* ── OVERTIME MODAL ──────────────────────────────────────── */
-function OvertimeModal({emp,schedule,weekDates,currentWeek,currentYear,overtimeRecords,resolveOvertime,onClose,isManager}){
+function OvertimeModal({emp,schedule,weekDates,currentWeek,currentYear,overtimeRecords,resolveOvertime,deleteOvertimeEntry,updateOvertimeHours,onClose,isManager}){
   const workTypes=['work','communication','meeting','school'];
   const MONTHS=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
   const workedH=weekDates.reduce((t,_,di)=>{
@@ -1023,6 +1024,8 @@ function OvertimeModal({emp,schedule,weekDates,currentWeek,currentYear,overtimeR
   const[action,setAction]=useState('accumulate');
   const[saving,setSaving]=useState(false);
   const[payMonth,setPayMonth]=useState(null);
+  const[editRecord,setEditRecord]=useState(null); // {month, year, editH}
+  const[deleteConfirm,setDeleteConfirm]=useState(null); // record to delete
   const handleResolve=async()=>{
     if(thisWeekExtra<=0) return;
     setSaving(true);
@@ -1031,7 +1034,7 @@ function OvertimeModal({emp,schedule,weekDates,currentWeek,currentYear,overtimeR
   };
   return(
     <div className="overlay" onClick={onClose}>
-      <div className="modal" style={{maxWidth:560}} onClick={e=>e.stopPropagation()}>
+      <div className="modal" style={{maxWidth:700}} onClick={e=>e.stopPropagation()}>
         <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:22}}>
           <div style={{width:50,height:50,borderRadius:'50%',background:emp.color||'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,color:'#fff',fontSize:21,flexShrink:0}}>
             {emp.name[0]}
@@ -1057,31 +1060,110 @@ function OvertimeModal({emp,schedule,weekDates,currentWeek,currentYear,overtimeR
         </div>
         {empRecords.length>0&&(
           <div style={{marginBottom:18}}>
-            <div style={{fontFamily:'var(--font-h)',fontWeight:700,fontSize:15,marginBottom:9}}>📊 Historique</div>
-            {empRecords.map((r,i)=>(
-              <div key={i} style={{display:'flex',alignItems:'center',gap:12,padding:'11px 14px',background:r.status==='paid'?'#E8FAF0':'#FFF7E0',border:`1.5px solid ${r.status==='paid'?'var(--teal-mid)':'#F5D06A'}`,borderRadius:11,marginBottom:7}}>
-                <span style={{fontSize:20,flexShrink:0}}>{r.status==='paid'?'✅':'⏳'}</span>
-                <div style={{flex:1}}>
-                  <div style={{fontWeight:700,fontSize:14}}>{MONTHS[r.month-1]} {r.year}</div>
-                  <div style={{fontSize:12,color:'var(--muted)',marginTop:1}}>{r.weeks?.length||0} sem. · {r.status==='paid'?'Validé':'En attente'}</div>
+            <div style={{fontFamily:'var(--font-h)',fontWeight:700,fontSize:16,marginBottom:11}}>📊 Historique des heures supp.</div>
+            {empRecords.map((r,i)=>{
+              const isEditing=editRecord?.month===r.month&&editRecord?.year===r.year;
+              return(
+                <div key={i} style={{background:r.status==='paid'?'#E8FAF0':'#FFF7E0',border:`1.5px solid ${r.status==='paid'?'var(--teal-mid)':'#F5D06A'}`,borderRadius:13,marginBottom:9,overflow:'hidden'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:12,padding:'13px 16px'}}>
+                    <span style={{fontSize:22,flexShrink:0}}>{r.status==='paid'?'✅':'⏳'}</span>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:700,fontSize:15}}>{MONTHS[r.month-1]} {r.year}</div>
+                      <div style={{fontSize:13,color:'var(--muted)',marginTop:1}}>{r.weeks?.length||0} sem. · {r.status==='paid'?'✅ Validé en heures supp':'⏳ En attente'}</div>
+                    </div>
+                    <div style={{fontFamily:'var(--font-h)',fontWeight:800,fontSize:20,color:r.status==='paid'?'#1A8A42':'#B07D00',marginRight:4}}>+{(r.extraHours||0).toFixed(1)}h</div>
+                    {isManager&&(
+                      <div style={{display:'flex',gap:6,flexShrink:0}}>
+                        {r.status!=='paid'&&(r.extraHours||0)>0&&(
+                          <button className="btn btn-sm" onClick={()=>setPayMonth(r)}
+                            style={{background:'#1A8A42',color:'#fff',border:'none',fontSize:13,fontWeight:700,borderRadius:8}}>
+                            ✓ Valider
+                          </button>
+                        )}
+                        {r.status!=='paid'&&(
+                          <button className="btn btn-sm" onClick={()=>setEditRecord(isEditing?null:{...r,editH:r.extraHours})}
+                            style={{background:'#EBF8FF',color:'#1D6FD8',border:'1px solid #B3E0FF',fontSize:13,fontWeight:700,borderRadius:8}}>
+                            ✏️
+                          </button>
+                        )}
+                        <button className="btn btn-sm btn-danger" onClick={()=>setDeleteConfirm(r)}
+                          style={{fontSize:13,fontWeight:700,borderRadius:8}}>
+                          🗑
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  {/* Inline edit panel */}
+                  {isEditing&&(
+                    <div style={{padding:'12px 16px 14px',background:'rgba(255,255,255,.7)',borderTop:'1px solid rgba(0,0,0,.06)'}}>
+                      <div className="lbl" style={{marginBottom:8}}>Modifier les heures</div>
+                      <div style={{display:'flex',gap:10,alignItems:'center'}}>
+                        <input type="number" step="0.5" min="0" max="100"
+                          value={editRecord.editH}
+                          onChange={e=>setEditRecord(prev=>({...prev,editH:parseFloat(e.target.value)||0}))}
+                          className="inp" style={{maxWidth:120,fontSize:18,fontWeight:700,textAlign:'center'}}
+                        />
+                        <span style={{fontSize:16,color:'var(--muted)'}}>heures</span>
+                        <button className="btn btn-primary btn-sm" style={{marginLeft:'auto'}}
+                          onClick={async()=>{
+                            setSaving(true);
+                            await updateOvertimeHours(emp.id,r.year,r.month,editRecord.editH);
+                            setEditRecord(null);
+                            setSaving(false);
+                          }} disabled={saving}>
+                          {saving?'⏳':'✓ Sauvegarder'}
+                        </button>
+                        <button className="btn btn-ghost btn-sm" onClick={()=>setEditRecord(null)}>Annuler</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div style={{fontFamily:'var(--font-h)',fontWeight:800,fontSize:17,color:r.status==='paid'?'#1A8A42':'#B07D00'}}>+{(r.extraHours||0).toFixed(1)}h</div>
-                {isManager&&r.status!=='paid'&&(r.extraHours||0)>0&&(
-                  <button className="btn btn-sm" onClick={()=>setPayMonth(r)} style={{background:'#1A8A42',color:'#fff',border:'none',borderRadius:8,fontSize:12,fontWeight:700}}>✓ Valider</button>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
         {payMonth&&(
-          <div style={{background:'#E8FAF0',borderRadius:12,padding:'14px 16px',border:'2px solid var(--teal-mid)',marginBottom:14}}>
-            <div style={{fontWeight:700,fontSize:14,color:'#1A8A42',marginBottom:10}}>Valider {(payMonth.extraHours||0).toFixed(1)}h pour {MONTHS[payMonth.month-1]} {payMonth.year} ?</div>
+          <div style={{background:'#E8FAF0',borderRadius:13,padding:'16px 18px',border:'2px solid var(--teal-mid)',marginBottom:14}}>
+            <div style={{fontWeight:700,fontSize:16,color:'#1A8A42',marginBottom:12}}>
+              ✅ Valider {(payMonth.extraHours||0).toFixed(1)}h supp pour {MONTHS[payMonth.month-1]} {payMonth.year} ?
+            </div>
+            <div style={{fontSize:14,color:'var(--muted)',marginBottom:12}}>Ces heures seront marquées comme payées et ne s'accumuleront plus.</div>
             <div style={{display:'flex',gap:10}}>
-              <button className="btn btn-sm" style={{background:'#1A8A42',color:'#fff',border:'none'}}
-                onClick={async()=>{ setSaving(true); await resolveOvertime(emp.id,currentWeek,currentYear,'pay',0); setSaving(false); setPayMonth(null); onClose(); }}>
-                {saving?'⏳':'✓ Confirmer'}
+              <button className="btn btn-sm" style={{background:'#1A8A42',color:'#fff',border:'none',fontSize:14,padding:'10px 18px'}}
+                onClick={async()=>{
+                  setSaving(true);
+                  // Mark as paid: update status to 'paid' in the record
+                  const key=`${emp.id}_${payMonth.year}_M${payMonth.month}`;
+                  const rec=overtimeRecords[key];
+                  if(rec){
+                    // Use resolveOvertime with pay action (it will mark as paid)
+                    await resolveOvertime(emp.id,currentWeek,currentYear,'pay',0);
+                  }
+                  setSaving(false); setPayMonth(null); onClose();
+                }}>
+                {saving?'⏳ ...':'✓ Confirmer le paiement'}
               </button>
-              <button className="btn btn-ghost btn-sm" onClick={()=>setPayMonth(null)}>Annuler</button>
+              <button className="btn btn-ghost btn-sm" style={{fontSize:14}} onClick={()=>setPayMonth(null)}>Annuler</button>
+            </div>
+          </div>
+        )}
+
+        {deleteConfirm&&(
+          <div style={{background:'#FFF0F2',borderRadius:13,padding:'16px 18px',border:'2px solid #FFCCD4',marginBottom:14}}>
+            <div style={{fontWeight:700,fontSize:16,color:'#C8002B',marginBottom:8}}>
+              🗑 Supprimer {(deleteConfirm.extraHours||0).toFixed(1)}h de {MONTHS[deleteConfirm.month-1]} {deleteConfirm.year} ?
+            </div>
+            <div style={{fontSize:14,color:'var(--muted)',marginBottom:12}}>Cette action est irréversible. Les heures supplémentaires seront supprimées définitivement.</div>
+            <div style={{display:'flex',gap:10}}>
+              <button className="btn btn-danger btn-sm" style={{fontSize:14,padding:'10px 18px'}}
+                onClick={async()=>{
+                  setSaving(true);
+                  await deleteOvertimeEntry(emp.id,deleteConfirm.year,deleteConfirm.month);
+                  setSaving(false); setDeleteConfirm(null);
+                }}>
+                {saving?'⏳ ...':'🗑 Supprimer définitivement'}
+              </button>
+              <button className="btn btn-ghost btn-sm" style={{fontSize:14}} onClick={()=>setDeleteConfirm(null)}>Annuler</button>
             </div>
           </div>
         )}
@@ -1138,13 +1220,13 @@ function OvertimeTotalCell({t,diff,emp,overtimeRecords,onOvertimeClick}){
       >
         {/* Heures totales */}
         <div style={{
-          fontFamily:'var(--font-h)',fontWeight:900,fontSize:18,lineHeight:1,
+          fontFamily:'var(--font-h)',fontWeight:900,fontSize:20,lineHeight:1,
           color:diff>0.5?'#C8002B':diff<-0.5?'var(--muted)':'var(--teal-dark)',
         }}>{t.toFixed(1)}h</div>
 
         {/* Diff semaine */}
         <div style={{
-          fontSize:12,fontWeight:800,lineHeight:1,
+          fontSize:13,fontWeight:800,lineHeight:1,
           color:Math.abs(diff)<0.1?'var(--teal-dark)':diff>0?'#C8002B':'#1A8A42',
         }}>{diff>0?'+':''}{diff.toFixed(1)}</div>
 
@@ -1186,7 +1268,7 @@ function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDra
         <table style={{width:'100%',borderCollapse:'collapse',minWidth:800}}>
           <thead>
             <tr style={{background:'var(--card2)',borderBottom:'2px solid var(--border)'}}>
-              <th style={{padding:'16px 22px',textAlign:'left',fontSize:13,color:'var(--muted)',fontWeight:700,textTransform:'uppercase',letterSpacing:'.05em',width:210}}>Employé</th>
+              <th style={{padding:'18px 24px',textAlign:'left',fontSize:14,color:'var(--muted)',fontWeight:700,textTransform:'uppercase',letterSpacing:'.05em',width:220}}>Employé</th>
               {days.map((wd,i)=>(
                 <th key={i} style={{padding:'13px 8px',textAlign:'center',minWidth:100}}>
                   <div style={{fontWeight:800,fontSize:16,color:wd.date.getDay()===0?'#C8002B':'var(--text)'}}>{wd.day.slice(0,3)}</div>
@@ -1204,7 +1286,7 @@ function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDra
                 <tr key={emp.id} style={{borderBottom:'1px solid var(--border)',background:isBorrowed?'#FFFDE7':ei%2===0?'#fff':'var(--card2)'}}>
                   <td style={{padding:'10px 20px'}}>
                     <div style={{display:'flex',alignItems:'center',gap:10}}>
-                      <div style={{width:36,height:36,borderRadius:'50%',background:emp.color||'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,fontWeight:800,color:'#fff',flexShrink:0}}>
+                      <div style={{width:42,height:42,borderRadius:'50%',background:emp.color||'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:17,fontWeight:800,color:'#fff',flexShrink:0}}>
                         {emp.name[0]}
                       </div>
                       <div>
@@ -1235,7 +1317,7 @@ function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDra
                             style={{
                               background:isDragOver?'var(--teal-light)':st.bgColor,
                               border:`1.5px solid ${isDragOver?'var(--teal)':st.color+'50'}`,
-                              borderRadius:12,padding:'9px 6px',minHeight:68,
+                              borderRadius:12,padding:'10px 7px',minHeight:72,
                               cursor:'pointer',transition:'all .12s',
                               display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:2,
                               userSelect:'none',position:'relative',
@@ -1243,9 +1325,9 @@ function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDra
                             onMouseEnter={e=>{e.currentTarget.style.transform='scale(1.03)';e.currentTarget.style.boxShadow=`0 4px 16px ${st.color}40`;e.currentTarget.style.zIndex='2';}}
                             onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow='none';e.currentTarget.style.zIndex='1';}}
                           >
-                            <span style={{fontSize:12,fontWeight:700,color:isDragOver?'var(--teal-dark)':st.color}}>{st.label}</span>
-                            {sh.startTime&&<span style={{fontSize:11,color:st.color,opacity:.9,fontWeight:600}}>{sh.startTime}–{sh.endTime}</span>}
-                            {sh.hours>0&&<span style={{fontSize:11,color:st.color,opacity:.75,fontWeight:600}}>{sh.hours}h</span>}
+                            <span style={{fontSize:13,fontWeight:700,color:isDragOver?'var(--teal-dark)':st.color}}>{st.label}</span>
+                            {sh.startTime&&<span style={{fontSize:12,color:st.color,opacity:.9,fontWeight:600}}>{sh.startTime}–{sh.endTime}</span>}
+                            {sh.hours>0&&<span style={{fontSize:12,color:st.color,opacity:.75,fontWeight:600}}>{sh.hours}h</span>}
                             {sh.split&&(()=>{const st2=getMeta(types,sh.split.type);return(<>
                               <div style={{width:'80%',height:1,background:st.color,opacity:.3,margin:'2px 0'}}/>
                               <span style={{fontSize:10,fontWeight:700,color:st2.color}}>{st2.label}</span>

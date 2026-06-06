@@ -43,7 +43,7 @@ function ShiftPopup({ data, onClose }) {
           display:'flex', alignItems:'center', justifyContent:'space-between',
         }}>
           <div>
-            <div style={{fontSize:12,fontWeight:700,color:st.color,textTransform:'capitalize',letterSpacing:'.05em'}}>
+            <div style={{fontSize:14,fontWeight:700,color:st.color,textTransform:'capitalize',letterSpacing:'.05em'}}>
               {day.day}
             </div>
             <div style={{fontSize:19,fontWeight:800,color:'var(--text)',marginTop:2}}>
@@ -52,7 +52,7 @@ function ShiftPopup({ data, onClose }) {
           </div>
           <button onClick={onClose} style={{
             background:'rgba(0,0,0,.07)', border:'none', borderRadius:'50%',
-            width:32, height:32, cursor:'pointer', fontSize:15, color:'var(--muted)',
+            width:32, height:32, cursor:'pointer', fontSize:16, color:'var(--muted)',
             display:'flex', alignItems:'center', justifyContent:'center',
           }}>✕</button>
         </div>
@@ -72,7 +72,7 @@ function ShiftPopup({ data, onClose }) {
           }}>{emp.name[0]}</div>
           <div>
             <div style={{fontWeight:800,fontSize:17}}>{emp.name}</div>
-            <div style={{fontSize:12,color:'var(--muted)',marginTop:2,textTransform:'capitalize'}}>{emp.role} · {emp.contractHours}h/sem</div>
+            <div style={{fontSize:14,color:'var(--muted)',marginTop:2,textTransform:'capitalize'}}>{emp.role} · {emp.contractHours}h/sem</div>
           </div>
         </div>
 
@@ -85,7 +85,7 @@ function ShiftPopup({ data, onClose }) {
         <button onClick={onClose} style={{
           marginTop:18, width:'100%',
           background:'var(--teal)', color:'#fff', border:'none',
-          borderRadius:12, padding:'14px', fontSize:15, fontWeight:700,
+          borderRadius:12, padding:'14px', fontSize:16, fontWeight:700,
           cursor:'pointer', fontFamily:'var(--font-b)',
           boxShadow:'0 3px 14px rgba(0,201,177,.4)',
         }}>
@@ -121,26 +121,26 @@ function ShiftBlock({ sh, st, style }) {
       {sh.startTime ? (
         <div style={{display:'flex',alignItems:'stretch',background:'rgba(255,255,255,.65)',borderRadius:10,overflow:'hidden'}}>
           <div style={{flex:1,textAlign:'center',padding:'10px 8px'}}>
-            <div style={{fontSize:10,fontWeight:700,color:st.color,opacity:.7,textTransform:'uppercase',letterSpacing:'.06em'}}>Début</div>
+            <div style={{fontSize:12,fontWeight:700,color:st.color,opacity:.7,textTransform:'uppercase',letterSpacing:'.06em'}}>Début</div>
             <div style={{fontSize:26,fontWeight:900,color:st.color,letterSpacing:'-1px',lineHeight:1.1}}>{sh.startTime}</div>
           </div>
           <div style={{display:'flex',alignItems:'center',color:st.color,opacity:.4,fontSize:22,padding:'0 4px'}}>→</div>
           <div style={{flex:1,textAlign:'center',padding:'10px 8px'}}>
-            <div style={{fontSize:10,fontWeight:700,color:st.color,opacity:.7,textTransform:'uppercase',letterSpacing:'.06em'}}>Fin</div>
+            <div style={{fontSize:12,fontWeight:700,color:st.color,opacity:.7,textTransform:'uppercase',letterSpacing:'.06em'}}>Fin</div>
             <div style={{fontSize:26,fontWeight:900,color:st.color,letterSpacing:'-1px',lineHeight:1.1}}>{sh.endTime}</div>
           </div>
           {(sh.breakH||0)>0 && (
             <div style={{flex:1,textAlign:'center',padding:'10px 8px',borderLeft:`1px solid ${st.color}20`}}>
-              <div style={{fontSize:10,fontWeight:700,color:st.color,opacity:.7,textTransform:'uppercase',letterSpacing:'.06em'}}>Pause</div>
+              <div style={{fontSize:12,fontWeight:700,color:st.color,opacity:.7,textTransform:'uppercase',letterSpacing:'.06em'}}>Pause</div>
               <div style={{fontSize:22,fontWeight:800,color:st.color}}>{sh.breakH}h</div>
             </div>
           )}
         </div>
       ) : (
-        <div style={{textAlign:'center',fontSize:14,color:st.color,fontWeight:600,opacity:.8}}>Journée complète</div>
+        <div style={{textAlign:'center',fontSize:15,color:st.color,fontWeight:600,opacity:.8}}>Journée complète</div>
       )}
       {sh.note && (
-        <div style={{marginTop:8,fontSize:12,color:st.color,opacity:.7,fontStyle:'italic'}}>💬 {sh.note}</div>
+        <div style={{marginTop:8,fontSize:14,color:st.color,opacity:.7,fontStyle:'italic'}}>💬 {sh.note}</div>
       )}
     </div>
   );
@@ -177,10 +177,10 @@ export default function PublicPlanning({ onLogin }) {
             <img src="care-logo.png" alt="Care" style={{ height:30, objectFit:'contain' }} onError={e=>e.target.style.display='none'}/>
             <div>
               <div style={{ fontFamily:'var(--font-h)', fontWeight:800, fontSize:15 }}>Care Planning</div>
-              <div style={{ fontSize:11, color:'var(--muted)' }}>Planning des équipes</div>
+              <div style={{ fontSize:13, color:'var(--muted)' }}>Planning des équipes</div>
             </div>
           </div>
-          <button onClick={onLogin} style={{ background:'var(--teal)', color:'white', border:'none', borderRadius:8, padding:'8px 16px', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:'var(--font-b)' }}>
+          <button onClick={onLogin} style={{ background:'var(--teal)', color:'white', border:'none', borderRadius:8, padding:'8px 16px', fontSize:15, fontWeight:700, cursor:'pointer', fontFamily:'var(--font-b)' }}>
             Se connecter
           </button>
         </div>
@@ -194,7 +194,7 @@ export default function PublicPlanning({ onLogin }) {
           <button onClick={()=>setCurrentWeek(w=>Math.max(1,w-1))} style={{ background:'none', border:'1.5px solid #E2EBF0', borderRadius:8, width:38, height:38, cursor:'pointer', fontSize:18, color:'var(--muted)', display:'flex', alignItems:'center', justifyContent:'center' }}>‹</button>
           <div style={{ textAlign:'center' }}>
             <div style={{ fontFamily:'var(--font-h)', fontWeight:800, fontSize:18, color:'var(--teal-dark)' }}>Semaine {currentWeek}</div>
-            <div style={{ fontSize:12, color:'var(--muted)', marginTop:2 }}>{startDate} → {endDate}</div>
+            <div style={{ fontSize:14, color:'var(--muted)', marginTop:2 }}>{startDate} → {endDate}</div>
           </div>
           <button onClick={()=>setCurrentWeek(w=>Math.min(52,w+1))} style={{ background:'none', border:'1.5px solid #E2EBF0', borderRadius:8, width:38, height:38, cursor:'pointer', fontSize:18, color:'var(--muted)', display:'flex', alignItems:'center', justifyContent:'center' }}>›</button>
         </div>
@@ -207,7 +207,7 @@ export default function PublicPlanning({ onLogin }) {
               border:`2px solid ${activeStore===s.id?s.color:s.color+'40'}`,
               background:activeStore===s.id?s.color:'white',
               color:activeStore===s.id?'white':s.color,
-              fontFamily:'var(--font-b)', fontSize:13, fontWeight:activeStore===s.id?700:500,
+              fontFamily:'var(--font-b)', fontSize:15, fontWeight:activeStore===s.id?700:500,
               boxShadow:activeStore===s.id?`0 3px 10px ${s.color}45`:'none',
               transition:'all .15s', whiteSpace:'nowrap',
             }}>{s.name}</button>
@@ -228,16 +228,16 @@ export default function PublicPlanning({ onLogin }) {
               <div key={emp.id} style={{ background:'white', borderRadius:14, overflow:'hidden', border:'1.5px solid #E2EBF0', boxShadow:'0 2px 8px rgba(0,0,0,.06)' }}>
                 {/* Header */}
                 <div style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 14px', borderBottom:'1px solid #F0F5F7' }}>
-                  <div style={{ width:36, height:36, borderRadius:'50%', background:emp.color||'var(--teal)', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:800, color:'white', fontSize:15, flexShrink:0 }}>
+                  <div style={{ width:36, height:36, borderRadius:'50%', background:emp.color||'var(--teal)', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:800, color:'white', fontSize:16, flexShrink:0 }}>
                     {emp.name[0]}
                   </div>
                   <div style={{ flex:1 }}>
                     <div style={{ fontWeight:700, fontSize:15 }}>{emp.name}</div>
-                    <div style={{ fontSize:11, color:'var(--dim)', textTransform:'capitalize' }}>{emp.role} · {emp.contractHours}h/sem</div>
+                    <div style={{ fontSize:13, color:'var(--dim)', textTransform:'capitalize' }}>{emp.role} · {emp.contractHours}h/sem</div>
                   </div>
                   <div style={{ textAlign:'right' }}>
-                    <div style={{ fontFamily:'var(--font-h)', fontWeight:800, fontSize:15, color:'var(--teal-dark)' }}>{totalH.toFixed(1)}h</div>
-                    <div style={{ fontSize:10, color:'var(--dim)' }}>cette sem.</div>
+                    <div style={{ fontFamily:'var(--font-h)', fontWeight:800, fontSize:16, color:'var(--teal-dark)' }}>{totalH.toFixed(1)}h</div>
+                    <div style={{ fontSize:12, color:'var(--dim)' }}>cette sem.</div>
                   </div>
                 </div>
 
@@ -252,13 +252,13 @@ export default function PublicPlanning({ onLogin }) {
                         onClick={() => handleCellClick(emp, di)}
                         style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:2, cursor: sh?'pointer':'default' }}
                       >
-                        <div style={{ fontSize:9, fontWeight:700, color:isSun?'#C8002B':'var(--dim)', textTransform:'uppercase' }}>
+                        <div style={{ fontSize:11, fontWeight:700, color:isSun?'#C8002B':'var(--dim)', textTransform:'uppercase' }}>
                           {DAY_SHORT[di]}
                         </div>
-                        <div style={{ fontSize:10, color:'var(--dim)' }}>{wd.date.getDate()}</div>
+                        <div style={{ fontSize:12, color:'var(--dim)' }}>{wd.date.getDate()}</div>
                         <div
                           style={{
-                            width:'100%', minHeight:46, borderRadius:7,
+                            width:'100%', minHeight:54, borderRadius:7,
                             background: sh ? st.bgColor : isSun?'#FFF5F5':'#F8FAFB',
                             border: `1.5px solid ${sh ? st.color+'40' : isSun?'#FFCDD2':'#E8EDF0'}`,
                             display:'flex', flexDirection:'column', alignItems:'center',
@@ -270,9 +270,9 @@ export default function PublicPlanning({ onLogin }) {
                         >
                           {sh ? (
                             <>
-                              <span style={{ fontSize:9, fontWeight:700, color:st.color, textAlign:'center', lineHeight:1.2 }}>{st.label.slice(0,5)}</span>
-                              {sh.startTime && <span style={{ fontSize:8, color:st.color, opacity:.85 }}>{sh.startTime}</span>}
-                              {(sh.hours||0) > 0 && <span style={{ fontSize:8, color:st.color, opacity:.7 }}>{sh.hours}h</span>}
+                              <span style={{ fontSize:11, fontWeight:700, color:st.color, textAlign:'center', lineHeight:1.2 }}>{st.label.slice(0,5)}</span>
+                              {sh.startTime && <span style={{ fontSize:11, color:st.color, opacity:.85 }}>{sh.startTime}</span>}
+                              {(sh.hours||0) > 0 && <span style={{ fontSize:11, color:st.color, opacity:.7 }}>{sh.hours}h</span>}
                             </>
                           ) : (
                             <span style={{ color:'#DDE3E8', fontSize:11 }}>—</span>
@@ -290,20 +290,20 @@ export default function PublicPlanning({ onLogin }) {
         {/* Legend */}
         <div style={{ display:'flex', flexWrap:'wrap', gap:7, marginTop:16, justifyContent:'center' }}>
           {shiftTypes.map(st=>(
-            <span key={st.id} style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'4px 10px', background:st.bgColor, borderRadius:20, border:`1px solid ${st.color}35`, fontSize:11, color:st.color, fontWeight:700 }}>
+            <span key={st.id} style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'4px 10px', background:st.bgColor, borderRadius:20, border:`1px solid ${st.color}35`, fontSize:13, color:st.color, fontWeight:700 }}>
               <span style={{ width:6,height:6,borderRadius:'50%',background:st.color,display:'inline-block' }}/>
               {st.label}
             </span>
           ))}
         </div>
-        <div style={{ textAlign:'center', marginTop:10, fontSize:12, color:'var(--dim)' }}>
+        <div style={{ textAlign:'center', marginTop:10, fontSize:14, color:'var(--dim)' }}>
           👆 Cliquez sur une tuile pour voir les horaires en détail
         </div>
       </div>
 
       {/* BOTTOM CTA */}
       <div style={{ position:'fixed', bottom:0, left:0, right:0, background:'white', borderTop:'1.5px solid #E2EBF0', padding:'12px 16px', boxShadow:'0 -4px 20px rgba(0,0,0,.08)', zIndex:40 }}>
-        <button onClick={onLogin} style={{ width:'100%', maxWidth:700, display:'block', margin:'0 auto', background:'var(--teal)', color:'white', border:'none', borderRadius:12, padding:'14px', fontSize:15, fontWeight:700, cursor:'pointer', fontFamily:'var(--font-b)', boxShadow:'0 3px 14px rgba(0,201,177,.4)' }}>
+        <button onClick={onLogin} style={{ width:'100%', maxWidth:700, display:'block', margin:'0 auto', background:'var(--teal)', color:'white', border:'none', borderRadius:12, padding:'14px', fontSize:16, fontWeight:700, cursor:'pointer', fontFamily:'var(--font-b)', boxShadow:'0 3px 14px rgba(0,201,177,.4)' }}>
           🔐 Se connecter pour gérer
         </button>
       </div>

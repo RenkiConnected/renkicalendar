@@ -11,7 +11,7 @@ function StoreModal({ store, onSave, onClose }) {
 
   return(
     <div className="overlay" onClick={onClose}>
-      <div className="modal" style={{maxWidth:460}} onClick={e=>e.stopPropagation()}>
+      <div className="modal" style={{maxWidth:580}} onClick={e=>e.stopPropagation()}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:22}}>
           <h3 style={{fontFamily:'var(--font-h)',fontWeight:800,fontSize:20}}>{store?'Modifier le magasin':'Nouveau magasin'}</h3>
           <button className="btn btn-ghost btn-xs" onClick={onClose}>✕</button>
@@ -39,11 +39,11 @@ function StoreModal({ store, onSave, onClose }) {
             <div className="lbl" style={{color:'var(--teal-dark)',marginBottom:12}}>🕐 Horaires du magasin</div>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
               <div>
-                <div className="lbl" style={{fontSize:10}}>Ouverture</div>
+                <div className="lbl" style={{fontSize:12}}>Ouverture</div>
                 <input className="inp" type="time" value={form.openTime||'09:00'} onChange={e=>set('openTime',e.target.value)}/>
               </div>
               <div>
-                <div className="lbl" style={{fontSize:10}}>Fermeture</div>
+                <div className="lbl" style={{fontSize:12}}>Fermeture</div>
                 <input className="inp" type="time" value={form.closeTime||'19:30'} onChange={e=>set('closeTime',e.target.value)}/>
               </div>
             </div>
@@ -53,19 +53,19 @@ function StoreModal({ store, onSave, onClose }) {
               <input type="checkbox" checked={!!form.lunchBreak} onChange={e=>set('lunchBreak',e.target.checked)}
                 style={{accentColor:'var(--teal)',width:17,height:17}}/>
               <div>
-                <div style={{fontWeight:700,fontSize:14,color:'var(--text)'}}>🍽️ Fermeture déjeuner</div>
-                <div style={{fontSize:12,color:'var(--muted)',marginTop:1}}>Le magasin ferme pendant la pause midi</div>
+                <div style={{fontWeight:700,fontSize:15,color:'var(--text)'}}>🍽️ Fermeture déjeuner</div>
+                <div style={{fontSize:14,color:'var(--muted)',marginTop:1}}>Le magasin ferme pendant la pause midi</div>
               </div>
             </label>
 
             {form.lunchBreak&&(
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,padding:'12px',background:'white',borderRadius:9,border:'1px solid var(--teal-mid)'}}>
                 <div>
-                  <div className="lbl" style={{fontSize:10}}>Fermeture midi</div>
+                  <div className="lbl" style={{fontSize:12}}>Fermeture midi</div>
                   <input className="inp" type="time" value={form.lunchStart||'12:00'} onChange={e=>set('lunchStart',e.target.value)}/>
                 </div>
                 <div>
-                  <div className="lbl" style={{fontSize:10}}>Réouverture midi</div>
+                  <div className="lbl" style={{fontSize:12}}>Réouverture midi</div>
                   <input className="inp" type="time" value={form.lunchEnd||'14:00'} onChange={e=>set('lunchEnd',e.target.value)}/>
                 </div>
               </div>
@@ -74,7 +74,7 @@ function StoreModal({ store, onSave, onClose }) {
         </div>
 
         {/* Preview horaires */}
-        <div style={{marginTop:14,background:'var(--card2)',borderRadius:10,padding:'10px 14px',border:'1px solid var(--border)',fontSize:13,color:'var(--muted)'}}>
+        <div style={{marginTop:14,background:'var(--card2)',borderRadius:10,padding:'10px 14px',border:'1px solid var(--border)',fontSize:15,color:'var(--muted)'}}>
           <span style={{fontWeight:700,color:'var(--text)'}}>Amplitude : </span>
           {form.openTime} → {form.closeTime}
           {form.lunchBreak&&` (fermé ${form.lunchStart}–${form.lunchEnd})`}
@@ -139,7 +139,7 @@ export default function Stores() {
                   </span>
                 </div>
                 {store.lunchBreak&&(
-                  <div style={{fontSize:12,color:'var(--muted)',marginLeft:22}}>
+                  <div style={{fontSize:14,color:'var(--muted)',marginLeft:22}}>
                     🍽️ Fermé {store.lunchStart}–{store.lunchEnd}
                   </div>
                 )}
@@ -154,7 +154,7 @@ export default function Stores() {
                     {e.name[0]}
                   </div>
                 ))}
-                {emps.length>8&&<div style={{width:28,height:28,borderRadius:'50%',background:'var(--card2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:'var(--muted)',border:'2px solid #fff'}}>+{emps.length-8}</div>}
+                {emps.length>8&&<div style={{width:28,height:28,borderRadius:'50%',background:'var(--card2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,color:'var(--muted)',border:'2px solid #fff'}}>+{emps.length-8}</div>}
               </div>
             </div>
           );

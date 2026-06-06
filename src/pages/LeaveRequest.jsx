@@ -112,7 +112,7 @@ function CalendarPicker({ selectedDates, onToggle, onSelectWeek }) {
 
       {/* Header */}
       <div style={{display:'grid',gridTemplateColumns:'36px repeat(7,1fr)',gap:3,marginBottom:4}}>
-        <div style={{fontSize:10,color:'var(--dim)',textAlign:'center',paddingTop:4}}>Sem.</div>
+        <div style={{fontSize:12,color:'var(--dim)',textAlign:'center',paddingTop:4}}>Sem.</div>
         {DAYS_SHORT.map(d=>(
           <div key={d} style={{textAlign:'center',fontSize:12,fontWeight:700,color:'var(--dim)',padding:'4px 0'}}>{d}</div>
         ))}
@@ -164,8 +164,8 @@ function CalendarPicker({ selectedDates, onToggle, onSelectWeek }) {
       {/* Selected summary */}
       {selectedDates.length > 0 && (
         <div style={{marginTop:14,padding:'10px 14px',background:'var(--teal-light)',borderRadius:10,border:'1px solid var(--teal-mid)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-          <span style={{color:'var(--teal-dark)',fontWeight:700,fontSize:14}}>✓ {selectedDates.length} jour(s) sélectionné(s)</span>
-          <button className="btn btn-ghost btn-xs" onClick={()=>selectedDates.forEach(d=>onToggle(d))} style={{fontSize:12}}>Tout effacer</button>
+          <span style={{color:'var(--teal-dark)',fontWeight:700,fontSize:15}}>✓ {selectedDates.length} jour(s) sélectionné(s)</span>
+          <button className="btn btn-ghost btn-xs" onClick={()=>selectedDates.forEach(d=>onToggle(d))} style={{fontSize:15}}>Tout effacer</button>
         </div>
       )}
     </div>
@@ -219,7 +219,7 @@ function LeaveCalendar({ empId, leaveRequests }) {
       </div>
       <div style={{display:'flex',gap:12,marginTop:14,flexWrap:'wrap'}}>
         {Object.entries(STATUS_MAP).map(([k,s])=>(
-          <div key={k} style={{display:'flex',alignItems:'center',gap:5,fontSize:12,color:'var(--muted)'}}>
+          <div key={k} style={{display:'flex',alignItems:'center',gap:5,fontSize:14,color:'var(--muted)'}}>
             <div style={{width:10,height:10,borderRadius:3,background:s.bg,border:`2px solid ${s.ring}`}}/>
             {s.icon} {s.label}
           </div>
@@ -351,7 +351,7 @@ export default function LeaveRequestPage() {
                   </div>
                   <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
                     {selDates.sort((a,b)=>a-b).map(d=>(
-                      <span key={d.toDateString()} style={{background:'white',border:'1px solid var(--teal-mid)',borderRadius:7,padding:'3px 9px',fontSize:12,color:'var(--teal-dark)',fontWeight:600}}>
+                      <span key={d.toDateString()} style={{background:'white',border:'1px solid var(--teal-mid)',borderRadius:7,padding:'3px 9px',fontSize:14,color:'var(--teal-dark)',fontWeight:600}}>
                         {d.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}
                       </span>
                     ))}
@@ -392,7 +392,7 @@ export default function LeaveRequestPage() {
                       <span style={{fontWeight:700,fontSize:15}}>{lt.label}</span>
                       <StatusBadge status={req.status}/>
                     </div>
-                    <div style={{fontSize:13,color:'var(--muted)'}}>
+                    <div style={{fontSize:15,color:'var(--muted)'}}>
                       <strong style={{color:'var(--text)'}}>{total} jour(s)</strong>
                       {req.reason&&<span> · {req.reason}</span>}
                       <span style={{color:'var(--dim)',marginLeft:8}}>· {new Date(req.createdAt).toLocaleDateString('fr-FR',{day:'numeric',month:'long'})}</span>
