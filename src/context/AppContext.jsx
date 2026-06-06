@@ -127,41 +127,89 @@ export function AppProvider({ children }) {
 
   const approveLeaveRequest=async(reqId)=>{
     const req=leaveRequests.find(r=>r.id===reqId); if(!req) return;
-    // Mark approved
-    await saveLeaveRequest({...req,status:'approved',reviewedAt:new Date().toISOString()});
+    // 1. Mark approved in Firebase FIRST
+    const approvedReq = {...req, status:'approved', reviewedAt:new Date().toISOString()};
+    await saveLeaveRequest(approvedReq);
+
     const emp=employees.find(e=>e.id===req.employeeId); if(!emp) return;
     const storeId = req.storeId || emp.originalStoreId || emp.storeId;
-    
-    if(!req.weeks || req.weeks.length===0){
-      console.error('No weeks in leave request', req);
+
+    // 2. Build a map of week -> [dayIndexes] from ALL possible sources
+    // Source A: req.weeks array (preferred)
+    // Source B: req.dates ISO strings (fallback)
+    const weekMap = {}; // key: "storeId_year_Wweek" -> dayIndexes[]
+
+    const addToMap = (wn, yr, di) => {
+      const k = schedKey(storeId, wn, yr);
+      if(!weekMap[k]) weekMap[k] = {storeId, week:wn, year:yr, days:[]};
+      const dayNum = typeof di === 'string' ? parseInt(di) : di;
+      if(!isNaN(dayNum) && !weekMap[k].days.includes(dayNum)) weekMap[k].days.push(dayNum);
+    };
+
+    // Source A: weeks array
+    if(req.weeks && Array.isArray(req.weeks) && req.weeks.length > 0){
+      req.weeks.forEach(we => {
+        if(!we || !we.week || !we.year) return;
+        const days = Array.isArray(we.days) ? we.days : Object.values(we.days||{});
+        days.forEach(di => addToMap(Number(we.week), Number(we.year), di));
+      });
+    }
+
+    // Source B: dates ISO strings (always rebuild from dates as safety net)
+    if(req.dates && Array.isArray(req.dates) && req.dates.length > 0){
+      req.dates.forEach(isoStr => {
+        try {
+          const d = new Date(isoStr);
+          if(isNaN(d.getTime())) return;
+          const yr = d.getFullYear();
+          // ISO week number
+          const tmp = new Date(d); tmp.setHours(0,0,0,0);
+          tmp.setDate(tmp.getDate() + 4 - (tmp.getDay()||7));
+          const yearStart = new Date(tmp.getFullYear(),0,1);
+          const wn = Math.ceil((((tmp-yearStart)/86400000)+1)/7);
+          // Day index in week (Mon=0..Sun=6)
+          const jan4 = new Date(yr,0,4);
+          const ws = new Date(jan4);
+          ws.setDate(jan4.getDate()-jan4.getDay()+1);
+          const weekStart = new Date(ws);
+          weekStart.setDate(ws.getDate()+(wn-1)*7);
+          const di = Math.round((d-weekStart)/(86400000));
+          if(di>=0 && di<=6) addToMap(wn, yr, di);
+        } catch(err){ console.warn('Bad date:', isoStr, err); }
+      });
+    }
+
+    // 3. Write vacation shifts for each week
+    const entries = Object.entries(weekMap);
+    if(entries.length === 0){
+      console.error('NO DATES FOUND in leave request:', req.id, JSON.stringify(req));
       return;
     }
-    
-    for(const we of req.weeks){
-      if(!we.week || !we.year || !we.days || we.days.length===0) continue;
-      // Always fetch fresh from Firebase — never rely on cached state
-      const fresh = await fetchSchedule(storeId, we.week, we.year);
-      const upd = { ...fresh };
-      we.days.forEach(di => {
+
+    for(const [key, {storeId: sid, week:wn, year:yr, days}] of entries){
+      if(days.length === 0) continue;
+      // Always read fresh from Firebase
+      const fresh = await fetchSchedule(sid, wn, yr);
+      const upd = {...fresh};
+      days.forEach(di => {
         upd[`${emp.id}_${di}`] = {
           type:'vacation', startTime:null, endTime:null,
           breakH:0, hours:null, note:'Congé approuvé', depannage:false
         };
       });
-      const key = schedKey(storeId, we.week, we.year);
-      // Update local state immediately
-      setSchedules(prev => ({ ...prev, [key]: upd }));
+      // Update local state
+      setSchedules(prev => ({...prev, [key]: upd}));
       // Write to Firebase
-      await saveSchedule(storeId, we.week, we.year, upd);
-      // Force listener for this store+week if not already listening
+      await saveSchedule(sid, wn, yr, upd);
+      // Ensure listener is active for UI refresh
       if(!listeners.current[key]){
-        const unsub = listenSchedule(storeId, we.week, we.year, data => {
-          setSchedules(prev => ({ ...prev, [key]: data }));
+        const unsub = listenSchedule(sid, wn, yr, data => {
+          setSchedules(prev => ({...prev, [key]: data}));
         });
         listeners.current[key] = unsub;
       }
+      console.log(`✅ Vacances écrites: ${emp.name} S${wn}/${yr} jours:`, days);
     }
-    console.log('✅ Congé approuvé et planning mis à jour pour', emp.name);
   };
 
   const cancelApprovedLeave=async(reqId)=>{

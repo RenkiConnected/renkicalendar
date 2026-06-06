@@ -18,72 +18,162 @@ function addMinutes(time,mins){
 }
 function getMeta(types,id){ return types.find(t=>t.id===id)||{label:id,color:'#6366F1',bgColor:'#EEF2FF'}; }
 
-/* ── SHIFT MODAL ───────────────────────────────────────────── */
+/* ── SHIFT MODAL WITH SPLIT-DAY ────────────────────────────── */
 function ShiftModal({emp,dayIdx,day,shift,onSave,onDelete,onClose,types}){
+  const[splitMode,setSplitMode]=useState(!!(shift?.split));
+  // Main/AM slot
   const[type,setType]=useState(shift?.type||'work');
   const[s,setS]=useState(shift?.startTime||'09:00');
-  const[e,setE]=useState(shift?.endTime||'18:00');
-  const[brk,setBrk]=useState(shift?.breakH??1);
+  const[e,setE]=useState(shift?.endTime||'13:30');
+  const[brk,setBrk]=useState(shift?.breakH??0);
   const[note,setNote]=useState(shift?.note||'');
   const[dep,setDep]=useState(shift?.depannage||false);
+  // PM slot (split)
+  const[type2,setType2]=useState(shift?.split?.type||'meeting');
+  const[s2,setS2]=useState(shift?.split?.startTime||'14:00');
+  const[e2,setE2]=useState(shift?.split?.endTime||'19:00');
+  const[brk2,setBrk2]=useState(shift?.split?.breakH??0);
+  const[note2,setNote2]=useState(shift?.split?.note||'');
+
   const needsT=['work','communication','meeting'].includes(type);
-  const h=needsT?calcH(s,e,brk):0;
+  const needsT2=['work','communication','meeting'].includes(type2);
+  const h1=needsT?calcH(s,e,brk):0;
+  const h2=needsT2?calcH(s2,e2,brk2):0;
+  const totalH=parseFloat((h1+h2).toFixed(2));
+
+  const handleSave=()=>{
+    const data={
+      type,
+      startTime:needsT?s:null,
+      endTime:needsT?e:null,
+      breakH:needsT?brk:0,
+      hours:needsT?parseFloat(h1.toFixed(2)):null,
+      note,
+      depannage:dep,
+      split:splitMode?{
+        type:type2,
+        startTime:needsT2?s2:null,
+        endTime:needsT2?e2:null,
+        breakH:needsT2?brk2:0,
+        hours:needsT2?parseFloat(h2.toFixed(2)):null,
+        note:note2,
+      }:null,
+    };
+    onSave(data);
+  };
+
   return(
     <div className="overlay" onClick={onClose}>
-      <div className="modal" onClick={ev=>ev.stopPropagation()}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:20}}>
+      <div className="modal" style={{maxWidth:560}} onClick={ev=>ev.stopPropagation()}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:18}}>
           <div>
             <h3 style={{fontFamily:'var(--font-h)',fontWeight:800,fontSize:20}}>Modifier le créneau</h3>
             <p style={{color:'var(--muted)',fontSize:14,marginTop:3}}><b>{emp.name}</b> · {day.day} {day.date.toLocaleDateString('fr-FR',{day:'numeric',month:'long'})}</p>
           </div>
           <button className="btn btn-ghost btn-xs" onClick={onClose}>✕</button>
         </div>
-        <div style={{marginBottom:16}}>
-          <div className="lbl">Type</div>
-          <div style={{display:'flex',flexWrap:'wrap',gap:7}}>
-            {types.map(st=>(
-              <button key={st.id} onClick={()=>setType(st.id)} style={{
-                padding:'8px 14px',borderRadius:30,cursor:'pointer',
-                border:`2px solid ${type===st.id?st.color:st.color+'40'}`,
-                background:type===st.id?st.bgColor:'#fff',
-                color:st.color,fontWeight:type===st.id?700:500,fontSize:13,fontFamily:'var(--font-b)',
-              }}>{st.label}</button>
-            ))}
-          </div>
+
+        {/* Split toggle */}
+        <div style={{display:'flex',background:'var(--card2)',borderRadius:10,padding:3,marginBottom:18,border:'1px solid var(--border)'}}>
+          <button onClick={()=>setSplitMode(false)} style={{
+            flex:1,padding:'9px',borderRadius:8,border:'none',cursor:'pointer',
+            background:!splitMode?'white':'transparent',
+            color:!splitMode?'var(--text)':'var(--muted)',
+            fontFamily:'var(--font-b)',fontSize:13,fontWeight:!splitMode?700:500,
+            boxShadow:!splitMode?'var(--shadow)':'none',transition:'all .15s',
+          }}>🕐 Journée simple</button>
+          <button onClick={()=>setSplitMode(true)} style={{
+            flex:1,padding:'9px',borderRadius:8,border:'none',cursor:'pointer',
+            background:splitMode?'white':'transparent',
+            color:splitMode?'var(--text)':'var(--muted)',
+            fontFamily:'var(--font-b)',fontSize:13,fontWeight:splitMode?700:500,
+            boxShadow:splitMode?'var(--shadow)':'none',transition:'all .15s',
+          }}>✂️ Journée coupée (matin/après-midi)</button>
         </div>
-        {needsT&&<>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
-            <div><div className="lbl">Début</div><input className="inp" type="time" value={s} onChange={ev=>setS(ev.target.value)}/></div>
-            <div><div className="lbl">Fin</div><input className="inp" type="time" value={e} onChange={ev=>setE(ev.target.value)}/></div>
-          </div>
+
+        {/* SLOT 1 */}
+        <div style={{background:splitMode?'#EBF8FF':'transparent',borderRadius:splitMode?12:0,padding:splitMode?'14px':0,border:splitMode?'1px solid #B3E0FF':'none',marginBottom:splitMode?12:0}}>
+          {splitMode&&<div className="lbl" style={{color:'#1D6FD8',marginBottom:10}}>🌅 Matin</div>}
           <div style={{marginBottom:12}}>
-            <div className="lbl">Pause</div>
-            <div style={{display:'flex',gap:8}}>
-              {BREAKS.map(b=>(
-                <button key={b.v} onClick={()=>setBrk(b.v)} style={{
-                  flex:1,padding:'9px',borderRadius:9,cursor:'pointer',
-                  border:`2px solid ${brk===b.v?'var(--teal)':'var(--border)'}`,
-                  background:brk===b.v?'var(--teal-light)':'#fff',
-                  color:brk===b.v?'var(--teal-dark)':'var(--muted)',
-                  fontWeight:brk===b.v?700:500,fontSize:13,fontFamily:'var(--font-b)',
-                }}>{b.l}</button>
+            <div className="lbl">{splitMode?'Type matin':'Type'}</div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+              {types.map(st=>(
+                <button key={st.id} onClick={()=>setType(st.id)} style={{
+                  padding:'7px 13px',borderRadius:30,cursor:'pointer',
+                  border:`2px solid ${type===st.id?st.color:st.color+'40'}`,
+                  background:type===st.id?st.bgColor:'#fff',
+                  color:st.color,fontWeight:type===st.id?700:500,fontSize:12,fontFamily:'var(--font-b)',
+                }}>{st.label}</button>
               ))}
             </div>
           </div>
-          {h>0&&<div style={{background:'var(--teal-light)',border:'1.5px solid var(--teal-mid)',borderRadius:9,padding:'10px 14px',marginBottom:12,display:'flex',gap:10,alignItems:'center'}}>
+          {needsT&&<>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:10}}>
+              <div><div className="lbl">Début</div><input className="inp" type="time" value={s} onChange={ev=>setS(ev.target.value)}/></div>
+              <div><div className="lbl">Fin</div><input className="inp" type="time" value={e} onChange={ev=>setE(ev.target.value)}/></div>
+              <div>
+                <div className="lbl">Pause</div>
+                <select className="inp" value={brk} onChange={ev=>setBrk(parseFloat(ev.target.value))}>
+                  {BREAKS.map(b=><option key={b.v} value={b.v}>{b.l}</option>)}
+                </select>
+              </div>
+            </div>
+            {h1>0&&<div style={{background:'rgba(0,184,212,.08)',borderRadius:8,padding:'7px 12px',marginBottom:8,fontSize:13,color:'var(--teal-dark)',fontWeight:600}}>⏱ {h1.toFixed(2)}h</div>}
+          </>}
+          <div style={{marginBottom:4}}><div className="lbl">Note</div><input className="inp" type="text" placeholder="Remarque..." value={note} onChange={ev=>setNote(ev.target.value)}/></div>
+        </div>
+
+        {/* SLOT 2 (split mode) */}
+        {splitMode&&(
+          <div style={{background:'#FFF3E0',borderRadius:12,padding:'14px',border:'1px solid #FFCC80',marginBottom:14}}>
+            <div className="lbl" style={{color:'#D05B00',marginBottom:10}}>🌆 Après-midi</div>
+            <div style={{marginBottom:10}}>
+              <div className="lbl">Type après-midi</div>
+              <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                {types.map(st=>(
+                  <button key={st.id} onClick={()=>setType2(st.id)} style={{
+                    padding:'7px 13px',borderRadius:30,cursor:'pointer',
+                    border:`2px solid ${type2===st.id?st.color:st.color+'40'}`,
+                    background:type2===st.id?st.bgColor:'#fff',
+                    color:st.color,fontWeight:type2===st.id?700:500,fontSize:12,fontFamily:'var(--font-b)',
+                  }}>{st.label}</button>
+                ))}
+              </div>
+            </div>
+            {needsT2&&<>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:8}}>
+                <div><div className="lbl">Début</div><input className="inp" type="time" value={s2} onChange={ev=>setS2(ev.target.value)}/></div>
+                <div><div className="lbl">Fin</div><input className="inp" type="time" value={e2} onChange={ev=>setE2(ev.target.value)}/></div>
+                <div>
+                  <div className="lbl">Pause</div>
+                  <select className="inp" value={brk2} onChange={ev=>setBrk2(parseFloat(ev.target.value))}>
+                    {BREAKS.map(b=><option key={b.v} value={b.v}>{b.l}</option>)}
+                  </select>
+                </div>
+              </div>
+              {h2>0&&<div style={{background:'rgba(208,91,0,.08)',borderRadius:8,padding:'7px 12px',marginBottom:8,fontSize:13,color:'#D05B00',fontWeight:600}}>⏱ {h2.toFixed(2)}h</div>}
+            </>}
+            <div><div className="lbl">Note</div><input className="inp" type="text" placeholder="Remarque..." value={note2} onChange={ev=>setNote2(ev.target.value)}/></div>
+          </div>
+        )}
+
+        {/* Total */}
+        {splitMode&&totalH>0&&(
+          <div style={{background:'var(--teal-light)',border:'1.5px solid var(--teal-mid)',borderRadius:10,padding:'10px 14px',marginBottom:14,display:'flex',gap:10,alignItems:'center'}}>
             <span>⏱</span>
-            <span style={{color:'var(--teal-dark)',fontWeight:700,fontSize:16}}>{h.toFixed(2)}h effectives</span>
-            <span style={{color:'var(--muted)',fontSize:13}}>{s}→{e} — {brk}h pause</span>
-          </div>}
-        </>}
-        <div style={{marginBottom:12}}><div className="lbl">Note</div><input className="inp" type="text" placeholder="Remarque..." value={note} onChange={ev=>setNote(ev.target.value)}/></div>
-        <label style={{display:'flex',alignItems:'center',gap:10,marginBottom:20,cursor:'pointer',fontSize:14,color:'var(--muted)'}}>
-          <input type="checkbox" checked={dep} onChange={ev=>setDep(ev.target.checked)} style={{accentColor:'var(--teal)',width:16,height:16}}/>
-          Dépannage (autre magasin)
-        </label>
+            <span style={{color:'var(--teal-dark)',fontWeight:700,fontSize:15}}>Total journée : {totalH}h</span>
+          </div>
+        )}
+
+        {!splitMode&&(
+          <label style={{display:'flex',alignItems:'center',gap:10,marginTop:12,marginBottom:18,cursor:'pointer',fontSize:14,color:'var(--muted)'}}>
+            <input type="checkbox" checked={dep} onChange={ev=>setDep(ev.target.checked)} style={{accentColor:'var(--teal)',width:16,height:16}}/>
+            Dépannage (autre magasin)
+          </label>
+        )}
+
         <div style={{display:'flex',gap:10}}>
-          <button className="btn btn-primary" style={{flex:1,justifyContent:'center',padding:'13px'}}
-            onClick={()=>onSave({type,startTime:needsT?s:null,endTime:needsT?e:null,breakH:needsT?brk:0,hours:needsT?parseFloat(h.toFixed(2)):null,note,depannage:dep})}>
+          <button className="btn btn-primary" style={{flex:1,justifyContent:'center',padding:'13px'}} onClick={handleSave}>
             ✓ Enregistrer
           </button>
           {shift&&<button className="btn btn-danger" onClick={onDelete}>🗑</button>}
@@ -95,8 +185,8 @@ function ShiftModal({emp,dayIdx,day,shift,onSave,onDelete,onClose,types}){
 
 /* ── AUTO-GENERATE MODAL ──────────────────────────────────── */
 function AutoModal({store,emps,weekDates,currentWeek,currentYear,leaveRequests,onGenerate,onClose}){
-  const[openStart,setOpenStart]=useState('09:00');
-  const[openEnd,setOpenEnd]=useState('19:30');
+  const[openStart,setOpenStart]=useState(store.openTime||'09:00');
+  const[openEnd,setOpenEnd]=useState(store.closeTime||'19:30');
   const[brk,setBrk]=useState(1);
 
   const openH=parseFloat(calcH(openStart,openEnd,brk).toFixed(2)); // full day span
@@ -307,6 +397,7 @@ export default function PlanningEditor(){
 
   /* ── AUTO GENERATE — SMART ALGORITHM ───────────────────────── */
   const handleAutoGen=async({openStart,openEnd,brk})=>{
+    // Use store hours as reference
     setGenerating(true); setShowAuto(false);
     
     // 1. Get approved leaves for this week for each employee
@@ -654,10 +745,14 @@ function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDra
                               userSelect:'none',
                             }}
                           >
-                            <span style={{fontSize:12,fontWeight:700,color:isDragOver?'var(--teal-dark)':st.color}}>{st.label}</span>
-                            {sh.startTime&&<span style={{fontSize:11,color:st.color,opacity:.85}}>{sh.startTime}–{sh.endTime}</span>}
+                            <span style={{fontSize:11,fontWeight:700,color:isDragOver?'var(--teal-dark)':st.color}}>{st.label}</span>
+                            {sh.startTime&&<span style={{fontSize:10,color:st.color,opacity:.85}}>{sh.startTime}–{sh.endTime}</span>}
                             {sh.hours>0&&<span style={{fontSize:10,color:st.color,opacity:.7}}>{sh.hours}h</span>}
-                            {sh.note&&<span style={{fontSize:9,color:st.color,opacity:.6,fontStyle:'italic',maxWidth:85,textAlign:'center',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{sh.note}</span>}
+                            {sh.split&&(()=>{const st2=getMeta(types,sh.split.type);return(<>
+                              <div style={{width:'80%',height:1,background:st.color,opacity:.3,margin:'2px 0'}}/>
+                              <span style={{fontSize:10,fontWeight:700,color:st2.color}}>{st2.label}</span>
+                              {sh.split.startTime&&<span style={{fontSize:9,color:st2.color,opacity:.8}}>{sh.split.startTime}–{sh.split.endTime}</span>}
+                            </>);})()}
                           </div>
                         ):(
                           <div
