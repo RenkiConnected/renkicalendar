@@ -615,119 +615,130 @@ export default function PlanningEditor(){
 
   /* ── AUTO GENERATE — SMART ALGORITHM ───────────────────────── */
   const handleAutoGen=async({openStart,openEnd,brk})=>{
-    // Use store hours as reference
     const storeHasLunch = !!(store.lunchBreak && store.lunchStart && store.lunchEnd);
     setGenerating(true); setShowAuto(false);
-    
-    // 1. Get approved leaves for this week for each employee
+
+    // ── Helpers ──
+    const toMins = t => { const [h,m]=t.split(':').map(Number); return h*60+m; };
     const getEmpLeaveDays=(empId)=>{
       const days=new Set();
       leaveRequests.filter(r=>r.employeeId===empId&&r.status==='approved').forEach(req=>{
-        req.weeks?.forEach(we=>{
-          if(we.week===currentWeek&&we.year===currentYear){
-            we.days.forEach(di=>days.add(di));
-          }
-        });
+        req.weeks?.forEach(we=>{ if(we.week===currentWeek&&we.year===currentYear){ we.days.forEach(di=>days.add(di)); } });
       });
       return days;
     };
 
-    // 2. Calculate opening/closing slots from store hours + contract hours
-    // Opening slot = start of day, Closing slot = end of day
-    // Each slot length = contractH/5 + break
-    const bulk={};
+    const storeOpenMins = toMins(openStart);
+    const storeCloseMins = toMins(openEnd);
+    const breakMins = Math.round((brk||0)*60);
+    const bulk = {};
 
-    storeEmps.forEach((emp,empIdx)=>{
-      const leaveDays=getEmpLeaveDays(emp.id);
-      const contractH=emp.contractHours||35;
-      // Hours per work day (weekly contract / 5 work days)
-      // Round to nearest 30min slot for clean times
-      const dailyH=parseFloat((contractH/5).toFixed(2));
-      const dailyMinsRaw=Math.round(dailyH*60)+Math.round(brk*60);
-      // Round to nearest 30 minutes
-      const dailyMins=roundTo15(dailyMinsRaw);
-      // Actual work hours after rounding (subtract break)
-      const actualDailyH=parseFloat(((dailyMins - Math.round(brk*60))/60).toFixed(2));
+    // Track total hours assigned per employee (to respect weekly contract)
+    const empHours = {};
+    storeEmps.forEach(e=>{ empHours[e.id]=0; });
 
-      // Parse store opening/closing times
-      const[oh,om]=openStart.split(':').map(Number);
-      const[ch,cm]=openEnd.split(':').map(Number);
-      const storeOpenMins=oh*60+om;
-      const storeCloseMins=ch*60+cm;
+    // For each working day, build coverage with guaranteed opener + closer
+    weekDates.forEach((wd, di) => {
+      const dow = wd.date.getDay();
+      const isSunday = dow === 0;
 
-      // Opening shift: starts at store open, lasts dailyMins → round end to 30min
-      const openShiftEndMinsRaw=storeOpenMins+dailyMins;
-      const openShiftEndMins=roundTo30(openShiftEndMinsRaw);
-      const openShiftEnd=minsToTime(openShiftEndMins);
+      // Who is available today (not on leave, not Sunday)
+      const available = storeEmps.filter(e => !isSunday && !getEmpLeaveDays(e.id).has(di));
 
-      // Closing shift: ends at store close, starts dailyMins before → round start to 30min
-      const closeShiftStartMinsRaw=storeCloseMins-dailyMins;
-      const closeShiftStartMins=roundTo30(closeShiftStartMinsRaw);
-      const closeShiftStart=minsToTime(closeShiftStartMins);
-
-      weekDates.forEach((wd,di)=>{
-        const dow=wd.date.getDay(); // 0=Sun
-        const isSunday=dow===0;
-        const isLeaveDay=leaveDays.has(di);
-        const cellKey=`${emp.id}_${di}`;
-
-        if(isSunday){
-          // Always rest on Sunday
-          bulk[cellKey]={type:'rest',startTime:null,endTime:null,breakH:0,hours:null,note:'',depannage:false};
-        } else if(isLeaveDay){
-          // Approved vacation
-          bulk[cellKey]={type:'vacation',startTime:null,endTime:null,breakH:0,hours:null,note:'Congé approuvé',depannage:false};
-        } else {
-          // Alternate opening/closing: odd employees start on closing each day
-          // Also rotate per day so it's not the same person always opening
-          const isOpen=(empIdx+di)%2===0;
-          
-          // Make sure end time doesn't exceed store closing
-          let sStart=isOpen?openStart:closeShiftStart;
-          let sEnd=isOpen?openShiftEnd:openEnd;
-          
-          // Safety: cap end time to store closing
-          const sEndMins=parseInt(sEnd.split(':')[0])*60+parseInt(sEnd.split(':')[1]);
-          if(sEndMins>storeCloseMins) sEnd=openEnd;
-          // Safety: cap start to not be before store opening
-          const sStartMins=parseInt(sStart.split(':')[0])*60+parseInt(sStart.split(':')[1]);
-          if(sStartMins<storeOpenMins) sStart=openStart;
-
-          // If store has lunch break, create split-day automatically
-          if(storeHasLunch){
-            // Everyone works morning + afternoon
-            const lunchS=store.lunchStart;
-            const lunchE=store.lunchEnd;
-            const amH=parseFloat(calcH(openStart,lunchS,0).toFixed(2));
-            const pmH=parseFloat(calcH(lunchE,openEnd,0).toFixed(2));
-            const persDailyH=dailyH; // target daily hours
-            // Assign based on contract: if dailyH fits in AM or PM, assign accordingly
-            // Otherwise split proportionally
-            bulk[cellKey]={
-              type:'work',
-              startTime:isOpen?openStart:lunchE,
-              endTime:isOpen?lunchS:openEnd,
-              breakH:0,
-              hours:isOpen?parseFloat(Math.min(amH,actualDailyH).toFixed(2)):parseFloat(Math.min(pmH,actualDailyH).toFixed(2)),
-              note:isOpen?'Matin':'Après-midi',
-              depannage:false,
-              split:null,
-            };
-          } else {
-            // Compute hours EXACTLY from the actual times so display always matches
-            const realHours=parseFloat(calcH(sStart,sEnd,brk).toFixed(2));
-            bulk[cellKey]={
-              type:'work',
-              startTime:sStart,
-              endTime:sEnd,
-              breakH:brk,
-              hours:realHours,
-              note:isOpen?'Ouverture':'Fermeture',
-              depannage:false,
-            };
-          }
+      // Mark Sunday rest + leaves first
+      storeEmps.forEach(emp => {
+        const key = `${emp.id}_${di}`;
+        if (isSunday) {
+          bulk[key] = {type:'rest',startTime:null,endTime:null,breakH:0,hours:null,note:'',depannage:false};
+        } else if (getEmpLeaveDays(emp.id).has(di)) {
+          bulk[key] = {type:'vacation',startTime:null,endTime:null,breakH:0,hours:null,note:'Congé approuvé',depannage:false};
         }
       });
+
+      if (isSunday || available.length === 0) return;
+
+      // Sort available by who has worked the LEAST so far (fair rotation)
+      const sorted = [...available].sort((a,b)=> (empHours[a.id]||0) - (empHours[b.id]||0));
+
+      const n = sorted.length;
+      const totalAmplitude = storeCloseMins - storeOpenMins; // e.g. 600 min for 09:30-19:30
+
+      // Each person's target shift length from their contract (per work day)
+      const shiftLen = emp => {
+        const dailyH = (emp.contractHours||35)/5;
+        return roundTo15(Math.round(dailyH*60) + breakMins); // includes break
+      };
+
+      if (n === 1) {
+        // Only one person: they cover the whole day (open to close)
+        const emp = sorted[0];
+        const key = `${emp.id}_${di}`;
+        const h = calcH(openStart, openEnd, brk);
+        bulk[key] = {type:'work',startTime:openStart,endTime:openEnd,breakH:brk,hours:h,note:'Journée complète',depannage:false};
+        empHours[emp.id] += h;
+      } else {
+        // Multiple people: GUARANTEE 1 opener (starts at open) + 1 closer (ends at close)
+        // Distribute the rest with staggered mid-day starts to avoid everyone together
+        sorted.forEach((emp, idx) => {
+          const key = `${emp.id}_${di}`;
+          const len = shiftLen(emp); // mins including break
+          let sMins, eMins, note;
+
+          if (idx === 0) {
+            // OPENER: starts exactly at store open
+            sMins = storeOpenMins;
+            eMins = roundTo15(storeOpenMins + len);
+            if (eMins > storeCloseMins) eMins = storeCloseMins;
+            note = 'Ouverture';
+          } else if (idx === n - 1) {
+            // CLOSER: ends exactly at store close
+            eMins = storeCloseMins;
+            sMins = roundTo15(storeCloseMins - len);
+            if (sMins < storeOpenMins) sMins = storeOpenMins;
+            note = 'Fermeture';
+          } else {
+            // MIDDLE: spread evenly across the inner part of the day so coverage
+            // is continuous (no big gaps, nobody bunched at open/close).
+            const midSlots = n - 2;          // number of middle people
+            const slotIdx = idx;             // 1-based position among all
+            const span = totalAmplitude - len;
+            // Fraction places middle people between opener and closer, evenly spaced
+            const frac = slotIdx / (n - 1);  // e.g. 3 people: middle=0.5; 4 people: 0.33,0.66
+            const offset = roundTo15(span * frac);
+            sMins = roundTo15(storeOpenMins + offset);
+            eMins = roundTo15(sMins + len);
+            if (eMins > storeCloseMins) { eMins = storeCloseMins; sMins = roundTo15(eMins - len); }
+            if (sMins < storeOpenMins) sMins = storeOpenMins;
+            note = 'Journée';
+          }
+
+          const sStart = minsToTime(sMins);
+          const sEnd = minsToTime(eMins);
+
+          if (storeHasLunch) {
+            // Store closes for lunch: split into morning + afternoon
+            const lunchS = store.lunchStart, lunchE = store.lunchEnd;
+            const lunchSMins = toMins(lunchS), lunchEMins = toMins(lunchE);
+            // Morning part (if shift overlaps morning) + afternoon part
+            const amStart = Math.max(sMins, storeOpenMins);
+            const amEnd = Math.min(eMins, lunchSMins);
+            const pmStart = Math.max(sMins, lunchEMins);
+            const pmEnd = Math.min(eMins, storeCloseMins);
+            const amH = amEnd>amStart ? calcH(minsToTime(amStart),minsToTime(amEnd),0) : 0;
+            const pmH = pmEnd>pmStart ? calcH(minsToTime(pmStart),minsToTime(pmEnd),0) : 0;
+            bulk[key] = {
+              type:'work', startTime:minsToTime(amStart), endTime:minsToTime(amEnd),
+              breakH:0, hours:amH, note, depannage:false,
+              split: pmH>0 ? {type:'work',startTime:minsToTime(pmStart),endTime:minsToTime(pmEnd),hours:pmH,note:'Après-midi'} : null,
+            };
+            empHours[emp.id] += amH + pmH;
+          } else {
+            const h = calcH(sStart, sEnd, brk);
+            bulk[key] = {type:'work',startTime:sStart,endTime:sEnd,breakH:brk,hours:h,note,depannage:false};
+            empHours[emp.id] += h;
+          }
+        });
+      }
     });
 
     await setBulkSchedule(activeStore,currentWeek,currentYear,bulk);
