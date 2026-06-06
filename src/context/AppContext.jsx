@@ -306,6 +306,32 @@ export function AppProvider({ children }) {
   // ── RESET EMPLOYEES ───────────────────────────────────
   const doResetEmployees=async()=>{ await forceResetAll(); };
 
+
+  // ── OVERTIME HELPERS ──────────────────────────────────
+  const getEmpOvertimeBalance = (empId) => {
+    let total = 0;
+    Object.values(overtimeRecords).forEach(r => {
+      if (r.empId === empId && r.status !== 'paid') total += (r.extraHours || 0);
+    });
+    return parseFloat(total.toFixed(2));
+  };
+
+  const resolveOvertime = async (empId, week, year, action, extraH) => {
+    const month = Math.ceil(week / 4.33);
+    const key = `${empId}_${year}_M${month}`;
+    const existing = overtimeRecords[key] || { extraHours:0, weeks:[], status:'pending' };
+    const emp = employees.find(e => e.id === empId);
+    await saveOvertimeRecord(empId, year, month, {
+      ...existing, empId, year, month,
+      employeeName: emp?.name || empId,
+      storeId: emp?.storeId,
+      extraHours: parseFloat(((existing.extraHours||0) + (action==='deduct'?0:extraH)).toFixed(2)),
+      weeks: [...(existing.weeks||[]), {week, extraH, action, resolvedAt: new Date().toISOString()}],
+      status: action==='pay'?'paid':'pending',
+      lastAction: action,
+    });
+  };
+
   return (
     <AppContext.Provider value={{
       isAuthenticated,authRole,currentUser,currentEmpId,login,logout,loading,
