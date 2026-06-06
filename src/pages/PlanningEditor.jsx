@@ -64,7 +64,7 @@ function ShiftModal({emp,dayIdx,day,shift,onSave,onDelete,onClose,types}){
 
   return(
     <div className="overlay" onClick={onClose}>
-      <div className="modal" style={{maxWidth:560}} onClick={ev=>ev.stopPropagation()}>
+      <div className="modal" style={{maxWidth:620}} onClick={ev=>ev.stopPropagation()}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:18}}>
           <div>
             <h3 style={{fontFamily:'var(--font-h)',fontWeight:800,fontSize:20}}>Modifier le créneau</h3>
@@ -187,6 +187,7 @@ function ShiftModal({emp,dayIdx,day,shift,onSave,onDelete,onClose,types}){
 function AutoModal({store,emps,weekDates,currentWeek,currentYear,leaveRequests,onGenerate,onClose}){
   const[openStart,setOpenStart]=useState(store.openTime||'09:00');
   const[openEnd,setOpenEnd]=useState(store.closeTime||'19:30');
+  const hasLunch=!!(store.lunchBreak&&store.lunchStart&&store.lunchEnd);
   const[brk,setBrk]=useState(1);
 
   const openH=parseFloat(calcH(openStart,openEnd,brk).toFixed(2)); // full day span
@@ -206,17 +207,17 @@ function AutoModal({store,emps,weekDates,currentWeek,currentYear,leaveRequests,o
 
   return(
     <div className="overlay" onClick={onClose}>
-      <div className="modal" style={{maxWidth:520}} onClick={ev=>ev.stopPropagation()}>
+      <div className="modal" style={{maxWidth:620}} onClick={ev=>ev.stopPropagation()}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:18}}>
           <div>
-            <h3 style={{fontFamily:'var(--font-h)',fontWeight:800,fontSize:20}}>⚡ Génération automatique</h3>
+            <h3 style={{fontFamily:'var(--font-h)',fontWeight:800,fontSize:22}}>⚡ Génération automatique</h3>
             <p style={{color:'var(--muted)',fontSize:14,marginTop:3}}>{store.name} · S{currentWeek}</p>
           </div>
           <button className="btn btn-ghost btn-xs" onClick={onClose}>✕</button>
         </div>
 
         {/* Info */}
-        <div style={{background:'var(--teal-light)',border:'1.5px solid var(--teal-mid)',borderRadius:10,padding:'12px 16px',marginBottom:20,fontSize:13,color:'var(--teal-dark)',lineHeight:1.7}}>
+        <div style={{background:'var(--teal-light)',border:'1.5px solid var(--teal-mid)',borderRadius:12,padding:'16px 18px',marginBottom:22,fontSize:14,color:'var(--teal-dark)',lineHeight:1.8}}>
           ✅ Les <strong>congés approuvés</strong> sont intégrés automatiquement<br/>
           ✅ Les heures hebdomadaires de <strong>chaque contrat</strong> sont respectées<br/>
           ✅ Les employés alternent <strong>ouverture / fermeture</strong>
@@ -235,7 +236,7 @@ function AutoModal({store,emps,weekDates,currentWeek,currentYear,leaveRequests,o
               <input className="inp" type="time" value={openEnd} onChange={e=>setOpenEnd(e.target.value)}/>
             </div>
           </div>
-          {openH>0&&<div style={{marginTop:8,fontSize:13,color:'var(--teal-dark)',fontWeight:600}}>Amplitude : {openH}h ({openStart}→{openEnd})</div>}
+          {openH>0&&<div style={{marginTop:10,fontSize:15,color:'var(--teal-dark)',fontWeight:700,padding:'10px 14px',background:'white',borderRadius:9,border:'1px solid var(--teal-mid)'}}>📏 Amplitude : {openH}h ({openStart} → {openEnd})</div>}
         </div>
 
         {/* Pause */}
@@ -244,19 +245,19 @@ function AutoModal({store,emps,weekDates,currentWeek,currentYear,leaveRequests,o
           <div style={{display:'flex',gap:8}}>
             {BREAKS.map(b=>(
               <button key={b.v} onClick={()=>setBrk(b.v)} style={{
-                flex:1,padding:'9px',borderRadius:9,cursor:'pointer',
+                flex:1,padding:'13px 8px',borderRadius:10,cursor:'pointer',
                 border:`2px solid ${brk===b.v?'var(--teal)':'var(--border)'}`,
                 background:brk===b.v?'var(--teal-light)':'#fff',
                 color:brk===b.v?'var(--teal-dark)':'var(--muted)',
-                fontWeight:brk===b.v?700:500,fontSize:13,fontFamily:'var(--font-b)',
+                fontWeight:brk===b.v?700:500,fontSize:15,fontFamily:'var(--font-b)',
               }}>{b.l}</button>
             ))}
           </div>
         </div>
 
         {/* Aperçu congés */}
-        <div style={{background:'var(--card2)',borderRadius:10,padding:'12px 16px',marginBottom:20,border:'1px solid var(--border)'}}>
-          <div className="lbl" style={{marginBottom:8}}>Aperçu congés approuvés cette semaine</div>
+        <div style={{background:'var(--card2)',borderRadius:12,padding:'16px 18px',marginBottom:22,border:'1.5px solid var(--border)'}}>
+          <div style={{fontFamily:'var(--font-h)',fontWeight:700,fontSize:15,color:'var(--text)',marginBottom:12}}>👥 Aperçu congés approuvés cette semaine</div>
           {emps.map(emp=>{
             const leaves=getEmpLeaves(emp.id);
             const workDaysCount=weekDates.filter((_,di)=>{
@@ -276,7 +277,7 @@ function AutoModal({store,emps,weekDates,currentWeek,currentYear,leaveRequests,o
                 {leaves.length>0?(
                   <div style={{display:'flex',gap:4,flexWrap:'wrap',justifyContent:'flex-end'}}>
                     {leaves.map(di=>(
-                      <span key={di} style={{background:'#EDE9FE',color:'#7C3AED',borderRadius:6,padding:'2px 7px',fontSize:11,fontWeight:700}}>
+                      <span key={di} style={{background:'#EDE9FE',color:'#7C3AED',borderRadius:7,padding:'4px 10px',fontSize:12,fontWeight:700}}>
                         🌴 {['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'][di]}
                       </span>
                     ))}
@@ -290,7 +291,7 @@ function AutoModal({store,emps,weekDates,currentWeek,currentYear,leaveRequests,o
         </div>
 
         <button className="btn btn-primary" style={{width:'100%',justifyContent:'center',padding:'14px',fontSize:15,borderRadius:12}}
-          onClick={()=>onGenerate({openStart,openEnd,brk})} disabled={openH<=0}>
+          onClick={()=>onGenerate({openStart,openEnd,brk})} disabled={openH<=0} style={{fontSize:16,padding:'16px',borderRadius:13}}>
           ⚡ Générer le planning
         </button>
       </div>
@@ -304,7 +305,7 @@ function BorrowModal({store,allEmployees,allStores,currentEmps,onBorrow,onClose}
   const available=allEmployees.filter(e=>!currentEmps.find(c=>c.id===e.id));
   return(
     <div className="overlay" onClick={onClose}>
-      <div className="modal" style={{maxWidth:460}} onClick={ev=>ev.stopPropagation()}>
+      <div className="modal" style={{maxWidth:560}} onClick={ev=>ev.stopPropagation()}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:16}}>
           <div>
             <h3 style={{fontFamily:'var(--font-h)',fontWeight:800,fontSize:20}}>👥 Ajouter un employé</h3>
@@ -379,6 +380,20 @@ export default function PlanningEditor(){
   const storeEmps=employees.filter(e=>e.storeId===activeStore);
   const extraEmps=borrowedEmps.map(id=>employees.find(e=>e.id===id)).filter(Boolean);
   const allDisplayEmps=[...storeEmps,...extraEmps.filter(e=>!storeEmps.find(s=>s.id===e.id))];
+
+  // ── LEAVE ALERTS for current week ────────────────────────────
+  const weekLeaveAlerts = React.useMemo(()=>{
+    const alerts=[];
+    allDisplayEmps.forEach(emp=>{
+      leaveRequests.filter(r=>r.employeeId===emp.id).forEach(req=>{
+        const hasThisWeek=req.weeks?.some(w=>w.week===currentWeek&&w.year===currentYear);
+        if(!hasThisWeek) return;
+        const days=req.weeks?.find(w=>w.week===currentWeek&&w.year===currentYear)?.days||[];
+        alerts.push({emp, req, days});
+      });
+    });
+    return alerts;
+  },[allDisplayEmps,leaveRequests,currentWeek,currentYear]);
   const weekDates=getWeekDatesForCurrentWeek(currentWeek);
   const schedule=getSchedule(activeStore,currentWeek,currentYear);
   const displayDays=showWknd?weekDates:weekDates.slice(0,6);
@@ -398,6 +413,7 @@ export default function PlanningEditor(){
   /* ── AUTO GENERATE — SMART ALGORITHM ───────────────────────── */
   const handleAutoGen=async({openStart,openEnd,brk})=>{
     // Use store hours as reference
+    const storeHasLunch = !!(store.lunchBreak && store.lunchStart && store.lunchEnd);
     setGenerating(true); setShowAuto(false);
     
     // 1. Get approved leaves for this week for each employee
@@ -467,15 +483,37 @@ export default function PlanningEditor(){
           const sStartMins=parseInt(sStart.split(':')[0])*60+parseInt(sStart.split(':')[1]);
           if(sStartMins<storeOpenMins) sStart=openStart;
 
-          bulk[cellKey]={
-            type:'work',
-            startTime:sStart,
-            endTime:sEnd,
-            breakH:brk,
-            hours:dailyH,
-            note:isOpen?'Ouverture':'Fermeture',
-            depannage:false,
-          };
+          // If store has lunch break, create split-day automatically
+          if(storeHasLunch){
+            // Everyone works morning + afternoon
+            const lunchS=store.lunchStart;
+            const lunchE=store.lunchEnd;
+            const amH=parseFloat(calcH(openStart,lunchS,0).toFixed(2));
+            const pmH=parseFloat(calcH(lunchE,openEnd,0).toFixed(2));
+            const persDailyH=dailyH; // target daily hours
+            // Assign based on contract: if dailyH fits in AM or PM, assign accordingly
+            // Otherwise split proportionally
+            bulk[cellKey]={
+              type:'work',
+              startTime:isOpen?openStart:lunchE,
+              endTime:isOpen?lunchS:openEnd,
+              breakH:0,
+              hours:isOpen?Math.min(amH,persDailyH):Math.min(pmH,persDailyH),
+              note:isOpen?'Matin':'Après-midi',
+              depannage:false,
+              split:null,
+            };
+          } else {
+            bulk[cellKey]={
+              type:'work',
+              startTime:sStart,
+              endTime:sEnd,
+              breakH:brk,
+              hours:dailyH,
+              note:isOpen?'Ouverture':'Fermeture',
+              depannage:false,
+            };
+          }
         }
       });
     });
@@ -627,6 +665,62 @@ export default function PlanningEditor(){
         </span>
       </div>
 
+      {/* ── LEAVE ALERTS BANNER ───────────────────────────────── */}
+      {weekLeaveAlerts.length>0&&(
+        <div style={{marginBottom:18}}>
+          {weekLeaveAlerts.map(({emp,req,days},i)=>{
+            const isApproved=req.status==='approved';
+            const isPending=req.status==='pending';
+            const dayNames=['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+            const LEAVE_LABELS={vacation:'Congés payés',sick:'Maladie',personal:'Motif perso',training:'Formation'};
+            return(
+              <div key={i} style={{
+                display:'flex',alignItems:'flex-start',gap:14,
+                padding:'15px 20px',borderRadius:13,marginBottom:10,
+                background:isApproved?'#E8FAF0':isPending?'#FFF7E0':'#FFF0F2',
+                border:`1.5px solid ${isApproved?'var(--teal-mid)':isPending?'#F5D06A':'#FFAAB6'}`,
+              }}>
+                <div style={{width:36,height:36,borderRadius:'50%',background:emp.color||'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,color:'#fff',fontSize:15,flexShrink:0}}>
+                  {emp.name[0]}
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',marginBottom:4}}>
+                    <span style={{fontWeight:800,fontSize:16}}>{emp.name}</span>
+                    <span style={{
+                      background:isApproved?'#E8FAF0':isPending?'#FFF7E0':'#FFF0F2',
+                      color:isApproved?'#1A8A42':isPending?'#B07D00':'#C8002B',
+                      border:`1.5px solid ${isApproved?'var(--teal)':isPending?'#F5D06A':'#FFAAB6'}`,
+                      borderRadius:20,padding:'4px 12px',fontSize:13,fontWeight:700,
+                    }}>
+                      {isApproved?'✅ Congé approuvé':isPending?'⏳ En attente de validation':'❌ Refusé'}
+                    </span>
+                    <span style={{fontSize:13,color:'var(--muted)'}}>
+                      {LEAVE_LABELS[req.type]||req.type}
+                    </span>
+                  </div>
+                  <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
+                    {days.map(di=>(
+                      <span key={di} style={{
+                        background:'white',borderRadius:6,padding:'2px 8px',fontSize:12,fontWeight:600,
+                        color:isApproved?'var(--teal-dark)':isPending?'#B07D00':'#C8002B',
+                        border:`1px solid ${isApproved?'var(--teal-mid)':isPending?'#F5D06A':'#FFAAB6'}`,
+                      }}>
+                        {dayNames[di]||`Jour ${di}`}
+                      </span>
+                    ))}
+                  </div>
+                  {isPending&&(
+                    <div style={{fontSize:12,color:'#B07D00',marginTop:4,fontStyle:'italic'}}>
+                      ⚠️ Non validé — non intégré dans la génération automatique
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {generating&&(
         <div style={{textAlign:'center',padding:'32px',background:'var(--teal-light)',borderRadius:14,marginBottom:16,border:'2px solid var(--teal-mid)'}}>
           <div style={{fontSize:28,marginBottom:8,animation:'spin 1s linear infinite',display:'inline-block'}}>⚡</div>
@@ -665,7 +759,7 @@ export default function PlanningEditor(){
       })()}
       {confirmWknd&&(
         <div className="overlay" onClick={()=>setConfirmWknd(null)}>
-          <div className="modal" style={{maxWidth:360,textAlign:'center'}} onClick={ev=>ev.stopPropagation()}>
+          <div className="modal" style={{maxWidth:400,textAlign:'center'}} onClick={ev=>ev.stopPropagation()}>
             <div style={{fontSize:44,marginBottom:12}}>⚠️</div>
             <h3 style={{fontFamily:'var(--font-h)',fontWeight:800,fontSize:19,marginBottom:9}}>Jour non travaillé</h3>
             <p style={{color:'var(--muted)',fontSize:14,marginBottom:20}}>Ce jour est un dimanche. Planifier quand même ?</p>
