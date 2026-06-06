@@ -244,11 +244,11 @@ function ShiftModal({emp,dayIdx,day,shift,onSave,onDelete,onClose,types}){
 
   return(
     <div className="overlay" onClick={onClose}>
-      <div className="modal" style={{maxWidth:620}} onClick={ev=>ev.stopPropagation()}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:18}}>
+      <div className="modal" style={{maxWidth:700}} onClick={ev=>ev.stopPropagation()}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:22,paddingBottom:18,borderBottom:'1.5px solid var(--border)'}}>
           <div>
-            <h3 style={{fontFamily:'var(--font-h)',fontWeight:800,fontSize:20}}>Modifier le créneau</h3>
-            <p style={{color:'var(--muted)',fontSize:14,marginTop:3}}><b>{emp.name}</b> · {day.day} {day.date.toLocaleDateString('fr-FR',{day:'numeric',month:'long'})}</p>
+            <h3 style={{fontFamily:'var(--font-h)',fontWeight:800,fontSize:23}}>✏️ Modifier le créneau</h3>
+            <p style={{color:'var(--muted)',fontSize:15,marginTop:5}}><b style={{color:'var(--text)'}}>{emp.name}</b> · {day.day} {day.date.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}</p>
           </div>
           <button className="btn btn-ghost btn-xs" onClick={onClose}>✕</button>
         </div>
@@ -298,7 +298,7 @@ function ShiftModal({emp,dayIdx,day,shift,onSave,onDelete,onClose,types}){
                 </select>
               </div>
             </div>
-            {h1>0&&<div style={{background:'rgba(0,184,212,.08)',borderRadius:8,padding:'7px 12px',marginBottom:8,fontSize:13,color:'var(--teal-dark)',fontWeight:600}}>⏱ {h1.toFixed(2)}h</div>}
+            {h1>0&&<div style={{background:'var(--teal-light)',borderRadius:10,padding:'12px 16px',marginBottom:12,fontSize:16,color:'var(--teal-dark)',fontWeight:700,border:'1.5px solid var(--teal-mid)'}}>⏱ {h1.toFixed(2)}h</div>}
           </>}
           <div style={{marginBottom:4}}><div className="lbl">Note</div><input className="inp" type="text" placeholder="Remarque..." value={note} onChange={ev=>setNote(ev.target.value)}/></div>
         </div>
@@ -602,14 +602,8 @@ export default function PlanningEditor(){
   const handleCell=(empId,dayIdx,forceEdit=false)=>{
     const dow=weekDates[dayIdx].date.getDay();
     if(!showWknd&&dow===0){ setConfirmWknd({empId,dayIdx}); return; }
-    const sh=schedule[`${empId}_${dayIdx}`];
-    // If shift exists AND not forced edit → show detail popup (all devices)
-    if(sh && !forceEdit){
-      setDetailPopup({empId,dayIdx});
-    } else {
-      // Empty cell → go straight to edit
-      setEditCell({empId,dayIdx});
-    }
+    // Manager planning: ALWAYS go straight to edit modal (shift or empty)
+    setEditCell({empId,dayIdx});
   };
 
   const handleSave=data=>{ if(!editCell) return; setShift(activeStore,currentWeek,currentYear,editCell.empId,editCell.dayIdx,data); setEditCell(null); };
