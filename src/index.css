@@ -172,7 +172,7 @@ textarea.inp { resize: vertical; }
   -webkit-backdrop-filter: blur(8px);
   z-index: 300;
   display: flex; align-items: center; justify-content: center;
-  padding: 24px 20px;
+  padding: 40px 20px;
   animation: fadeIn .22s ease;
 }
 .modal {
@@ -180,7 +180,7 @@ textarea.inp { resize: vertical; }
   border-radius: var(--r-lg);
   padding: 44px 52px;
   width: 100%; max-width: 880px;
-  max-height: calc(100vh - 48px);   /* never taller than viewport */
+  max-height: calc(100vh - 80px);   /* never taller than viewport, with breathing room */
   overflow-y: auto;                 /* scroll INSIDE the modal, not the page */
   -webkit-overflow-scrolling: touch;
   box-shadow: 0 28px 80px rgba(0,0,0,.22);
