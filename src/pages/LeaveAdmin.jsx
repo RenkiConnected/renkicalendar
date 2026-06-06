@@ -227,8 +227,11 @@ export default function LeaveAdmin(){
 }
 
 function getWD(wn,year){
-  const jan4=new Date(year,0,4);const s=new Date(jan4);
-  s.setDate(jan4.getDate()-jan4.getDay()+1);
-  const ws=new Date(s);ws.setDate(s.getDate()+(wn-1)*7);
+  // ISO week - matches AppContext.getWeekDates
+  const jan4=new Date(year,0,4);
+  const dow=jan4.getDay();
+  const dtm=dow===0?-6:1-dow;
+  const startW1=new Date(jan4);startW1.setDate(jan4.getDate()+dtm);
+  const ws=new Date(startW1);ws.setDate(startW1.getDate()+(wn-1)*7);
   return Array.from({length:7},(_,i)=>{const d=new Date(ws);d.setDate(ws.getDate()+i);return d;});
 }

@@ -19,16 +19,34 @@ const STATUS_MAP = {
 };
 
 function getWeekNumber(d) {
+  // ISO week: week 1 = week containing Jan 4, Monday first
+  // MUST match AppContext.getWeekDates exactly
   const date = new Date(d); date.setHours(0,0,0,0);
-  date.setDate(date.getDate() + 4 - (date.getDay()||7));
-  const y = new Date(date.getFullYear(),0,1);
-  return Math.ceil((((date - y)/86400000)+1)/7);
+  const dow = date.getDay();
+  const daysToMon = dow === 0 ? -6 : 1 - dow;
+  const monday = new Date(date);
+  monday.setDate(date.getDate() + daysToMon);
+  const yr = monday.getFullYear();
+  const jan4 = new Date(yr, 0, 4);
+  const jan4dow = jan4.getDay();
+  const j4dtm = jan4dow === 0 ? -6 : 1 - jan4dow;
+  const startW1 = new Date(jan4);
+  startW1.setDate(jan4.getDate() + j4dtm);
+  const diff = monday - startW1;
+  const wn = Math.round(diff / (7 * 86400000)) + 1;
+  if (wn < 1) { return getWeekNumber(new Date(yr - 1, 11, 28)); }
+  return wn;
 }
 function getWeekDates(wn, year) {
-  const jan4=new Date(year,0,4); const s=new Date(jan4);
-  s.setDate(jan4.getDate()-jan4.getDay()+1);
-  const ws=new Date(s); ws.setDate(s.getDate()+(wn-1)*7);
-  return Array.from({length:7},(_,i)=>{ const d=new Date(ws); d.setDate(ws.getDate()+i); return d; });
+  // Same ISO calculation as AppContext.getWeekDates
+  const jan4 = new Date(year, 0, 4);
+  const dow = jan4.getDay();
+  const daysToMon = dow === 0 ? -6 : 1 - dow;
+  const startW1 = new Date(jan4);
+  startW1.setDate(jan4.getDate() + daysToMon);
+  const ws = new Date(startW1);
+  ws.setDate(startW1.getDate() + (wn - 1) * 7);
+  return Array.from({length:7}, (_,i) => { const d=new Date(ws); d.setDate(ws.getDate()+i); return d; });
 }
 function getDaysInMonth(y,m){ return new Date(y,m+1,0).getDate(); }
 function getFirstDayOfMonth(y,m){ const d=new Date(y,m,1).getDay(); return d===0?6:d-1; }

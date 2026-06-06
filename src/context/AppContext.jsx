@@ -11,17 +11,51 @@ import {
 } from '../firebaseService';
 
 const AppContext = createContext(null);
-const CURRENT_WEEK = 23;
+const CURRENT_WEEK = 23; // auto-computed ISO week
 const DAYS = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
 
 // Roles that require password
 export const MANAGER_ROLES = ['manager','dirigeant','admin'];
 
 function getWeekDates(wn, year=2026) {
-  const jan4=new Date(year,0,4); const s=new Date(jan4);
-  s.setDate(jan4.getDate()-jan4.getDay()+1);
-  const ws=new Date(s); ws.setDate(s.getDate()+(wn-1)*7);
-  return DAYS.map((day,i)=>{ const d=new Date(ws); d.setDate(ws.getDate()+i); return {day,date:d}; });
+  // Use ISO week: week 1 = week containing Jan 4, Monday = first day
+  const jan4 = new Date(year, 0, 4);
+  const dow = jan4.getDay(); // 0=Sun,1=Mon,...
+  // Start of week 1 = Monday of the week containing Jan 4
+  const daysToMonday = dow === 0 ? -6 : 1 - dow; // go back to Monday
+  const startOfW1 = new Date(jan4);
+  startOfW1.setDate(jan4.getDate() + daysToMonday);
+  // Start of week wn
+  const ws = new Date(startOfW1);
+  ws.setDate(startOfW1.getDate() + (wn - 1) * 7);
+  return DAYS.map((day, i) => {
+    const d = new Date(ws);
+    d.setDate(ws.getDate() + i);
+    return { day, date: d };
+  });
+}
+
+// Get ISO week number for a date (matches getWeekDates)
+function getISOWeekNumber(d) {
+  const date = new Date(d); date.setHours(0, 0, 0, 0);
+  const dow = date.getDay();
+  const daysToMonday = dow === 0 ? -6 : 1 - dow;
+  const monday = new Date(date);
+  monday.setDate(date.getDate() + daysToMonday);
+  // Find start of week 1 for this year
+  const year = monday.getFullYear();
+  const jan4 = new Date(year, 0, 4);
+  const jan4dow = jan4.getDay();
+  const jan4daysToMonday = jan4dow === 0 ? -6 : 1 - jan4dow;
+  const startOfW1 = new Date(jan4);
+  startOfW1.setDate(jan4.getDate() + jan4daysToMonday);
+  const diff = monday - startOfW1;
+  const wn = Math.round(diff / (7 * 86400000)) + 1;
+  if (wn < 1) {
+    // Previous year's last week
+    return getISOWeekNumber(new Date(year - 1, 11, 28));
+  }
+  return wn;
 }
 
 export function AppProvider({ children }) {
@@ -163,18 +197,19 @@ export function AppProvider({ children }) {
           if(isNaN(d.getTime())) return;
           const yr = d.getFullYear();
           // ISO week number
-          const tmp = new Date(d); tmp.setHours(0,0,0,0);
-          tmp.setDate(tmp.getDate() + 4 - (tmp.getDay()||7));
-          const yearStart = new Date(tmp.getFullYear(),0,1);
-          const wn = Math.ceil((((tmp-yearStart)/86400000)+1)/7);
-          // Day index in week (Mon=0..Sun=6)
-          const jan4 = new Date(yr,0,4);
-          const ws = new Date(jan4);
-          ws.setDate(jan4.getDate()-jan4.getDay()+1);
-          const weekStart = new Date(ws);
-          weekStart.setDate(ws.getDate()+(wn-1)*7);
-          const di = Math.round((d-weekStart)/(86400000));
-          if(di>=0 && di<=6) addToMap(wn, yr, di);
+          // Use getISOWeekNumber (same as app's getWeekDates)
+          const wn = getISOWeekNumber(d);
+          const yr2 = d.getFullYear();
+          // Get week start using same ISO calculation as getWeekDates
+          const jan4b = new Date(yr2, 0, 4);
+          const dow2 = jan4b.getDay();
+          const dtm = dow2 === 0 ? -6 : 1 - dow2;
+          const startW1 = new Date(jan4b);
+          startW1.setDate(jan4b.getDate() + dtm);
+          const weekStart = new Date(startW1);
+          weekStart.setDate(startW1.getDate() + (wn-1)*7);
+          const di = Math.round((d - weekStart) / 86400000);
+          if(di>=0 && di<=6) addToMap(wn, yr2, di);
         } catch(err){ console.warn('Bad date:', isoStr, err); }
       });
     }
