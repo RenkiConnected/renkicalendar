@@ -8,7 +8,6 @@ export async function exportToPDF({ store, employees, schedules, weekDates, shif
 
   const stMap = {};
   shiftTypes.forEach(st => { stMap[st.id] = st; });
-
   const workTypes = ['work','communication','meeting','school'];
 
   const rows = employees.map(emp => {
@@ -26,24 +25,21 @@ export async function exportToPDF({ store, employees, schedules, weekDates, shif
     return { emp, cells, totalH, diff };
   });
 
-  // Build cell HTML
   function cellHTML(cell) {
     if (cell.empty) {
       return `<td class="sc${cell.isSun?' sun':''}"><div class="empty">—</div></td>`;
     }
     const { sh, st, st2, isSun } = cell;
-    const inner = `
-      <span class="lbl" style="color:${st.color}">${st.label}</span>
-      ${sh.startTime ? `<span class="tm" style="color:${st.color}">${sh.startTime}–${sh.endTime}</span>` : ''}
-      ${sh.hours > 0 ? `<span class="hr" style="color:${st.color}">${sh.hours}h</span>` : ''}
-      ${st2 ? `
-        <div class="sep" style="background:${st.color}"></div>
-        <span class="lbl" style="color:${st2.color};font-size:9px">${st2.label}</span>
-        ${sh.split?.startTime ? `<span class="tm" style="color:${st2.color}">${sh.split.startTime}–${sh.split.endTime}</span>` : ''}
-        ${(sh.split?.hours||0) > 0 ? `<span class="hr" style="color:${st2.color}">${sh.split.hours}h</span>` : ''}
-      ` : ''}`;
     return `<td class="sc${isSun?' sun':''}">
-      <div class="pill" style="background:${st.bgColor};border-color:${st.color}33">${inner}</div>
+      <div class="pill" style="background:${st.bgColor};border-color:${st.color}44">
+        <span class="lbl" style="color:${st.color}">${st.label}</span>
+        ${sh.startTime ? `<span class="tm" style="color:${st.color}">${sh.startTime}–${sh.endTime}</span>` : ''}
+        ${(sh.hours||0) > 0 ? `<span class="hr" style="color:${st.color}">${sh.hours}h</span>` : ''}
+        ${st2 ? `<div class="sep" style="background:${st.color}"></div>
+          <span class="lbl" style="color:${st2.color};font-size:9px">${st2.label}</span>
+          ${sh.split?.startTime ? `<span class="tm" style="color:${st2.color}">${sh.split.startTime}–${sh.split.endTime}</span>` : ''}
+          ${(sh.split?.hours||0) > 0 ? `<span class="hr" style="color:${st2.color}">${sh.split.hours}h</span>` : ''}` : ''}
+      </div>
     </td>`;
   }
 
@@ -51,160 +47,170 @@ export async function exportToPDF({ store, employees, schedules, weekDates, shif
 <html lang="fr">
 <head>
 <meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Planning ${store.name} S${currentWeek}</title>
 <style>
-/* ── RESET ── */
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{width:100%;height:100%;font-family:'Segoe UI',Arial,sans-serif;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 
-/* ── PAGE LAYOUT ── */
-.page{
-  width:100%;
-  min-height:100vh;
+/* ════ SCREEN ════ */
+html,body{
+  width:100%;min-height:100vh;
+  font-family:'Segoe UI',Arial,sans-serif;
+  background:#DDE3E8;
+  -webkit-print-color-adjust:exact;
+  print-color-adjust:exact;
+}
+body{
   display:flex;
   flex-direction:column;
-  padding:0;
+  align-items:center;
+  padding:20px;
+  gap:14px;
 }
 
-/* ── HEADER ── */
+/* Boutons */
+.toolbar{
+  display:flex;gap:10px;
+  width:100%;max-width:1200px;
+  justify-content:flex-end;
+}
+.btn{
+  padding:10px 22px;border-radius:9px;border:none;cursor:pointer;
+  font-size:14px;font-weight:700;font-family:inherit;
+  display:inline-flex;align-items:center;gap:7px;
+}
+.b-print{background:#fff;color:#1B2A3B;border:1.5px solid #CBD5E0}
+.b-pdf{background:${storeColor};color:#fff;box-shadow:0 3px 12px ${storeColor}55}
+
+/* Carte PDF */
+.page{
+  width:100%;
+  max-width:1200px;
+  background:#fff;
+  border-radius:14px;
+  overflow:hidden;
+  box-shadow:0 6px 32px rgba(0,0,0,.18);
+  display:flex;
+  flex-direction:column;
+}
+
+/* Header */
 .hdr{
   background:${storeColor};
-  padding:18px 28px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
+  padding:20px 28px;
+  display:flex;align-items:center;justify-content:space-between;
   flex-shrink:0;
 }
 .hdr-left{display:flex;align-items:center;gap:16px}
-.logo-box{background:rgba(255,255,255,0.2);border-radius:10px;padding:6px 10px;display:flex;align-items:center;justify-content:center}
-.logo-box img{height:38px;object-fit:contain;display:block}
-.store-title{font-size:22px;font-weight:800;color:#fff;letter-spacing:-.5px;text-transform:uppercase}
+.logo-box{background:rgba(255,255,255,.2);border-radius:9px;padding:6px 10px}
+.logo-box img{height:36px;object-fit:contain;display:block}
+.store-name{font-size:20px;font-weight:800;color:#fff;text-transform:uppercase;letter-spacing:-.3px}
 .store-sub{font-size:12px;color:rgba(255,255,255,.8);margin-top:2px}
 .week-box{text-align:right;color:#fff}
-.week-num{font-size:38px;font-weight:900;line-height:1;letter-spacing:-2px}
-.week-dates{font-size:11px;opacity:.85;margin-top:2px}
+.week-num{font-size:36px;font-weight:900;line-height:1;letter-spacing:-2px}
+.week-dates{font-size:11px;opacity:.8;margin-top:2px}
 
-/* ── TABLE WRAPPER ── */
-.tbl-wrap{flex:1;overflow:hidden;padding:0}
-
-/* ── TABLE ── */
-table{width:100%;border-collapse:collapse;table-layout:fixed}
-thead tr{background:#F0F5F7}
+/* Table */
+.tbl-wrap{flex:1;overflow-x:auto}
+table{width:100%;border-collapse:collapse;table-layout:fixed;min-width:700px}
 thead th{
-  padding:10px 6px;
-  font-size:11px;font-weight:700;
-  color:#607D8B;text-transform:uppercase;letter-spacing:.05em;
+  background:#F4F7F9;
+  padding:10px 5px;
+  font-size:11px;font-weight:700;color:#607D8B;
+  text-transform:uppercase;letter-spacing:.04em;
   border-bottom:2px solid #E2EBF0;
   text-align:center;
 }
-thead th:first-child{text-align:left;padding-left:16px;width:160px}
-thead th:last-child{width:80px}
-.day-name{font-size:13px;font-weight:800;color:#1B2A3B}
-.day-date{font-size:11px;color:#9EBBCA;margin-top:1px}
-.sun .day-name{color:#C8002B}
+thead th.emp-th{text-align:left;padding-left:16px;width:160px}
+thead th.tot-th{width:80px}
+.dn{font-size:13px;font-weight:800;color:#1B2A3B}
+.dd{font-size:10px;color:#9EBBCA;margin-top:1px}
+thead th.sun-th .dn{color:#C8002B}
 
 tbody tr{border-bottom:1px solid #F0F5F7}
 tbody tr:nth-child(even) td{background:#FAFCFC}
-tbody tr:nth-child(odd) td{background:#fff}
 
 /* Employee cell */
 .ec{padding:10px 16px;vertical-align:middle}
-.av{width:34px;height:34px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:14px;flex-shrink:0;margin-right:10px;vertical-align:middle}
-.en{font-weight:700;font-size:14px;color:#1B2A3B;vertical-align:middle}
-.es{font-size:11px;color:#9EBBCA;text-transform:capitalize;display:block;margin-top:1px}
+.av{
+  width:32px;height:32px;border-radius:50%;
+  display:inline-flex;align-items:center;justify-content:center;
+  font-weight:800;color:#fff;font-size:13px;flex-shrink:0;
+  margin-right:9px;vertical-align:middle;
+}
+.en{font-weight:700;font-size:13px;color:#1B2A3B;vertical-align:middle}
+.es{font-size:10px;color:#9EBBCA;text-transform:capitalize;display:block;margin-top:1px}
 
 /* Shift cells */
-.sc{padding:5px 4px;vertical-align:middle}
+.sc{padding:4px 3px;vertical-align:middle}
 .sun{background:#FFF8F8!important}
 .empty{
-  min-height:52px;border-radius:8px;border:1.5px dashed #E2EBF0;
+  min-height:50px;border-radius:7px;border:1.5px dashed #E2EBF0;
   display:flex;align-items:center;justify-content:center;
-  color:#D0DDE5;font-size:16px;
+  color:#D0DDE5;font-size:14px;
 }
-.sun .empty{border-color:#FFCDD2;background:#FFF5F5}
-
+.sun .empty{border-color:#FFCDD2}
 .pill{
-  border-radius:8px;border:1.5px solid transparent;
-  padding:6px 4px;min-height:52px;
+  border-radius:7px;border:1.5px solid transparent;
+  padding:5px 3px;min-height:50px;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
 }
 .lbl{font-weight:700;font-size:11px;text-align:center}
-.tm{font-size:10px;text-align:center;opacity:.85}
-.hr{font-size:10px;text-align:center;opacity:.7}
-.sep{width:60%;height:1px;opacity:.3;margin:2px auto}
+.tm{font-size:10px;opacity:.85;text-align:center}
+.hr{font-size:10px;opacity:.7;text-align:center}
+.sep{width:55%;height:1px;opacity:.3;margin:2px auto}
 
 /* Total */
-.tot{padding:10px 12px;text-align:center;vertical-align:middle}
-.tot-h{font-size:17px;font-weight:800;line-height:1}
-.tot-d{font-size:11px;font-weight:700;margin-top:2px}
-.ok{color:#00A896}.over{color:#C8002B}.under{color:#9EBBCA}
+.tot{padding:8px 10px;text-align:center;vertical-align:middle}
+.tot-h{font-size:16px;font-weight:800;line-height:1}
+.tot-d{font-size:10px;font-weight:700;margin-top:2px}
+.c-ok{color:#00A896}.c-over{color:#C8002B}.c-under{color:#9EBBCA}
 
 /* Legend */
 .leg{
-  padding:12px 20px;
-  border-top:1.5px solid #F0F5F7;
-  display:flex;flex-wrap:wrap;gap:12px;align-items:center;
-  background:#FAFCFC;flex-shrink:0;
+  padding:10px 20px;border-top:1.5px solid #F0F5F7;
+  display:flex;flex-wrap:wrap;gap:12px;
+  background:#FAFCFC;
 }
-.leg-i{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600}
-.leg-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.li{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600}
+.ld{width:8px;height:8px;border-radius:50%}
 
 /* Footer */
 .ftr{
-  padding:10px 20px;
-  display:flex;justify-content:space-between;align-items:center;
+  padding:8px 20px;border-top:1px solid #F0F5F7;
+  display:flex;justify-content:space-between;
   font-size:10px;color:#9EBBCA;
-  border-top:1px solid #F0F5F7;flex-shrink:0;
 }
 
-/* ── PRINT ── */
+/* ════ PRINT ════ */
 @media print{
-  html,body{width:297mm;height:210mm}
-  .page{width:297mm;height:210mm;min-height:0}
-  .no-print{display:none!important}
-  @page{size:A4 landscape;margin:6mm}
-  /* Fit table rows to page */
-  tbody tr{page-break-inside:avoid}
-}
-
-/* ── SCREEN ONLY ── */
-@media screen{
-  body{background:#E8EDF0;display:flex;align-items:flex-start;justify-content:center;min-height:100vh;padding:20px}
+  body{
+    display:block;
+    background:#fff;
+    padding:0;margin:0;
+  }
+  .toolbar{display:none!important}
   .page{
-    width:297mm;
-    box-shadow:0 8px 40px rgba(0,0,0,.2);
-    border-radius:12px;
-    overflow:hidden;
+    width:100%;max-width:none;
+    border-radius:0;box-shadow:none;
+    height:100%;
   }
-  .toolbar{
-    width:297mm;
-    display:flex;gap:10px;justify-content:flex-end;
-    margin-bottom:14px;
-  }
-  .btn{
-    padding:10px 20px;border-radius:9px;border:none;cursor:pointer;
-    font-size:14px;font-weight:700;display:inline-flex;align-items:center;gap:7px;
-    font-family:inherit;
-  }
-  .btn-print{background:#fff;color:#1B2A3B;border:1.5px solid #E2EBF0}
-  .btn-pdf{background:${storeColor};color:#fff;box-shadow:0 3px 12px ${storeColor}55}
+  @page{size:A4 landscape;margin:5mm}
 }
 </style>
 </head>
 <body>
 
-<div class="toolbar no-print">
-  <button class="btn btn-print" onclick="window.print()">🖨️ Imprimer</button>
-  <button class="btn btn-pdf" onclick="window.print()">📥 Sauvegarder PDF</button>
+<div class="toolbar">
+  <button class="btn b-print" onclick="window.print()">🖨️ Imprimer / Sauvegarder PDF</button>
 </div>
 
 <div class="page">
-  <!-- HEADER -->
   <div class="hdr">
     <div class="hdr-left">
-      ${logoDataUrl ? `<div class="logo-box"><img src="${logoDataUrl}" alt="Logo"/></div>` : ''}
+      ${logoDataUrl ? `<div class="logo-box"><img src="${logoDataUrl}" alt=""/></div>` : ''}
       <div>
-        <div class="store-title">${store.name}</div>
+        <div class="store-name">${store.name}</div>
         <div class="store-sub">Planning des horaires · Semaine ${currentWeek} · ${currentYear}</div>
       </div>
     </div>
@@ -214,47 +220,44 @@ tbody tr:nth-child(odd) td{background:#fff}
     </div>
   </div>
 
-  <!-- TABLE -->
   <div class="tbl-wrap">
     <table>
       <thead>
         <tr>
-          <th style="text-align:left;padding-left:16px">Employé</th>
-          ${weekDates.map(wd=>`
-            <th class="${wd.date.getDay()===0?'sun':''}">
-              <div class="day-name">${wd.day.slice(0,3)}</div>
-              <div class="day-date">${wd.date.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}</div>
+          <th class="emp-th">Employé</th>
+          ${weekDates.map(wd => `
+            <th class="${wd.date.getDay()===0?'sun-th':''}">
+              <div class="dn">${wd.day.slice(0,3)}</div>
+              <div class="dd">${wd.date.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}</div>
             </th>`).join('')}
-          <th>Total</th>
+          <th class="tot-th">Total</th>
         </tr>
       </thead>
       <tbody>
-        ${rows.map(({emp,cells,totalH,diff})=>`
+        ${rows.map(({emp,cells,totalH,diff}) => `
           <tr>
             <td class="ec">
               <span class="av" style="background:${emp.color||storeColor}">${emp.name[0]}</span>
               <span class="en">${emp.name}<span class="es">${emp.role} · ${emp.contractHours}h/Sem</span></span>
             </td>
-            ${cells.map(c=>cellHTML(c)).join('')}
+            ${cells.map(c => cellHTML(c)).join('')}
             <td class="tot">
-              <div class="tot-h ${Math.abs(diff)<0.2?'ok':diff>0?'over':'under'}">${totalH.toFixed(1)}h</div>
-              <div class="tot-d ${Math.abs(diff)<0.2?'ok':diff>0?'over':'under'}">${diff>0?'+':''}${diff.toFixed(1)}</div>
+              <div class="tot-h ${Math.abs(diff)<0.2?'c-ok':diff>0?'c-over':'c-under'}">${totalH.toFixed(1)}h</div>
+              <div class="tot-d ${Math.abs(diff)<0.2?'c-ok':diff>0?'c-over':'c-under'}">${diff>0?'+':''}${diff.toFixed(1)}</div>
             </td>
           </tr>`).join('')}
       </tbody>
     </table>
   </div>
 
-  <!-- LEGEND -->
   <div class="leg">
-    ${shiftTypes.map(st=>`
-      <div class="leg-i">
-        <div class="leg-dot" style="background:${st.color}"></div>
+    ${shiftTypes.map(st => `
+      <div class="li">
+        <div class="ld" style="background:${st.color}"></div>
         <span style="color:${st.color}">${st.label}</span>
       </div>`).join('')}
   </div>
 
-  <!-- FOOTER -->
   <div class="ftr">
     <span>Care Planning · ${store.name}</span>
     <span>Généré le ${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</span>
@@ -267,19 +270,20 @@ tbody tr:nth-child(odd) td{background:#fff}
   const blob = new Blob([html], { type:'text/html;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   window.open(url, '_blank');
-  setTimeout(()=>URL.revokeObjectURL(url), 120000);
+  setTimeout(() => URL.revokeObjectURL(url), 120000);
 }
 
 export function exportToNotion({ store, employees, schedules, weekDates, shiftTypes, currentWeek, currentYear }) {
   const key=`${store.id}_${currentYear}_W${currentWeek}`;
   const sched=schedules[key]||{};
-  const lines=[];
-  lines.push(`# 📅 Planning — ${store.name}`);
-  lines.push(`**Semaine ${currentWeek}** | ${weekDates[0].date.toLocaleDateString('fr-FR')} – ${weekDates[6].date.toLocaleDateString('fr-FR')}`);
-  lines.push('');
-  lines.push(`| Employé | ${weekDates.map(w=>w.day.slice(0,3)).join(' | ')} | Total |`);
-  lines.push(`| --- | ${weekDates.map(()=>'---').join(' | ')} | --- |`);
   const workTypes=['work','communication','meeting','school'];
+  const lines=[
+    `# 📅 Planning — ${store.name}`,
+    `**Semaine ${currentWeek}** | ${weekDates[0].date.toLocaleDateString('fr-FR')} – ${weekDates[6].date.toLocaleDateString('fr-FR')}`,
+    '',
+    `| Employé | ${weekDates.map(w=>w.day.slice(0,3)).join(' | ')} | Total |`,
+    `| --- | ${weekDates.map(()=>'---').join(' | ')} | --- |`,
+  ];
   employees.forEach(emp=>{
     let t=0;
     const cells=weekDates.map((_,i)=>{
@@ -292,7 +296,7 @@ export function exportToNotion({ store, employees, schedules, weekDates, shiftTy
   });
   lines.push('\n---\n*Généré par Care Planning*');
   const text=lines.join('\n');
-  navigator.clipboard.writeText(text).then(()=>alert('✅ Copié ! Collez dans Notion (Ctrl+V)')).catch(()=>{
-    const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);alert('✅ Copié !');
-  });
+  navigator.clipboard.writeText(text)
+    .then(()=>alert('✅ Copié ! Collez dans Notion (Ctrl+V)'))
+    .catch(()=>{const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);alert('✅ Copié !');});
 }
