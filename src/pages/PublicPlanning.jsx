@@ -122,12 +122,12 @@ function ShiftBlock({ sh, st, style }) {
         <div style={{display:'flex',alignItems:'stretch',background:'rgba(255,255,255,.65)',borderRadius:10,overflow:'hidden'}}>
           <div style={{flex:1,textAlign:'center',padding:'10px 8px'}}>
             <div style={{fontSize:12,fontWeight:700,color:st.color,opacity:.7,textTransform:'uppercase',letterSpacing:'.06em'}}>Début</div>
-            <div style={{fontSize:26,fontWeight:900,color:st.color,letterSpacing:'-1px',lineHeight:1.1}}>{sh.startTime}</div>
+            <div style={{fontSize:30,fontWeight:800,color:st.color,lineHeight:1.1,fontVariantNumeric:'tabular-nums lining-nums',letterSpacing:0}}>{sh.startTime}</div>
           </div>
           <div style={{display:'flex',alignItems:'center',color:st.color,opacity:.4,fontSize:22,padding:'0 4px'}}>→</div>
           <div style={{flex:1,textAlign:'center',padding:'10px 8px'}}>
             <div style={{fontSize:12,fontWeight:700,color:st.color,opacity:.7,textTransform:'uppercase',letterSpacing:'.06em'}}>Fin</div>
-            <div style={{fontSize:26,fontWeight:900,color:st.color,letterSpacing:'-1px',lineHeight:1.1}}>{sh.endTime}</div>
+            <div style={{fontSize:30,fontWeight:800,color:st.color,lineHeight:1.1,fontVariantNumeric:'tabular-nums lining-nums',letterSpacing:0}}>{sh.endTime}</div>
           </div>
           {(sh.breakH||0)>0 && (
             <div style={{flex:1,textAlign:'center',padding:'10px 8px',borderLeft:`1px solid ${st.color}20`}}>

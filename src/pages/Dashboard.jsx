@@ -3,12 +3,12 @@ import { useApp } from '../context/AppContext';
 
 function Stat({ icon, label, value, sub, color }) {
   return (
-    <div className="card" style={{ padding:'24px 28px', position:'relative', overflow:'hidden' }}>
+    <div className="card" style={{ padding:'28px 32px', position:'relative', overflow:'hidden' }}>
       <div style={{ position:'absolute', right:18, top:14, fontSize:44, opacity:.06 }}>{icon}</div>
-      <div style={{ fontSize:32, marginBottom:12 }}>{icon}</div>
-      <div style={{ fontFamily:'var(--font-h)', fontSize:36, fontWeight:800, color:color||'var(--teal-dark)', lineHeight:1 }}>{value}</div>
-      <div style={{ color:'var(--text)', fontWeight:600, fontSize:15, marginTop:8 }}>{label}</div>
-      {sub&&<div style={{ color:'var(--dim)', fontSize:13, marginTop:4 }}>{sub}</div>}
+      <div style={{ fontSize:38, marginBottom:14 }}>{icon}</div>
+      <div className="num" style={{ fontFamily:'var(--font-b)', fontSize:42, fontWeight:800, color:color||'var(--teal-dark)', lineHeight:1, fontVariantNumeric:'tabular-nums lining-nums', letterSpacing:0 }}>{value}</div>
+      <div style={{ color:'var(--text)', fontWeight:600, fontSize:17, marginTop:10 }}>{label}</div>
+      {sub&&<div style={{ color:'var(--dim)', fontSize:14, marginTop:5 }}>{sub}</div>}
     </div>
   );
 }
@@ -30,7 +30,7 @@ export default function Dashboard({ setPage }) {
         </button>
       </div>
 
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))', gap:18, marginBottom:40 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(250px,1fr))', gap:18, marginBottom:40 }}>
         <Stat icon="🏪" label="Magasins" value={stores.length} sub="Configurés" color="var(--teal-dark)" />
         <Stat icon="👥" label="Employés" value={employees.length} sub={`${managers.length} managers`} color="#6B35C8" />
         <Stat icon="📅" label={`Créneaux S${currentWeek}`} value={totalShifts} sub="Ce planning" color="#1A8A42" />

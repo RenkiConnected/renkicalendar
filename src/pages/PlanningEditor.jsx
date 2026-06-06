@@ -114,12 +114,12 @@ function ShiftDetailPopup({emp,day,shift,onClose,types,onEdit}){
             <div style={{display:'flex',alignItems:'center',gap:0,background:'rgba(255,255,255,.6)',borderRadius:10,padding:'10px 14px'}}>
               <div style={{textAlign:'center',flex:1}}>
                 <div style={{fontSize:11,fontWeight:700,color:st.color,opacity:.7,textTransform:'uppercase',letterSpacing:'.06em'}}>Début</div>
-                <div style={{fontSize:26,fontWeight:900,color:st.color,letterSpacing:'-1px'}}>{shift.startTime}</div>
+                <div className="num" style={{fontSize:30,fontWeight:800,color:st.color}}>{shift.startTime}</div>
               </div>
               <div style={{fontSize:22,color:st.color,opacity:.4,padding:'0 8px'}}>→</div>
               <div style={{textAlign:'center',flex:1}}>
                 <div style={{fontSize:11,fontWeight:700,color:st.color,opacity:.7,textTransform:'uppercase',letterSpacing:'.06em'}}>Fin</div>
-                <div style={{fontSize:26,fontWeight:900,color:st.color,letterSpacing:'-1px'}}>{shift.endTime}</div>
+                <div className="num" style={{fontSize:30,fontWeight:800,color:st.color}}>{shift.endTime}</div>
               </div>
               {(shift.breakH||0)>0&&(
                 <div style={{textAlign:'center',flex:1,borderLeft:`1px solid ${st.color}25`,paddingLeft:8}}>
@@ -155,12 +155,12 @@ function ShiftDetailPopup({emp,day,shift,onClose,types,onEdit}){
               <div style={{display:'flex',alignItems:'center',gap:0,background:'rgba(255,255,255,.6)',borderRadius:10,padding:'10px 14px'}}>
                 <div style={{textAlign:'center',flex:1}}>
                   <div style={{fontSize:11,fontWeight:700,color:st2.color,opacity:.7,textTransform:'uppercase',letterSpacing:'.06em'}}>Début</div>
-                  <div style={{fontSize:26,fontWeight:900,color:st2.color,letterSpacing:'-1px'}}>{shift.split.startTime}</div>
+                  <div className="num" style={{fontSize:30,fontWeight:800,color:st2.color}}>{shift.split.startTime}</div>
                 </div>
                 <div style={{fontSize:22,color:st2.color,opacity:.4,padding:'0 8px'}}>→</div>
                 <div style={{textAlign:'center',flex:1}}>
                   <div style={{fontSize:11,fontWeight:700,color:st2.color,opacity:.7,textTransform:'uppercase',letterSpacing:'.06em'}}>Fin</div>
-                  <div style={{fontSize:26,fontWeight:900,color:st2.color,letterSpacing:'-1px'}}>{shift.split.endTime}</div>
+                  <div className="num" style={{fontSize:30,fontWeight:800,color:st2.color}}>{shift.split.endTime}</div>
                 </div>
               </div>
             )}
@@ -1034,44 +1034,44 @@ function OvertimeModal({emp,schedule,weekDates,currentWeek,currentYear,overtimeR
   };
   return(
     <div className="overlay" onClick={onClose}>
-      <div className="modal" style={{maxWidth:700}} onClick={e=>e.stopPropagation()}>
-        <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:22}}>
-          <div style={{width:50,height:50,borderRadius:'50%',background:emp.color||'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,color:'#fff',fontSize:21,flexShrink:0}}>
+      <div className="modal" style={{maxWidth:820}} onClick={e=>e.stopPropagation()}>
+        <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:26}}>
+          <div style={{width:58,height:58,borderRadius:'50%',background:emp.color||'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,color:'#fff',fontSize:25,flexShrink:0}}>
             {emp.name[0]}
           </div>
           <div style={{flex:1}}>
-            <h3 style={{fontFamily:'var(--font-h)',fontWeight:800,fontSize:20}}>{emp.name}</h3>
-            <p style={{color:'var(--muted)',fontSize:14,marginTop:2}}>Heures supp. · Contrat {contractH}h/sem</p>
+            <h3 style={{fontFamily:'var(--font-h)',fontWeight:800,fontSize:26}}>{emp.name}</h3>
+            <p style={{color:'var(--muted)',fontSize:16,marginTop:3}}>Heures supplémentaires · Contrat {contractH}h/sem</p>
           </div>
           <button className="btn btn-ghost btn-xs" onClick={onClose}>✕</button>
         </div>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:20}}>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:14,marginBottom:24}}>
           {[
             {l:'Travaillé',v:`${workedH.toFixed(1)}h`,s:`S${currentWeek}`,bg:'var(--teal-light)',b:'var(--teal-mid)',c:'var(--teal-dark)'},
             {l:'Supp. sem.',v:`${thisWeekExtra>0?'+':''}${thisWeekExtra.toFixed(1)}h`,s:'vs contrat',bg:thisWeekExtra>0?'#E8FAF0':'var(--card2)',b:thisWeekExtra>0?'var(--teal-mid)':'var(--border)',c:thisWeekExtra>0?'#1A8A42':'var(--dim)'},
             {l:'Solde total',v:`+${pendingTotal.toFixed(1)}h`,s:'à régulariser',bg:pendingTotal>0?'#FFF7E0':'var(--card2)',b:pendingTotal>0?'#F5D06A':'var(--border)',c:pendingTotal>0?'#B07D00':'var(--dim)'},
           ].map((s,i)=>(
-            <div key={i} style={{background:s.bg,border:`1.5px solid ${s.b}`,borderRadius:12,padding:'12px 10px',textAlign:'center'}}>
-              <div style={{fontSize:10,fontWeight:700,color:s.c,textTransform:'uppercase',letterSpacing:'.05em',marginBottom:4}}>{s.l}</div>
-              <div style={{fontFamily:'var(--font-h)',fontWeight:900,fontSize:22,color:s.c,lineHeight:1}}>{s.v}</div>
-              <div style={{fontSize:11,color:'var(--muted)',marginTop:3}}>{s.s}</div>
+            <div key={i} style={{background:s.bg,border:`2px solid ${s.b}`,borderRadius:14,padding:'16px 12px',textAlign:'center'}}>
+              <div style={{fontSize:12,fontWeight:700,color:s.c,textTransform:'uppercase',letterSpacing:'.05em',marginBottom:6}}>{s.l}</div>
+              <div className="num" style={{fontFamily:'var(--font-b)',fontWeight:800,fontSize:30,color:s.c,lineHeight:1}}>{s.v}</div>
+              <div style={{fontSize:13,color:'var(--muted)',marginTop:4}}>{s.s}</div>
             </div>
           ))}
         </div>
         {empRecords.length>0&&(
           <div style={{marginBottom:18}}>
-            <div style={{fontFamily:'var(--font-h)',fontWeight:700,fontSize:16,marginBottom:11}}>📊 Historique des heures supp.</div>
+            <div style={{fontFamily:'var(--font-h)',fontWeight:700,fontSize:19,marginBottom:14}}>📊 Historique des heures supp.</div>
             {empRecords.map((r,i)=>{
               const isEditing=editRecord?.month===r.month&&editRecord?.year===r.year;
               return(
                 <div key={i} style={{background:r.status==='paid'?'#E8FAF0':'#FFF7E0',border:`1.5px solid ${r.status==='paid'?'var(--teal-mid)':'#F5D06A'}`,borderRadius:13,marginBottom:9,overflow:'hidden'}}>
-                  <div style={{display:'flex',alignItems:'center',gap:12,padding:'13px 16px'}}>
-                    <span style={{fontSize:22,flexShrink:0}}>{r.status==='paid'?'✅':'⏳'}</span>
+                  <div style={{display:'flex',alignItems:'center',gap:14,padding:'16px 18px'}}>
+                    <span style={{fontSize:26,flexShrink:0}}>{r.status==='paid'?'✅':'⏳'}</span>
                     <div style={{flex:1}}>
-                      <div style={{fontWeight:700,fontSize:15}}>{MONTHS[r.month-1]} {r.year}</div>
-                      <div style={{fontSize:13,color:'var(--muted)',marginTop:1}}>{r.weeks?.length||0} sem. · {r.status==='paid'?'✅ Validé en heures supp':'⏳ En attente'}</div>
+                      <div style={{fontWeight:700,fontSize:17}}>{MONTHS[r.month-1]} {r.year}</div>
+                      <div style={{fontSize:14,color:'var(--muted)',marginTop:2}}>{r.weeks?.length||0} sem. · {r.status==='paid'?'✅ Validé en heures supp':'⏳ En attente'}</div>
                     </div>
-                    <div style={{fontFamily:'var(--font-h)',fontWeight:800,fontSize:20,color:r.status==='paid'?'#1A8A42':'#B07D00',marginRight:4}}>+{(r.extraHours||0).toFixed(1)}h</div>
+                    <div className="num" style={{fontFamily:'var(--font-b)',fontWeight:800,fontSize:24,color:r.status==='paid'?'#1A8A42':'#B07D00',marginRight:6}}>+{(r.extraHours||0).toFixed(1)}h</div>
                     {isManager&&(
                       <div style={{display:'flex',gap:6,flexShrink:0}}>
                         {r.status!=='paid'&&(r.extraHours||0)>0&&(
@@ -1168,27 +1168,27 @@ function OvertimeModal({emp,schedule,weekDates,currentWeek,currentYear,overtimeR
           </div>
         )}
         {isManager&&thisWeekExtra>0&&!payMonth&&(
-          <div style={{background:'var(--card2)',borderRadius:14,padding:'15px',border:'1.5px solid var(--border)'}}>
-            <div style={{fontFamily:'var(--font-h)',fontWeight:700,fontSize:15,marginBottom:11}}>⚡ Action S{currentWeek} (+{thisWeekExtra}h)</div>
+          <div style={{background:'var(--card2)',borderRadius:16,padding:'20px',border:'1.5px solid var(--border)'}}>
+            <div style={{fontFamily:'var(--font-h)',fontWeight:700,fontSize:18,marginBottom:14}}>⚡ Action pour S{currentWeek} (+{thisWeekExtra}h)</div>
             {[
               {v:'accumulate',icon:'📅',l:"Conserver jusqu'à fin de mois",s:'Accumulation mensuelle'},
               {v:'deduct',icon:'🔄',l:'Déduire (repos compensation)',s:'Cette semaine'},
               {v:'pay',icon:'💰',l:'Valider en heures supp',s:'Paiement immédiat'},
             ].map(opt=>(
               <button key={opt.v} onClick={()=>setAction(opt.v)} style={{
-                display:'flex',alignItems:'center',gap:12,padding:'11px 13px',borderRadius:10,cursor:'pointer',textAlign:'left',width:'100%',marginBottom:7,
+                display:'flex',alignItems:'center',gap:14,padding:'15px 17px',borderRadius:12,cursor:'pointer',textAlign:'left',width:'100%',marginBottom:9,
                 border:`2px solid ${action===opt.v?'var(--teal)':'var(--border)'}`,
                 background:action===opt.v?'var(--teal-light)':'#fff',fontFamily:'var(--font-b)',transition:'all .15s',
               }}>
-                <span style={{fontSize:20,flexShrink:0}}>{opt.icon}</span>
+                <span style={{fontSize:24,flexShrink:0}}>{opt.icon}</span>
                 <div>
-                  <div style={{fontWeight:700,fontSize:13,color:action===opt.v?'var(--teal-dark)':'var(--text)'}}>{opt.l}</div>
-                  <div style={{fontSize:11,color:'var(--muted)'}}>{opt.s}</div>
+                  <div style={{fontWeight:700,fontSize:16,color:action===opt.v?'var(--teal-dark)':'var(--text)'}}>{opt.l}</div>
+                  <div style={{fontSize:14,color:'var(--muted)',marginTop:1}}>{opt.s}</div>
                 </div>
               </button>
             ))}
-            <button className="btn btn-primary" style={{width:'100%',justifyContent:'center',padding:'13px',fontSize:15,borderRadius:12,marginTop:4}}
-              onClick={handleResolve} disabled={saving}>{saving?'⏳':'✓ Confirmer'}</button>
+            <button className="btn btn-primary" style={{width:'100%',justifyContent:'center',padding:'16px',fontSize:17,borderRadius:12,marginTop:6}}
+              onClick={handleResolve} disabled={saving}>{saving?'⏳ ...':'✓ Confirmer'}</button>
           </div>
         )}
         {!isManager&&<div style={{background:'var(--card2)',borderRadius:12,padding:'13px',border:'1px solid var(--border)',textAlign:'center',color:'var(--muted)',fontSize:14,marginTop:10}}>👔 Contactez votre manager</div>}
@@ -1220,7 +1220,7 @@ function OvertimeTotalCell({t,diff,emp,overtimeRecords,onOvertimeClick}){
       >
         {/* Heures totales */}
         <div style={{
-          fontFamily:'var(--font-h)',fontWeight:900,fontSize:20,lineHeight:1,
+          fontFamily:'var(--font-b)',fontWeight:800,fontSize:20,lineHeight:1,fontVariantNumeric:'tabular-nums lining-nums',letterSpacing:0,
           color:diff>0.5?'#C8002B':diff<-0.5?'var(--muted)':'var(--teal-dark)',
         }}>{t.toFixed(1)}h</div>
 
