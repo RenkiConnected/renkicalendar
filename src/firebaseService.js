@@ -142,3 +142,30 @@ export async function fetchSchedule(storeId, week, year) {
   const snap = await getDoc(doc(db, 'schedules', key));
   return snap.exists() ? snap.data() : {};
 }
+
+// ── OVERTIME TRACKING ────────────────────────────────────
+export async function saveOvertimeRecord(empId, year, month, data) {
+  const key = `${empId}_${year}_M${month}`;
+  await setDoc(doc(db, 'overtime', key), { ...data, empId, year, month, updatedAt: new Date().toISOString() });
+}
+
+export async function fetchOvertimeRecords(storeId, year) {
+  const snap = await getDocs(collection(db, 'overtime'));
+  const records = {};
+  snap.forEach(d => {
+    const data = d.data();
+    if (data.year === year) records[d.id] = data;
+  });
+  return records;
+}
+
+export function listenOvertime(year, cb) {
+  return onSnapshot(collection(db, 'overtime'), snap => {
+    const records = {};
+    snap.forEach(d => {
+      const data = d.data();
+      if (data.year === year) records[d.id] = data;
+    });
+    cb(records);
+  });
+}

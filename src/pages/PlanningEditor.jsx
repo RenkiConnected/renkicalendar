@@ -544,7 +544,7 @@ function WeekNav({cw,setCw}){
 
 /* ── MAIN ─────────────────────────────────────────────────── */
 export default function PlanningEditor(){
-  const{stores,employees,shiftTypes,getSchedule,setShift,setBulkSchedule,currentWeek,setCurrentWeek,currentYear,selectedStore,setSelectedStore,getWeekDatesForCurrentWeek,leaveRequests}=useApp();
+  const{stores,employees,shiftTypes,getSchedule,setShift,setBulkSchedule,currentWeek,setCurrentWeek,currentYear,selectedStore,setSelectedStore,getWeekDatesForCurrentWeek,leaveRequests,overtimeRecords,getEmpOvertimeBalance,resolveOvertime,authRole}=useApp();
   const[activeStore,setAS]=useState(selectedStore||stores[0]?.id||'');
   const[viewMode,setViewMode]=useState('week');
   const[activeDay,setActiveDay]=useState(0);
@@ -556,6 +556,7 @@ export default function PlanningEditor(){
   const[generating,setGenerating]=useState(false);
   const[borrowedEmps,setBorrowedEmps]=useState([]);
   const[detailPopup,setDetailPopup]=useState(null); // {empId, dayIdx}
+  const[overtimeModal,setOvertimeModal]=useState(null); // {empId}
 
   // Drag state — use refs for performance during drag
   const dragSrcRef=useRef(null);
@@ -952,6 +953,7 @@ export default function PlanningEditor(){
             onDragStart={handleDragStart} onDragOver={handleDragOver}
             onDrop={handleDrop} onDragEnd={handleDragEnd}
             dragOver={dragOver} extraEmpIds={extraEmps.map(e=>e.id)}
+            overtimeRecords={overtimeRecords} onOvertimeClick={(empId)=>setOvertimeModal({empId})}
           />
           :<DayView
             emps={allDisplayEmps} day={weekDates[activeDay]} dayIdx={activeDay}
@@ -992,14 +994,161 @@ export default function PlanningEditor(){
           onEdit={()=>{ setDetailPopup(null); setEditCell(detailPopup); }}
         />;
       })()}
+      {overtimeModal&&(()=>{
+        const emp=employees.find(e=>e.id===overtimeModal.empId);
+        if(!emp) return null;
+        return <OvertimeModal
+          emp={emp} schedule={schedule} weekDates={weekDates}
+          currentWeek={currentWeek} currentYear={currentYear}
+          overtimeRecords={overtimeRecords} resolveOvertime={resolveOvertime}
+          onClose={()=>setOvertimeModal(null)}
+          isManager={['manager','dirigeant','admin'].includes(authRole)}
+        />;
+      })()}
       {showAuto&&store&&<AutoModal store={store} emps={storeEmps} weekDates={weekDates} currentWeek={currentWeek} currentYear={currentYear} leaveRequests={leaveRequests} onGenerate={handleAutoGen} onClose={()=>setShowAuto(false)}/>}
       {showBorrow&&store&&<BorrowModal store={store} allEmployees={employees} allStores={stores} currentEmps={allDisplayEmps} onBorrow={handleBorrow} onClose={()=>setShowBorrow(false)}/>}
     </div>
   );
 }
 
+/* ── OVERTIME MODAL ──────────────────────────────────────── */
+function OvertimeModal({emp,schedule,weekDates,currentWeek,currentYear,overtimeRecords,resolveOvertime,onClose,isManager}){
+  const workTypes=['work','communication','meeting','school'];
+  const MONTHS=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+  const workedH=weekDates.reduce((t,_,di)=>{
+    const sh=schedule[`${emp.id}_${di}`];
+    let h=0;
+    if(sh?.hours&&workTypes.includes(sh.type)) h+=sh.hours;
+    if(sh?.split?.hours&&workTypes.includes(sh.split.type)) h+=sh.split.hours;
+    return t+h;
+  },0);
+  const contractH=emp.contractHours||35;
+  const thisWeekExtra=parseFloat(Math.max(0,workedH-contractH).toFixed(2));
+  const empRecords=Object.values(overtimeRecords).filter(r=>r.empId===emp.id).sort((a,b)=>b.year-a.year||b.month-a.month);
+  const pendingTotal=empRecords.filter(r=>r.status!=='paid').reduce((t,r)=>t+(r.extraHours||0),0);
+  const[action,setAction]=useState('accumulate');
+  const[saving,setSaving]=useState(false);
+  const[payMonth,setPayMonth]=useState(null);
+  const handleResolve=async()=>{
+    if(thisWeekExtra<=0) return;
+    setSaving(true);
+    await resolveOvertime(emp.id,currentWeek,currentYear,action,thisWeekExtra);
+    setSaving(false); onClose();
+  };
+  return(
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" style={{maxWidth:560}} onClick={e=>e.stopPropagation()}>
+        <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:22}}>
+          <div style={{width:50,height:50,borderRadius:'50%',background:emp.color||'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,color:'#fff',fontSize:21,flexShrink:0}}>
+            {emp.name[0]}
+          </div>
+          <div style={{flex:1}}>
+            <h3 style={{fontFamily:'var(--font-h)',fontWeight:800,fontSize:20}}>{emp.name}</h3>
+            <p style={{color:'var(--muted)',fontSize:14,marginTop:2}}>Heures supp. · Contrat {contractH}h/sem</p>
+          </div>
+          <button className="btn btn-ghost btn-xs" onClick={onClose}>✕</button>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:20}}>
+          {[
+            {l:'Travaillé',v:`${workedH.toFixed(1)}h`,s:`S${currentWeek}`,bg:'var(--teal-light)',b:'var(--teal-mid)',c:'var(--teal-dark)'},
+            {l:'Supp. sem.',v:`${thisWeekExtra>0?'+':''}${thisWeekExtra.toFixed(1)}h`,s:'vs contrat',bg:thisWeekExtra>0?'#E8FAF0':'var(--card2)',b:thisWeekExtra>0?'var(--teal-mid)':'var(--border)',c:thisWeekExtra>0?'#1A8A42':'var(--dim)'},
+            {l:'Solde total',v:`+${pendingTotal.toFixed(1)}h`,s:'à régulariser',bg:pendingTotal>0?'#FFF7E0':'var(--card2)',b:pendingTotal>0?'#F5D06A':'var(--border)',c:pendingTotal>0?'#B07D00':'var(--dim)'},
+          ].map((s,i)=>(
+            <div key={i} style={{background:s.bg,border:`1.5px solid ${s.b}`,borderRadius:12,padding:'12px 10px',textAlign:'center'}}>
+              <div style={{fontSize:10,fontWeight:700,color:s.c,textTransform:'uppercase',letterSpacing:'.05em',marginBottom:4}}>{s.l}</div>
+              <div style={{fontFamily:'var(--font-h)',fontWeight:900,fontSize:22,color:s.c,lineHeight:1}}>{s.v}</div>
+              <div style={{fontSize:11,color:'var(--muted)',marginTop:3}}>{s.s}</div>
+            </div>
+          ))}
+        </div>
+        {empRecords.length>0&&(
+          <div style={{marginBottom:18}}>
+            <div style={{fontFamily:'var(--font-h)',fontWeight:700,fontSize:15,marginBottom:9}}>📊 Historique</div>
+            {empRecords.map((r,i)=>(
+              <div key={i} style={{display:'flex',alignItems:'center',gap:12,padding:'11px 14px',background:r.status==='paid'?'#E8FAF0':'#FFF7E0',border:`1.5px solid ${r.status==='paid'?'var(--teal-mid)':'#F5D06A'}`,borderRadius:11,marginBottom:7}}>
+                <span style={{fontSize:20,flexShrink:0}}>{r.status==='paid'?'✅':'⏳'}</span>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:700,fontSize:14}}>{MONTHS[r.month-1]} {r.year}</div>
+                  <div style={{fontSize:12,color:'var(--muted)',marginTop:1}}>{r.weeks?.length||0} sem. · {r.status==='paid'?'Validé':'En attente'}</div>
+                </div>
+                <div style={{fontFamily:'var(--font-h)',fontWeight:800,fontSize:17,color:r.status==='paid'?'#1A8A42':'#B07D00'}}>+{(r.extraHours||0).toFixed(1)}h</div>
+                {isManager&&r.status!=='paid'&&(r.extraHours||0)>0&&(
+                  <button className="btn btn-sm" onClick={()=>setPayMonth(r)} style={{background:'#1A8A42',color:'#fff',border:'none',borderRadius:8,fontSize:12,fontWeight:700}}>✓ Valider</button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+        {payMonth&&(
+          <div style={{background:'#E8FAF0',borderRadius:12,padding:'14px 16px',border:'2px solid var(--teal-mid)',marginBottom:14}}>
+            <div style={{fontWeight:700,fontSize:14,color:'#1A8A42',marginBottom:10}}>Valider {(payMonth.extraHours||0).toFixed(1)}h pour {MONTHS[payMonth.month-1]} {payMonth.year} ?</div>
+            <div style={{display:'flex',gap:10}}>
+              <button className="btn btn-sm" style={{background:'#1A8A42',color:'#fff',border:'none'}}
+                onClick={async()=>{ setSaving(true); await resolveOvertime(emp.id,currentWeek,currentYear,'pay',0); setSaving(false); setPayMonth(null); onClose(); }}>
+                {saving?'⏳':'✓ Confirmer'}
+              </button>
+              <button className="btn btn-ghost btn-sm" onClick={()=>setPayMonth(null)}>Annuler</button>
+            </div>
+          </div>
+        )}
+        {isManager&&thisWeekExtra>0&&!payMonth&&(
+          <div style={{background:'var(--card2)',borderRadius:14,padding:'15px',border:'1.5px solid var(--border)'}}>
+            <div style={{fontFamily:'var(--font-h)',fontWeight:700,fontSize:15,marginBottom:11}}>⚡ Action S{currentWeek} (+{thisWeekExtra}h)</div>
+            {[
+              {v:'accumulate',icon:'📅',l:"Conserver jusqu'à fin de mois",s:'Accumulation mensuelle'},
+              {v:'deduct',icon:'🔄',l:'Déduire (repos compensation)',s:'Cette semaine'},
+              {v:'pay',icon:'💰',l:'Valider en heures supp',s:'Paiement immédiat'},
+            ].map(opt=>(
+              <button key={opt.v} onClick={()=>setAction(opt.v)} style={{
+                display:'flex',alignItems:'center',gap:12,padding:'11px 13px',borderRadius:10,cursor:'pointer',textAlign:'left',width:'100%',marginBottom:7,
+                border:`2px solid ${action===opt.v?'var(--teal)':'var(--border)'}`,
+                background:action===opt.v?'var(--teal-light)':'#fff',fontFamily:'var(--font-b)',transition:'all .15s',
+              }}>
+                <span style={{fontSize:20,flexShrink:0}}>{opt.icon}</span>
+                <div>
+                  <div style={{fontWeight:700,fontSize:13,color:action===opt.v?'var(--teal-dark)':'var(--text)'}}>{opt.l}</div>
+                  <div style={{fontSize:11,color:'var(--muted)'}}>{opt.s}</div>
+                </div>
+              </button>
+            ))}
+            <button className="btn btn-primary" style={{width:'100%',justifyContent:'center',padding:'13px',fontSize:15,borderRadius:12,marginTop:4}}
+              onClick={handleResolve} disabled={saving}>{saving?'⏳':'✓ Confirmer'}</button>
+          </div>
+        )}
+        {!isManager&&<div style={{background:'var(--card2)',borderRadius:12,padding:'13px',border:'1px solid var(--border)',textAlign:'center',color:'var(--muted)',fontSize:14,marginTop:10}}>👔 Contactez votre manager</div>}
+      </div>
+    </div>
+  );
+}
+
+/* ── OVERTIME TOTAL CELL ─────────────────────────────────── */
+function OvertimeTotalCell({t,diff,emp,overtimeRecords,onOvertimeClick}){
+  const pending=Object.values(overtimeRecords||{}).filter(r=>r.empId===emp.id&&r.status!=='paid').reduce((s,r)=>s+(r.extraHours||0),0);
+  return(
+    <td style={{padding:'8px 8px',textAlign:'center'}}>
+      <button onClick={()=>onOvertimeClick(emp.id)} style={{
+        background:'none',border:'none',cursor:'pointer',
+        display:'flex',flexDirection:'column',alignItems:'center',gap:2,
+        padding:'4px 6px',borderRadius:10,width:'100%',transition:'all .15s',
+      }}
+        onMouseEnter={e=>e.currentTarget.style.background='var(--card2)'}
+        onMouseLeave={e=>e.currentTarget.style.background='none'}
+        title="Heures supplémentaires"
+      >
+        <div style={{fontFamily:'var(--font-h)',fontWeight:800,fontSize:16,color:diff>1?'#C8002B':diff<-1?'var(--muted)':'var(--teal-dark)'}}>{t.toFixed(1)}h</div>
+        <div style={{fontSize:11,fontWeight:700,color:Math.abs(diff)<0.1?'var(--teal-dark)':diff>0?'#C8002B':'#1A8A42'}}>{diff>0?`+${diff.toFixed(1)}`:diff.toFixed(1)}</div>
+        {pending>0&&(
+          <div style={{background:'#FFF7E0',color:'#B07D00',border:'1px solid #F5D06A',borderRadius:7,padding:'2px 5px',fontSize:10,fontWeight:700,marginTop:2}}>
+            🕐 +{pending.toFixed(1)}h
+          </div>
+        )}
+      </button>
+    </td>
+  );
+}
+
 /* ── WEEK VIEW ────────────────────────────────────────────── */
-function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDragOver,onDrop,onDragEnd,dragOver,extraEmpIds}){
+function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDragOver,onDrop,onDragEnd,dragOver,extraEmpIds,overtimeRecords,onOvertimeClick}){
   return(
     <div className="card" style={{overflow:'hidden'}}>
       <div style={{overflowX:'auto'}}>
@@ -1092,10 +1241,7 @@ function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDra
                       </td>
                     );
                   })}
-                  <td style={{padding:'10px 16px',textAlign:'center'}}>
-                    <div style={{fontFamily:'var(--font-h)',fontWeight:800,fontSize:17,color:diff>1?'#C8002B':diff<-1?'var(--muted)':'var(--teal-dark)'}}>{t.toFixed(1)}h</div>
-                    <div style={{fontSize:11,fontWeight:700,color:Math.abs(diff)<0.1?'var(--teal-dark)':diff>0?'#C8002B':'#1A8A42',marginTop:1}}>{diff>0?`+${diff.toFixed(1)}`:diff.toFixed(1)}</div>
-                  </td>
+                  <OvertimeTotalCell t={t} diff={diff} emp={emp} overtimeRecords={overtimeRecords} onOvertimeClick={onOvertimeClick}/>
                 </tr>
               );
             })}

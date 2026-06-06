@@ -7,6 +7,7 @@ import {
   saveShiftType, saveSchedule, saveSettings,
   saveLeaveRequest, removeLeaveRequest,
   fetchSchedule,
+  saveOvertimeRecord, listenOvertime,
   seedIfEmpty, forceResetAll, ALL_EMPLOYEES,
 } from '../firebaseService';
 
@@ -69,6 +70,7 @@ export function AppProvider({ children }) {
   const [shiftTypes, setShiftTypes] = useState([]);
   const [schedules, setSchedules] = useState({});
   const [leaveRequests, setLeaveRequests] = useState([]);
+  const [overtimeRecords, setOvertimeRecords] = useState({}); // key: empId_year_Mmonth
   const [appSettings, setAppSettings] = useState({});
   const [loading, setLoading] = useState(true);
 
@@ -86,6 +88,12 @@ export function AppProvider({ children }) {
     const u5=listenSettings(setAppSettings);
     return()=>{ u1();u2();u3();u4();u5(); };
   },[]);
+
+  // Listen to overtime records
+  useEffect(()=>{
+    const unsub = listenOvertime(currentYear, data => setOvertimeRecords(data));
+    return () => unsub();
+  },[currentYear]);
 
   // Listen to ALL stores for current week + selected store
   useEffect(()=>{
@@ -310,6 +318,7 @@ export function AppProvider({ children }) {
       appSettings,updateSettings,
       doResetEmployees,
       currentWeek,setCurrentWeek,currentYear,
+      overtimeRecords,getEmpOvertimeBalance,resolveOvertime,
       selectedStore,setSelectedStore,
       getWeekDatesForCurrentWeek:w=>getWeekDates(w,currentYear),
       DAYS,
