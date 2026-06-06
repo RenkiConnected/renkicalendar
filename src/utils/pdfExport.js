@@ -24,7 +24,9 @@ export async function exportToPDF({ store, employees, schedules, weekDates, shif
       const sh = sched[`${emp.id}_${di}`];
       if (!sh) return { empty: true, isSun: wd.date.getDay()===0 };
       const st = stMap[sh.type] || { label: sh.type, color:'#6366F1', bgColor:'#EEF2FF' };
-      if (sh.hours) totalH += sh.hours;
+      const workTypes2 = ['work','communication','meeting','school'];
+      if (sh.hours && workTypes2.includes(sh.type)) totalH += sh.hours;
+      if (sh.split?.hours && workTypes2.includes(sh.split.type)) totalH += sh.split.hours;
       return { sh, st, isSun: wd.date.getDay()===0 };
     });
     const diff = totalH - (emp.contractHours||35);

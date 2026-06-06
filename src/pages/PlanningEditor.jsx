@@ -260,18 +260,22 @@ function AutoModal({store,emps,weekDates,currentWeek,currentYear,leaveRequests,o
           <div style={{fontFamily:'var(--font-h)',fontWeight:700,fontSize:15,color:'var(--text)',marginBottom:12}}>👥 Aperçu congés approuvés cette semaine</div>
           {emps.map(emp=>{
             const leaves=getEmpLeaves(emp.id);
-            const workDaysCount=weekDates.filter((_,di)=>{
-              const dow=weekDates[di].date.getDay();
+            // Count work days = not Sunday AND not leave day
+            const workDaysCount=weekDates.filter((wd,di)=>{
+              const dow=wd.date.getDay();
               return dow!==0&&!leaves.includes(di);
             }).length;
-            const dailyH=workDaysCount>0?parseFloat((emp.contractHours/5).toFixed(2)):0;
+            // Daily hours = contract hours spread over 5 work days (standard)
+            // but if has leaves this week, daily hours stay the same (contract is weekly)
+            const dailyH=parseFloat((emp.contractHours/5).toFixed(2));
+            const expectedWeekH=parseFloat((workDaysCount*dailyH).toFixed(2));
             return(
               <div key={emp.id} style={{display:'flex',alignItems:'center',gap:10,marginBottom:8,padding:'8px 10px',background:'white',borderRadius:8,border:'1px solid var(--border)'}}>
                 <div style={{width:28,height:28,borderRadius:'50%',background:emp.color||'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,color:'#fff',flexShrink:0}}>{emp.name[0]}</div>
                 <div style={{flex:1}}>
                   <div style={{fontWeight:700,fontSize:14}}>{emp.name}</div>
                   <div style={{fontSize:12,color:'var(--muted)',marginTop:1}}>
-                    Contrat <strong>{emp.contractHours}h</strong>/sem · {workDaysCount} jours travaillés · <strong style={{color:'var(--teal-dark)'}}>{dailyH}h/jour</strong>
+                    Contrat <strong>{emp.contractHours}h</strong>/sem · {workDaysCount} jours · {dailyH}h/j → <strong style={{color:'var(--teal-dark)'}}>{expectedWeekH}h prévues</strong>
                   </div>
                 </div>
                 {leaves.length>0?(
@@ -399,7 +403,19 @@ export default function PlanningEditor(){
   const displayDays=showWknd?weekDates:weekDates.slice(0,6);
 
   const setStore=id=>{ setAS(id); setSelectedStore(id); setBorrowedEmps([]); };
-  const totalH=empId=>{ let t=0; weekDates.forEach((_,i)=>{ const s=schedule[`${empId}_${i}`]; if(s?.hours) t+=s.hours; }); return t; };
+  const totalH=empId=>{
+    let t=0;
+    weekDates.forEach((_,i)=>{
+      const s=schedule[`${empId}_${i}`];
+      if(!s) return;
+      // Only count actual work types (not rest, vacation, holiday)
+      const workTypes=['work','communication','meeting','school'];
+      if(s.hours && workTypes.includes(s.type)) t+=s.hours;
+      // Also count split day hours
+      if(s.split?.hours && workTypes.includes(s.split.type)) t+=s.split.hours;
+    });
+    return parseFloat(t.toFixed(2));
+  };
 
   const handleCell=(empId,dayIdx)=>{
     const dow=weekDates[dayIdx].date.getDay();
@@ -869,8 +885,8 @@ function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDra
                     );
                   })}
                   <td style={{padding:'10px 16px',textAlign:'center'}}>
-                    <div style={{fontFamily:'var(--font-h)',fontWeight:800,fontSize:17,color:diff>3?'#C8002B':diff<-3?'var(--dim)':'var(--teal-dark)'}}>{t.toFixed(1)}h</div>
-                    <div style={{fontSize:11,fontWeight:700,color:diff>0?'#C8002B':'#1A8A42',marginTop:1}}>{diff>0?`+${diff.toFixed(1)}`:diff.toFixed(1)}</div>
+                    <div style={{fontFamily:'var(--font-h)',fontWeight:800,fontSize:17,color:diff>1?'#C8002B':diff<-1?'var(--muted)':'var(--teal-dark)'}}>{t.toFixed(1)}h</div>
+                    <div style={{fontSize:11,fontWeight:700,color:Math.abs(diff)<0.1?'var(--teal-dark)':diff>0?'#C8002B':'#1A8A42',marginTop:1}}>{diff>0?`+${diff.toFixed(1)}`:diff.toFixed(1)}</div>
                   </td>
                 </tr>
               );
