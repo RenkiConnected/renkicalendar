@@ -25,18 +25,18 @@ export default function Nav({ page, setPage, logoUrl }) {
   const NavItem = ({ it, onClick }) => (
     <button onClick={() => { setPage(it.id); onClick?.(); }} style={{
       width: '100%', display: 'flex', alignItems: 'center', gap: 13,
-      padding: '13px 22px',
+      padding: '14px 24px',
       background: page===it.id ? 'linear-gradient(90deg,var(--teal-light),rgba(0,201,177,.03))' : 'transparent',
       border: 'none', cursor: 'pointer',
       color: page===it.id ? 'var(--teal-dark)' : 'var(--muted)',
-      fontFamily: 'var(--font-b)', fontSize: 15, fontWeight: page===it.id ? 700 : 500,
+      fontFamily: 'var(--font-b)', fontSize: 16, fontWeight: page===it.id ? 700 : 500,
       transition: 'all .14s', textAlign: 'left',
       borderLeft: page===it.id ? '3px solid var(--teal)' : '3px solid transparent',
     }}
       onMouseEnter={e => { if (page!==it.id) { e.currentTarget.style.background='var(--card2)'; e.currentTarget.style.color='var(--text)'; } }}
       onMouseLeave={e => { if (page!==it.id) { e.currentTarget.style.background='transparent'; e.currentTarget.style.color='var(--muted)'; } }}
     >
-      <span style={{ fontSize:19, width:22, textAlign:'center', flexShrink:0 }}>{it.icon}</span>
+      <span style={{ fontSize:21, width:26, textAlign:'center', flexShrink:0 }}>{it.icon}</span>
       <span style={{ flex:1 }}>{it.label}</span>
       {it.badge && pending>0 && (
         <span style={{ background:'#C8002B', color:'#fff', borderRadius:10, padding:'2px 8px', fontSize:11, fontWeight:700 }}>{pending}</span>
@@ -46,7 +46,7 @@ export default function Nav({ page, setPage, logoUrl }) {
 
   const SidebarBody = ({ onItemClick }) => (
     <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
-      <div style={{ padding:'20px 20px 14px', borderBottom:'1.5px solid var(--border)' }}>
+      <div style={{ padding:'24px 24px 18px', borderBottom:'1.5px solid var(--border)', background:'linear-gradient(135deg,var(--teal-light) 0%,#fff 100%)' }}>
         <img src={logoUrl||'care-logo.png'} alt="Care"
           style={{ height:38, maxWidth:160, objectFit:'contain', display:'block' }}
           onError={e=>{ e.target.style.display='none'; e.target.nextSibling.style.display='flex'; }}
@@ -55,8 +55,8 @@ export default function Nav({ page, setPage, logoUrl }) {
           <div style={{ width:36,height:36,borderRadius:9,background:'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,color:'#fff' }}>📅</div>
           <span style={{ fontFamily:'var(--font-h)',fontWeight:800,fontSize:15 }}>Care Planning</span>
         </div>
-        <div style={{ marginTop:7,fontSize:12,color:'var(--dim)' }}>
-          Semaine <strong style={{color:'var(--teal-dark)'}}>S{currentWeek}</strong> · 2026
+        <div style={{ marginTop:8,fontSize:13,color:'var(--muted)',fontWeight:500 }}>
+          Semaine <strong style={{color:'var(--teal-dark)',fontSize:15}}>S{currentWeek}</strong> · 2026
         </div>
       </div>
       {isManager && (

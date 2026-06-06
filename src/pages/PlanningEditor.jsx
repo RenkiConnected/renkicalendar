@@ -794,8 +794,8 @@ export default function PlanningEditor(){
       {/* HEADER */}
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:24,flexWrap:'wrap',gap:12}}>
         <div>
-          <h1 className="page-title">📅 Plannings</h1>
-          <p className="page-sub">{store?.name||'—'} · S{currentWeek} · {allDisplayEmps.length} employé(s)</p>
+          <h1 className="page-title" style={{fontSize:34}}>📅 Plannings</h1>
+          <p className="page-sub" style={{fontSize:17}}>{store?.name||'—'} · <strong style={{color:'var(--teal-dark)'}}>S{currentWeek}</strong> · {allDisplayEmps.length} employé(s)</p>
         </div>
         <div style={{display:'flex',gap:9,flexWrap:'wrap',alignItems:'center'}}>
           <WeekNav cw={currentWeek} setCw={setCurrentWeek}/>
@@ -820,7 +820,7 @@ export default function PlanningEditor(){
             background:activeStore===s.id?s.color:'#fff',
             color:activeStore===s.id?'#fff':s.color,
             fontFamily:'var(--font-b)',fontSize:14,fontWeight:activeStore===s.id?700:500,
-            transition:'all .15s',boxShadow:activeStore===s.id?`0 4px 12px ${s.color}45`:'none',
+            transition:'all .22s cubic-bezier(.22,1,.36,1)',boxShadow:activeStore===s.id?`0 6px 18px ${s.color}55`:'none',transform:activeStore===s.id?'translateY(-2px)':'translateY(0)',
           }}>{s.name}</button>
         ))}
       </div>
@@ -1117,23 +1117,60 @@ function OvertimeModal({emp,schedule,weekDates,currentWeek,currentYear,overtimeR
 
 /* ── OVERTIME TOTAL CELL ─────────────────────────────────── */
 function OvertimeTotalCell({t,diff,emp,overtimeRecords,onOvertimeClick}){
-  const pending=Object.values(overtimeRecords||{}).filter(r=>r.empId===emp.id&&r.status!=='paid').reduce((s,r)=>s+(r.extraHours||0),0);
+  // Calcul solde heures supp
+  const allEmpRec = Object.values(overtimeRecords||{}).filter(r=>r.empId===emp.id);
+  const pendingSaved = allEmpRec.filter(r=>r.status!=='paid').reduce((s,r)=>s+(r.extraHours||0),0);
+  const pendingPaid  = allEmpRec.filter(r=>r.status==='paid').reduce((s,r)=>s+(r.extraHours||0),0);
+  const thisWeekExtra = parseFloat(Math.max(0,diff).toFixed(2));
+  const totalSaved    = parseFloat((pendingSaved).toFixed(2));
+
   return(
-    <td style={{padding:'8px 8px',textAlign:'center'}}>
+    <td style={{padding:'6px 6px',textAlign:'center',minWidth:110}}>
       <button onClick={()=>onOvertimeClick(emp.id)} style={{
         background:'none',border:'none',cursor:'pointer',
-        display:'flex',flexDirection:'column',alignItems:'center',gap:2,
-        padding:'4px 6px',borderRadius:10,width:'100%',transition:'all .15s',
+        display:'flex',flexDirection:'column',alignItems:'center',gap:4,
+        padding:'6px 4px',borderRadius:12,width:'100%',
+        transition:'all .18s cubic-bezier(.22,1,.36,1)',
       }}
-        onMouseEnter={e=>e.currentTarget.style.background='var(--card2)'}
-        onMouseLeave={e=>e.currentTarget.style.background='none'}
-        title="Heures supplémentaires"
+        onMouseEnter={e=>{e.currentTarget.style.background='var(--card2)';e.currentTarget.style.transform='scale(1.04)';}}
+        onMouseLeave={e=>{e.currentTarget.style.background='none';e.currentTarget.style.transform='scale(1)';}}
+        title="Cliquer pour gérer les heures supp"
       >
-        <div style={{fontFamily:'var(--font-h)',fontWeight:800,fontSize:16,color:diff>1?'#C8002B':diff<-1?'var(--muted)':'var(--teal-dark)'}}>{t.toFixed(1)}h</div>
-        <div style={{fontSize:11,fontWeight:700,color:Math.abs(diff)<0.1?'var(--teal-dark)':diff>0?'#C8002B':'#1A8A42'}}>{diff>0?`+${diff.toFixed(1)}`:diff.toFixed(1)}</div>
-        {pending>0&&(
-          <div style={{background:'#FFF7E0',color:'#B07D00',border:'1px solid #F5D06A',borderRadius:7,padding:'2px 5px',fontSize:10,fontWeight:700,marginTop:2}}>
-            🕐 +{pending.toFixed(1)}h
+        {/* Heures totales */}
+        <div style={{
+          fontFamily:'var(--font-h)',fontWeight:900,fontSize:18,lineHeight:1,
+          color:diff>0.5?'#C8002B':diff<-0.5?'var(--muted)':'var(--teal-dark)',
+        }}>{t.toFixed(1)}h</div>
+
+        {/* Diff semaine */}
+        <div style={{
+          fontSize:12,fontWeight:800,lineHeight:1,
+          color:Math.abs(diff)<0.1?'var(--teal-dark)':diff>0?'#C8002B':'#1A8A42',
+        }}>{diff>0?'+':''}{diff.toFixed(1)}</div>
+
+        {/* Badge solde accumulé */}
+        {totalSaved>0&&(
+          <div style={{
+            background:'linear-gradient(135deg,#F59E0B,#F97316)',
+            color:'#fff',borderRadius:7,padding:'3px 7px',
+            fontSize:10,fontWeight:800,lineHeight:1.2,
+            display:'flex',alignItems:'center',gap:2,
+            boxShadow:'0 2px 8px rgba(249,115,22,.4)',
+          }}>
+            📅 +{totalSaved.toFixed(1)}h
+          </div>
+        )}
+
+        {/* Cette semaine en extra */}
+        {thisWeekExtra>0&&(
+          <div style={{
+            background:'linear-gradient(135deg,#C8002B,#E53935)',
+            color:'#fff',borderRadius:7,padding:'3px 7px',
+            fontSize:10,fontWeight:800,lineHeight:1.2,
+            display:'flex',alignItems:'center',gap:2,
+            boxShadow:'0 2px 8px rgba(200,0,43,.35)',
+          }}>
+            ⚡ +{thisWeekExtra.toFixed(1)}h
           </div>
         )}
       </button>
@@ -1149,11 +1186,11 @@ function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDra
         <table style={{width:'100%',borderCollapse:'collapse',minWidth:800}}>
           <thead>
             <tr style={{background:'var(--card2)',borderBottom:'2px solid var(--border)'}}>
-              <th style={{padding:'15px 20px',textAlign:'left',fontSize:13,color:'var(--muted)',fontWeight:700,textTransform:'uppercase',letterSpacing:'.05em',width:190}}>Employé</th>
+              <th style={{padding:'16px 22px',textAlign:'left',fontSize:13,color:'var(--muted)',fontWeight:700,textTransform:'uppercase',letterSpacing:'.05em',width:210}}>Employé</th>
               {days.map((wd,i)=>(
                 <th key={i} style={{padding:'13px 8px',textAlign:'center',minWidth:100}}>
-                  <div style={{fontWeight:700,fontSize:15,color:wd.date.getDay()===0?'#C8002B':'var(--text)'}}>{wd.day.slice(0,3)}</div>
-                  <div style={{fontSize:12,color:'var(--dim)',marginTop:2}}>{wd.date.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}</div>
+                  <div style={{fontWeight:800,fontSize:16,color:wd.date.getDay()===0?'#C8002B':'var(--text)'}}>{wd.day.slice(0,3)}</div>
+                  <div style={{fontSize:13,color:'var(--dim)',marginTop:3}}>{wd.date.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}</div>
                 </th>
               ))}
               <th style={{padding:'13px 16px',textAlign:'center',fontSize:13,color:'var(--muted)',fontWeight:700,width:90}}>Total</th>
@@ -1175,7 +1212,7 @@ function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDra
                           {emp.name}
                           {isBorrowed&&<span style={{marginLeft:6,fontSize:10,background:'#FFF7E0',color:'#B07D00',borderRadius:5,padding:'1px 5px',fontWeight:700}}>⚡</span>}
                         </div>
-                        <div style={{fontSize:11,color:'var(--dim)',textTransform:'capitalize'}}>{emp.role} · {c}h</div>
+                        <div style={{fontSize:13,color:'var(--muted)',marginTop:2,textTransform:'capitalize'}}>{emp.role} · {c}h</div>
                       </div>
                     </div>
                   </td>
@@ -1198,7 +1235,7 @@ function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDra
                             style={{
                               background:isDragOver?'var(--teal-light)':st.bgColor,
                               border:`1.5px solid ${isDragOver?'var(--teal)':st.color+'50'}`,
-                              borderRadius:10,padding:'7px 5px',minHeight:60,
+                              borderRadius:12,padding:'9px 6px',minHeight:68,
                               cursor:'pointer',transition:'all .12s',
                               display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:2,
                               userSelect:'none',position:'relative',
@@ -1206,9 +1243,9 @@ function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDra
                             onMouseEnter={e=>{e.currentTarget.style.transform='scale(1.03)';e.currentTarget.style.boxShadow=`0 4px 16px ${st.color}40`;e.currentTarget.style.zIndex='2';}}
                             onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow='none';e.currentTarget.style.zIndex='1';}}
                           >
-                            <span style={{fontSize:11,fontWeight:700,color:isDragOver?'var(--teal-dark)':st.color}}>{st.label}</span>
-                            {sh.startTime&&<span style={{fontSize:10,color:st.color,opacity:.85}}>{sh.startTime}–{sh.endTime}</span>}
-                            {sh.hours>0&&<span style={{fontSize:10,color:st.color,opacity:.7}}>{sh.hours}h</span>}
+                            <span style={{fontSize:12,fontWeight:700,color:isDragOver?'var(--teal-dark)':st.color}}>{st.label}</span>
+                            {sh.startTime&&<span style={{fontSize:11,color:st.color,opacity:.9,fontWeight:600}}>{sh.startTime}–{sh.endTime}</span>}
+                            {sh.hours>0&&<span style={{fontSize:11,color:st.color,opacity:.75,fontWeight:600}}>{sh.hours}h</span>}
                             {sh.split&&(()=>{const st2=getMeta(types,sh.split.type);return(<>
                               <div style={{width:'80%',height:1,background:st.color,opacity:.3,margin:'2px 0'}}/>
                               <span style={{fontSize:10,fontWeight:700,color:st2.color}}>{st2.label}</span>
@@ -1221,7 +1258,7 @@ function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDra
                             onDrop={e=>onDrop(emp.id,ri,e)}
                             onClick={()=>onCell(emp.id,ri)}
                             style={{
-                              minHeight:60,borderRadius:10,
+                              minHeight:68,borderRadius:12,
                               border:`2px dashed ${isDragOver?'var(--teal)':'var(--border)'}`,
                               background:isDragOver?'var(--teal-light)':'transparent',
                               display:'flex',alignItems:'center',justifyContent:'center',
