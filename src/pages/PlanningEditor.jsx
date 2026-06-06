@@ -29,83 +29,169 @@ function addMinutes(time,mins){
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
 function getMeta(types,id){ return types.find(t=>t.id===id)||{label:id,color:'#6366F1',bgColor:'#EEF2FF'}; }
-/* ── SHIFT DETAIL POPUP (mobile tap) ─────────────────────── */
+/* ── SHIFT DETAIL POPUP — desktop + mobile, animated ─────── */
 function ShiftDetailPopup({emp,day,shift,onClose,types,onEdit}){
   if(!shift) return null;
   const st=getMeta(types,shift.type);
   const st2=shift.split?getMeta(types,shift.split.type):null;
+  const isMob=window.innerWidth<=860;
+
+  // Desktop: centered card with fadeUp. Mobile: bottom sheet with slideUp
+  const overlayStyle=isMob?{
+    position:'fixed',inset:0,background:'rgba(27,42,59,.55)',
+    backdropFilter:'blur(8px)',zIndex:400,
+    display:'flex',alignItems:'flex-end',justifyContent:'center',
+  }:{
+    position:'fixed',inset:0,background:'rgba(27,42,59,.45)',
+    backdropFilter:'blur(8px)',zIndex:400,
+    display:'flex',alignItems:'center',justifyContent:'center',
+    padding:'20px',
+  };
+
+  const cardStyle=isMob?{
+    background:'#fff',borderRadius:'24px 24px 0 0',
+    width:'100%',maxWidth:520,
+    padding:'8px 22px 40px',
+    boxShadow:'0 -12px 60px rgba(0,0,0,.25)',
+    animation:'slideUp .28s cubic-bezier(.32,0,.67,0) forwards',
+  }:{
+    background:'#fff',borderRadius:22,
+    width:'100%',maxWidth:480,
+    padding:'28px 32px',
+    boxShadow:'0 24px 80px rgba(0,0,0,.22)',
+    animation:'popIn .25s cubic-bezier(.34,1.56,.64,1) forwards',
+  };
+
   return(
-    <div className="overlay" onClick={onClose} style={{alignItems:'flex-end',padding:0}}>
-      <div onClick={e=>e.stopPropagation()} style={{
-        background:'#fff',borderRadius:'20px 20px 0 0',
-        width:'100%',maxWidth:480,margin:'0 auto',
-        padding:'20px 20px 32px',
-        boxShadow:'0 -8px 40px rgba(0,0,0,.2)',
-        animation:'slideUp .25s ease',
-      }}>
-        {/* Handle bar */}
-        <div style={{width:36,height:4,background:'#E2EBF0',borderRadius:2,margin:'0 auto 18px'}}/>
+    <div style={overlayStyle} onClick={onClose}>
+      <div style={cardStyle} onClick={e=>e.stopPropagation()}>
+        {/* Handle (mobile only) */}
+        {isMob&&<div style={{width:38,height:4,background:'#E2EBF0',borderRadius:2,margin:'12px auto 20px'}}/>}
+
+        {/* Header: day info */}
+        <div style={{
+          background:`linear-gradient(135deg,${st.bgColor},${st.bgColor}cc)`,
+          borderRadius:14,padding:'14px 16px',marginBottom:16,
+          border:`1.5px solid ${st.color}30`,
+          display:'flex',alignItems:'center',justifyContent:'space-between',
+        }}>
+          <div>
+            <div style={{fontSize:13,fontWeight:700,color:st.color,textTransform:'capitalize',letterSpacing:'.04em'}}>
+              {day.day}
+            </div>
+            <div style={{fontSize:20,fontWeight:800,color:'var(--text)',marginTop:2}}>
+              {day.date.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}
+            </div>
+          </div>
+          <button onClick={onClose} style={{background:'rgba(0,0,0,.06)',border:'none',borderRadius:50,width:32,height:32,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,color:'var(--muted)'}}>✕</button>
+        </div>
 
         {/* Employee */}
-        <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:18}}>
-          <div style={{width:44,height:44,borderRadius:'50%',background:emp.color||'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,color:'#fff',fontSize:18,flexShrink:0}}>
+        <div style={{display:'flex',alignItems:'center',gap:13,marginBottom:18,padding:'12px 14px',background:'var(--card2)',borderRadius:12,border:'1px solid var(--border)'}}>
+          <div style={{width:46,height:46,borderRadius:'50%',background:emp.color||'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,color:'#fff',fontSize:19,flexShrink:0,boxShadow:`0 4px 12px ${emp.color||'var(--teal)'}55`}}>
             {emp.name[0]}
           </div>
           <div>
-            <div style={{fontWeight:800,fontSize:18,color:'var(--text)'}}>{emp.name}</div>
-            <div style={{fontSize:13,color:'var(--muted)',marginTop:2}}>
-              {day.day} {day.date.toLocaleDateString('fr-FR',{day:'numeric',month:'long'})}
-            </div>
+            <div style={{fontWeight:800,fontSize:17,color:'var(--text)'}}>{emp.name}</div>
+            <div style={{fontSize:12,color:'var(--muted)',marginTop:2,textTransform:'capitalize'}}>{emp.role} · {emp.contractHours}h/sem</div>
           </div>
         </div>
 
-        {/* Main shift */}
-        <div style={{background:st.bgColor,border:`2px solid ${st.color}50`,borderRadius:14,padding:'16px 18px',marginBottom:st2?10:16}}>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
-            <span style={{fontWeight:800,fontSize:18,color:st.color}}>{st.label}</span>
-            {shift.hours>0&&<span style={{fontWeight:700,fontSize:20,color:st.color}}>{shift.hours}h</span>}
-          </div>
-          {shift.startTime&&(
+        {/* Main shift block */}
+        <div style={{background:st.bgColor,border:`2px solid ${st.color}40`,borderRadius:16,padding:'18px 20px',marginBottom:st2?10:18}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
             <div style={{display:'flex',alignItems:'center',gap:8}}>
-              <span style={{fontSize:15,color:st.color,opacity:.9}}>🕐 {shift.startTime}</span>
-              <span style={{color:st.color,opacity:.5}}>→</span>
-              <span style={{fontSize:15,color:st.color,opacity:.9}}>{shift.endTime}</span>
-              {shift.breakH>0&&<span style={{fontSize:13,color:st.color,opacity:.6}}>(-{shift.breakH}h pause)</span>}
+              <div style={{width:10,height:10,borderRadius:'50%',background:st.color}}/>
+              <span style={{fontWeight:800,fontSize:19,color:st.color}}>{st.label}</span>
             </div>
+            {(shift.hours||0)>0&&(
+              <div style={{background:st.color,color:'#fff',borderRadius:20,padding:'5px 14px',fontWeight:800,fontSize:18}}>
+                {shift.hours}h
+              </div>
+            )}
+          </div>
+          {shift.startTime?(
+            <div style={{display:'flex',alignItems:'center',gap:0,background:'rgba(255,255,255,.6)',borderRadius:10,padding:'10px 14px'}}>
+              <div style={{textAlign:'center',flex:1}}>
+                <div style={{fontSize:11,fontWeight:700,color:st.color,opacity:.7,textTransform:'uppercase',letterSpacing:'.06em'}}>Début</div>
+                <div style={{fontSize:26,fontWeight:900,color:st.color,letterSpacing:'-1px'}}>{shift.startTime}</div>
+              </div>
+              <div style={{fontSize:22,color:st.color,opacity:.4,padding:'0 8px'}}>→</div>
+              <div style={{textAlign:'center',flex:1}}>
+                <div style={{fontSize:11,fontWeight:700,color:st.color,opacity:.7,textTransform:'uppercase',letterSpacing:'.06em'}}>Fin</div>
+                <div style={{fontSize:26,fontWeight:900,color:st.color,letterSpacing:'-1px'}}>{shift.endTime}</div>
+              </div>
+              {(shift.breakH||0)>0&&(
+                <div style={{textAlign:'center',flex:1,borderLeft:`1px solid ${st.color}25`,paddingLeft:8}}>
+                  <div style={{fontSize:11,fontWeight:700,color:st.color,opacity:.7,textTransform:'uppercase',letterSpacing:'.06em'}}>Pause</div>
+                  <div style={{fontSize:20,fontWeight:800,color:st.color}}>{shift.breakH}h</div>
+                </div>
+              )}
+            </div>
+          ):(
+            <div style={{textAlign:'center',padding:'6px 0',fontSize:15,color:st.color,fontWeight:600,opacity:.8}}>Journée complète</div>
           )}
-          {shift.note&&<div style={{marginTop:8,fontSize:13,color:st.color,opacity:.7,fontStyle:'italic'}}>💬 {shift.note}</div>}
-          {shift.depannage&&<div style={{marginTop:6,fontSize:12,color:'#D05B00',fontWeight:600}}>⚡ Dépannage</div>}
+          {shift.note&&<div style={{marginTop:10,fontSize:13,color:st.color,opacity:.75,fontStyle:'italic',display:'flex',gap:6,alignItems:'center'}}>
+            <span>💬</span>{shift.note}
+          </div>}
+          {shift.depannage&&<div style={{marginTop:8,fontSize:12,background:'#FFF7E0',color:'#D05B00',borderRadius:7,padding:'4px 10px',display:'inline-block',fontWeight:700}}>⚡ Dépannage</div>}
         </div>
 
         {/* Split shift */}
         {st2&&shift.split&&(
-          <div style={{background:st2.bgColor,border:`2px solid ${st2.color}50`,borderRadius:14,padding:'16px 18px',marginBottom:16}}>
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
-              <span style={{fontWeight:800,fontSize:18,color:st2.color}}>{st2.label}</span>
-              {shift.split.hours>0&&<span style={{fontWeight:700,fontSize:20,color:st2.color}}>{shift.split.hours}h</span>}
+          <div style={{background:st2.bgColor,border:`2px solid ${st2.color}40`,borderRadius:16,padding:'18px 20px',marginBottom:18}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <div style={{width:10,height:10,borderRadius:'50%',background:st2.color}}/>
+                <span style={{fontWeight:800,fontSize:19,color:st2.color}}>{st2.label}</span>
+              </div>
+              {(shift.split.hours||0)>0&&(
+                <div style={{background:st2.color,color:'#fff',borderRadius:20,padding:'5px 14px',fontWeight:800,fontSize:18}}>
+                  {shift.split.hours}h
+                </div>
+              )}
             </div>
             {shift.split.startTime&&(
-              <div style={{display:'flex',alignItems:'center',gap:8}}>
-                <span style={{fontSize:15,color:st2.color,opacity:.9}}>🕐 {shift.split.startTime}</span>
-                <span style={{color:st2.color,opacity:.5}}>→</span>
-                <span style={{fontSize:15,color:st2.color,opacity:.9}}>{shift.split.endTime}</span>
+              <div style={{display:'flex',alignItems:'center',gap:0,background:'rgba(255,255,255,.6)',borderRadius:10,padding:'10px 14px'}}>
+                <div style={{textAlign:'center',flex:1}}>
+                  <div style={{fontSize:11,fontWeight:700,color:st2.color,opacity:.7,textTransform:'uppercase',letterSpacing:'.06em'}}>Début</div>
+                  <div style={{fontSize:26,fontWeight:900,color:st2.color,letterSpacing:'-1px'}}>{shift.split.startTime}</div>
+                </div>
+                <div style={{fontSize:22,color:st2.color,opacity:.4,padding:'0 8px'}}>→</div>
+                <div style={{textAlign:'center',flex:1}}>
+                  <div style={{fontSize:11,fontWeight:700,color:st2.color,opacity:.7,textTransform:'uppercase',letterSpacing:'.06em'}}>Fin</div>
+                  <div style={{fontSize:26,fontWeight:900,color:st2.color,letterSpacing:'-1px'}}>{shift.split.endTime}</div>
+                </div>
               </div>
             )}
-            {shift.split.note&&<div style={{marginTop:8,fontSize:13,color:st2.color,opacity:.7,fontStyle:'italic'}}>💬 {shift.split.note}</div>}
+            {shift.split.note&&<div style={{marginTop:10,fontSize:13,color:st2.color,opacity:.75,fontStyle:'italic',display:'flex',gap:6,alignItems:'center'}}>
+              <span>💬</span>{shift.split.note}
+            </div>}
           </div>
         )}
 
+        {/* Actions */}
         <div style={{display:'flex',gap:10}}>
-          <button className="btn btn-primary" style={{flex:1,justifyContent:'center',padding:'14px',fontSize:15}}
+          <button className="btn btn-primary" style={{flex:1,justifyContent:'center',padding:'14px',fontSize:16,borderRadius:12,fontWeight:700}}
             onClick={onEdit}>
             ✏️ Modifier
           </button>
-          <button className="btn btn-ghost" style={{padding:'14px 18px',fontSize:15}} onClick={onClose}>
+          <button className="btn btn-ghost" style={{padding:'14px 20px',fontSize:16,borderRadius:12}} onClick={onClose}>
             Fermer
           </button>
         </div>
       </div>
-      <style>{`@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}`}</style>
+
+      <style>{`
+        @keyframes slideUp {
+          from { transform: translateY(100%); opacity:0; }
+          to   { transform: translateY(0);    opacity:1; }
+        }
+        @keyframes popIn {
+          from { transform: scale(.88) translateY(12px); opacity:0; }
+          to   { transform: scale(1)   translateY(0);    opacity:1; }
+        }
+      `}</style>
     </div>
   );
 }
@@ -515,12 +601,12 @@ export default function PlanningEditor(){
   const handleCell=(empId,dayIdx,forceEdit=false)=>{
     const dow=weekDates[dayIdx].date.getDay();
     if(!showWknd&&dow===0){ setConfirmWknd({empId,dayIdx}); return; }
-    // On mobile: if shift exists, show detail popup first; if no shift, go straight to edit
     const sh=schedule[`${empId}_${dayIdx}`];
-    const isMobile=window.innerWidth<=860;
-    if(isMobile&&sh&&!forceEdit){
+    // If shift exists AND not forced edit → show detail popup (all devices)
+    if(sh && !forceEdit){
       setDetailPopup({empId,dayIdx});
     } else {
+      // Empty cell → go straight to edit
       setEditCell({empId,dayIdx});
     }
   };
@@ -963,17 +1049,19 @@ function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDra
                         {sh?(
                           <div
                             draggable
-                            onClick={()=>onCell(emp.id,ri)}
                             onDragStart={e=>onDragStart(emp.id,ri,e)}
                             onDragEnd={onDragEnd}
+                            onClick={()=>onCell(emp.id,ri)}
                             style={{
                               background:isDragOver?'var(--teal-light)':st.bgColor,
                               border:`1.5px solid ${isDragOver?'var(--teal)':st.color+'50'}`,
                               borderRadius:10,padding:'7px 5px',minHeight:60,
-                              cursor:'grab',transition:'background .12s,border .12s',
+                              cursor:'pointer',transition:'all .12s',
                               display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:2,
-                              userSelect:'none',
+                              userSelect:'none',position:'relative',
                             }}
+                            onMouseEnter={e=>{e.currentTarget.style.transform='scale(1.03)';e.currentTarget.style.boxShadow=`0 4px 16px ${st.color}40`;e.currentTarget.style.zIndex='2';}}
+                            onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow='none';e.currentTarget.style.zIndex='1';}}
                           >
                             <span style={{fontSize:11,fontWeight:700,color:isDragOver?'var(--teal-dark)':st.color}}>{st.label}</span>
                             {sh.startTime&&<span style={{fontSize:10,color:st.color,opacity:.85}}>{sh.startTime}–{sh.endTime}</span>}
@@ -1043,10 +1131,12 @@ function DayView({emps,day,dayIdx,sched,types,onCell,onDragStart,onDragOver,onDr
               className="card"
               style={{
                 display:'flex',alignItems:'center',gap:16,padding:'15px 22px',
-                cursor:sh?'grab':'pointer',transition:'all .15s',
+                cursor:'pointer',transition:'all .15s',
                 background:isDragOver?'var(--teal-light)':sh?st.bgColor:'#fff',
                 borderLeft:isDragOver?'5px solid var(--teal)':sh?`5px solid ${st.color}`:'5px solid var(--border)',
               }}
+              onMouseEnter={e=>{if(sh){e.currentTarget.style.transform='translateX(4px)';e.currentTarget.style.boxShadow=`0 4px 20px ${st.color}35`;}}}
+              onMouseLeave={e=>{e.currentTarget.style.transform='translateX(0)';e.currentTarget.style.boxShadow='none';}}
             >
               <div style={{width:42,height:42,borderRadius:'50%',background:emp.color||'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,color:'#fff',fontSize:17,flexShrink:0}}>{emp.name[0]}</div>
               <div style={{flex:1}}>
