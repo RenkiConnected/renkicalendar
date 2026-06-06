@@ -262,16 +262,16 @@ export async function exportToPDF({ store, employees, schedules, weekDates, shif
             </td>
             ${cells.map(cell => {
               if (cell.empty) return `<td class="shift-cell${cell.isSun?' sun-cell':''}"><div class="empty-cell">—</div></td>`;
-              const { sh, st, isSun } = cell;
+              const { sh, st, st2, isSun } = cell;
               return `<td class="shift-cell${isSun?' sun-cell':''}">
-                <div class="shift-pill" style="background:${st.bgColor};border:1.5px solid ${st.color}40;${st2?'padding-bottom:4px;':''}" >
+                <div class="shift-pill" style="background:${st.bgColor};border:1.5px solid ${st.color}40;${st2?'padding-bottom:4px;':''}">
                   <span class="shift-label" style="color:${st.color};">${st.label}</span>
                   ${sh.startTime ? `<span class="shift-time" style="color:${st.color};">${sh.startTime}–${sh.endTime}</span>` : ''}
                   ${sh.hours > 0 ? `<span class="shift-hours" style="color:${st.color};">${sh.hours}h</span>` : ''}
                   ${st2 ? `<div style="width:70%;height:1px;background:${st.color};opacity:.25;margin:3px auto;"></div>
                   <span class="shift-label" style="color:${st2.color};font-size:11px;">${st2.label}</span>
-                  ${sh.split.startTime ? `<span class="shift-time" style="color:${st2.color};">${sh.split.startTime}–${sh.split.endTime}</span>` : ''}
-                  ${(sh.split.hours||0) > 0 ? `<span class="shift-hours" style="color:${st2.color};">${sh.split.hours}h</span>` : ''}` : ''}
+                  ${sh.split && sh.split.startTime ? `<span class="shift-time" style="color:${st2.color};">${sh.split.startTime}–${sh.split.endTime}</span>` : ''}
+                  ${(sh.split && sh.split.hours||0) > 0 ? `<span class="shift-hours" style="color:${st2.color};">${sh.split.hours}h</span>` : ''}` : ''}
                 </div>
               </td>`;
             }).join('')}
