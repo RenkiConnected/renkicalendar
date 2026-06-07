@@ -169,8 +169,19 @@ export default function PublicPlanning({ onLogin }) {
 
   const weekDates = getWeekDatesForCurrentWeek(currentWeek);
   const store = stores.find(s => s.id === activeStore);
-  const storeEmps = employees.filter(e => e.storeId === activeStore);
   const sched = schedules[`${activeStore}_${currentYear}_W${currentWeek}`] || {};
+  const homeEmps = employees.filter(e => e.storeId === activeStore);
+  // Visitors: employees from other stores who have a shift here this week
+  const visitorEmps = employees.filter(e => {
+    if (e.storeId === activeStore) return false;
+    const wt = ['work','communication','meeting'];
+    for (let di=0; di<7; di++) {
+      const sh = sched[`${e.id}_${di}`];
+      if (sh && wt.includes(sh.type)) return true;
+    }
+    return false;
+  });
+  const storeEmps = [...homeEmps, ...visitorEmps];
   const getMeta = id => shiftTypes.find(s => s.id === id) || { label:id, color:'#6366F1', bgColor:'#EEF2FF' };
   const startDate = weekDates[0]?.date.toLocaleDateString('fr-FR',{day:'numeric',month:'long'});
   const endDate   = weekDates[6]?.date.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
@@ -248,7 +259,13 @@ export default function PublicPlanning({ onLogin }) {
                     {emp.name[0]}
                   </div>
                   <div style={{ flex:1 }}>
-                    <div style={{ fontWeight:700, fontSize:15 }}>{emp.name}</div>
+                    <div style={{ fontWeight:700, fontSize:15, display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+                      {emp.name}
+                      {emp.storeId!==activeStore&&(()=>{
+                        const hs=stores.find(s=>s.id===emp.storeId);
+                        return <span style={{fontSize:10,fontWeight:700,color:hs?.color||'#B07D00',background:`${hs?.color||'#B07D00'}1A`,border:`1px solid ${hs?.color||'#B07D00'}55`,borderRadius:5,padding:'2px 7px'}}>✈ {hs?.name||'renfort'}</span>;
+                      })()}
+                    </div>
                     <div style={{ fontSize:13, color:'var(--dim)', textTransform:'capitalize' }}>{emp.role} · {emp.contractHours}h/sem</div>
                   </div>
                   <div style={{ textAlign:'right' }}>

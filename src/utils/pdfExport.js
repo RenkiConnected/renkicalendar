@@ -13,7 +13,7 @@ function fmtH(decimalHours){
   return m===0 ? `${h}h` : `${h}h${String(m).padStart(2,'0')}`;
 }
 
-export async function exportToPDF({ store, employees, schedules, weekDates, shiftTypes, currentWeek, currentYear, logoDataUrl }) {
+export async function exportToPDF({ store, employees, schedules, weekDates, shiftTypes, currentWeek, currentYear, logoDataUrl, allStores }) {
 
   const schedKey = `${store.id}_${currentYear}_W${currentWeek}`;
   const sched = schedules[schedKey] || {};
@@ -249,16 +249,16 @@ tbody tr:nth-child(even) td{background:#FAFCFC}
         </tr>
       </thead>
       <tbody>
-        ${rows.map(({emp,cells,totalH,diff}) => `
-          <tr>
+        ${rows.map(({emp,cells,totalH,diff,isVisitor,homeStore}) => `
+          <tr${isVisitor?' style="background:#FFFDF0;"':''}>
             <td class="ec">
               <span class="av" style="background:${emp.color||storeColor}">${emp.name[0]}</span>
-              <span class="en">${emp.name}<span class="es">${emp.role} · ${emp.contractHours}h/Sem</span></span>
+              <span class="en">${emp.name}${isVisitor?`<span style="margin-left:6px;font-size:10px;font-weight:700;color:${homeStore?.color||'#B07D00'};background:${homeStore?.color||'#B07D00'}1A;border:1px solid ${homeStore?.color||'#B07D00'}55;border-radius:5px;padding:1px 6px;white-space:nowrap;">✈ ${homeStore?.name||'renfort'}</span>`:''}<span class="es">${emp.role} · ${emp.contractHours}h/Sem</span></span>
             </td>
             ${cells.map(c => cellHTML(c)).join('')}
             <td class="tot">
               <div class="tot-h ${Math.abs(diff)<0.2?'c-ok':diff>0?'c-over':'c-under'}">${fmtH(totalH)}</div>
-              <div class="tot-d ${Math.abs(diff)<0.2?'c-ok':diff>0?'c-over':'c-under'}">${diff>0?'+':''}${diff.toFixed(1)}</div>
+              <div class="tot-d ${Math.abs(diff)<0.2?'c-ok':diff>0?'c-over':'c-under'}">${diff>0?'+':diff<0?'-':''}${fmtH(Math.abs(diff))}</div>
             </td>
           </tr>`).join('')}
       </tbody>
@@ -288,7 +288,7 @@ tbody tr:nth-child(even) td{background:#FAFCFC}
   setTimeout(() => URL.revokeObjectURL(url), 120000);
 }
 
-export async function exportToNotion({ store, employees, schedules, weekDates, shiftTypes, currentWeek, currentYear, logoDataUrl }) {
+export async function exportToNotion({ store, employees, schedules, weekDates, shiftTypes, currentWeek, currentYear, logoDataUrl, allStores }) {
   const schedKey = `${store.id}_${currentYear}_W${currentWeek}`;
   const sched = schedules[schedKey] || {};
   const storeColor = store.color || '#00C9B1';
@@ -312,7 +312,9 @@ export async function exportToNotion({ store, employees, schedules, weekDates, s
       return { sh, st, st2, isSun:wd.date.getDay()===0 };
     });
     const diff = totalH - (emp.contractHours||35);
-    return { emp, cells, totalH, diff };
+    const isVisitor = emp.storeId !== store.id;
+    const homeStore = isVisitor && allStores ? allStores.find(s=>s.id===emp.storeId) : null;
+    return { emp, cells, totalH, diff, isVisitor, homeStore };
   });
 
   // Build an off-screen styled DOM node
@@ -359,13 +361,13 @@ export async function exportToNotion({ store, employees, schedules, weekDates, s
           </tr>
         </thead>
         <tbody>
-          ${rows.map(({emp,cells,totalH,diff},ei)=>`
-            <tr style="background:${ei%2===0?'#fff':'#FAFCFC'};border-bottom:1px solid #F0F5F7;">
+          ${rows.map(({emp,cells,totalH,diff,isVisitor,homeStore},ei)=>`
+            <tr style="background:${isVisitor?'#FFFDF0':(ei%2===0?'#fff':'#FAFCFC')};border-bottom:1px solid #F0F5F7;">
               <td style="padding:12px 18px;">
                 <div style="display:flex;align-items:center;gap:11px;">
                   <div style="width:38px;height:38px;border-radius:50%;background:${emp.color||storeColor};display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:16px;flex-shrink:0;">${emp.name[0]}</div>
                   <div>
-                    <div style="font-weight:700;font-size:15px;color:#1B2A3B;">${emp.name}</div>
+                    <div style="font-weight:700;font-size:15px;color:#1B2A3B;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">${emp.name}${isVisitor?`<span style="font-size:10px;font-weight:700;color:${homeStore?.color||'#B07D00'};background:${homeStore?.color||'#B07D00'}1A;border:1px solid ${homeStore?.color||'#B07D00'}55;border-radius:5px;padding:2px 7px;">✈ ${homeStore?.name||'renfort'}</span>`:''}</div>
                     <div style="font-size:12px;color:#9EBBCA;text-transform:capitalize;margin-top:1px;">${emp.role} · ${emp.contractHours}h</div>
                   </div>
                 </div>
