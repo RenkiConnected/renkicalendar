@@ -601,7 +601,26 @@ export default function PlanningEditor(){
 
   const store=stores.find(s=>s.id===activeStore);
   const storeEmps=employees.filter(e=>e.storeId===activeStore);
-  const extraEmps=borrowedEmps.map(id=>employees.find(e=>e.id===id)).filter(Boolean);
+  const manualExtra=borrowedEmps.map(id=>employees.find(e=>e.id===id)).filter(Boolean);
+
+  // AUTO-detect visitors: employees from OTHER stores who have a real shift in THIS store this week
+  const autoVisitors = React.useMemo(()=>{
+    const ownSched=getSchedule(activeStore,currentWeek,currentYear);
+    const visitorIds=new Set();
+    employees.forEach(e=>{
+      if(e.storeId===activeStore) return; // already a home employee
+      // does this foreign employee have any shift in the active store this week?
+      for(let di=0;di<7;di++){
+        const sh=ownSched[`${e.id}_${di}`];
+        if(sh && (sh.type==='work'||sh.type==='communication'||sh.type==='meeting')){
+          visitorIds.add(e.id); break;
+        }
+      }
+    });
+    return employees.filter(e=>visitorIds.has(e.id));
+  },[employees,activeStore,currentWeek,currentYear,schedules]);
+
+  const extraEmps=[...manualExtra,...autoVisitors.filter(v=>!manualExtra.find(m=>m.id===v.id))];
   const allDisplayEmps=[...storeEmps,...extraEmps.filter(e=>!storeEmps.find(s=>s.id===e.id))];
 
   // ── LEAVE ALERTS for current week ────────────────────────────
@@ -1054,7 +1073,7 @@ export default function PlanningEditor(){
             sched={schedule} types={shiftTypes} onCell={handleCell} totalH={totalH}
             onDragStart={handleDragStart} onDragOver={handleDragOver}
             onDrop={handleDrop} onDragEnd={handleDragEnd}
-            dragOver={dragOver} extraEmpIds={extraEmps.map(e=>e.id)}
+            dragOver={dragOver} extraEmpIds={extraEmps.map(e=>e.id)} allStores={stores} activeStoreId={activeStore}
             overtimeRecords={overtimeRecords} onOvertimeClick={(empId)=>setOvertimeModal({empId})}
             clipboard={clipboard} onCopyShift={handleCopyShift} onPasteShift={handlePasteShift}
           />
@@ -1371,7 +1390,7 @@ function OvertimeTotalCell({t,diff,emp,overtimeRecords,onOvertimeClick}){
 }
 
 /* ── WEEK VIEW ────────────────────────────────────────────── */
-function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDragOver,onDrop,onDragEnd,dragOver,extraEmpIds,overtimeRecords,onOvertimeClick,clipboard,onCopyShift,onPasteShift}){
+function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDragOver,onDrop,onDragEnd,dragOver,extraEmpIds,overtimeRecords,onOvertimeClick,clipboard,onCopyShift,onPasteShift,allStores,activeStoreId}){
   return(
     <div className="card" style={{overflow:'hidden'}}>
       <div style={{overflowX:'auto'}}>
@@ -1400,9 +1419,14 @@ function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDra
                         {emp.name[0]}
                       </div>
                       <div>
-                        <div style={{fontWeight:700,fontSize:14}}>
+                        <div style={{fontWeight:700,fontSize:14,display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
                           {emp.name}
-                          {isBorrowed&&<span style={{marginLeft:6,fontSize:10,background:'#FFF7E0',color:'#B07D00',borderRadius:5,padding:'1px 5px',fontWeight:700}}>⚡</span>}
+                          {isBorrowed&&(()=>{
+                            const homeStore=allStores?.find(s=>s.id===emp.storeId);
+                            return <span style={{fontSize:10,background:`${homeStore?.color||'#B07D00'}1A`,color:homeStore?.color||'#B07D00',border:`1px solid ${homeStore?.color||'#B07D00'}55`,borderRadius:6,padding:'2px 7px',fontWeight:700,whiteSpace:'nowrap'}}>
+                              ✈ vient de {homeStore?.name||'autre magasin'}
+                            </span>;
+                          })()}
                         </div>
                         <div style={{fontSize:13,color:'var(--muted)',marginTop:2,textTransform:'capitalize'}}>{emp.role} · {c}h</div>
                       </div>
