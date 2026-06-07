@@ -31,6 +31,14 @@ function addMinutes(time,mins){
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
 function getMeta(types,id){ return types.find(t=>t.id===id)||{label:id,color:'#6366F1',bgColor:'#EEF2FF'}; }
+// Format decimal hours to human "7h20" / "7h" / "7h30" format (clearer than 7.33h)
+function fmtH(decimalHours){
+  if(decimalHours==null||isNaN(decimalHours)) return '0h';
+  const totalMin=Math.round(decimalHours*60);
+  const h=Math.floor(totalMin/60);
+  const m=totalMin%60;
+  return m===0 ? `${h}h` : `${h}h${String(m).padStart(2,'0')}`;
+}
 /* ── SHIFT DETAIL POPUP — desktop + mobile, animated ─────── */
 function ShiftDetailPopup({emp,day,shift,onClose,types,onEdit}){
   if(!shift) return null;
@@ -110,7 +118,7 @@ function ShiftDetailPopup({emp,day,shift,onClose,types,onEdit}){
             </div>
             {(shift.hours||0)>0&&(
               <div style={{background:st.color,color:'#fff',borderRadius:20,padding:'5px 14px',fontWeight:800,fontSize:18}}>
-                {shift.hours}h
+                {fmtH(shift.hours)}
               </div>
             )}
           </div>
@@ -302,7 +310,7 @@ function ShiftModal({emp,dayIdx,day,shift,onSave,onDelete,onClose,types}){
                 </select>
               </div>
             </div>
-            {h1>0&&<div style={{background:'var(--teal-light)',borderRadius:10,padding:'12px 16px',marginBottom:12,fontSize:16,color:'var(--teal-dark)',fontWeight:700,border:'1.5px solid var(--teal-mid)'}}>⏱ {h1.toFixed(2)}h</div>}
+            {h1>0&&<div style={{background:'var(--teal-light)',borderRadius:10,padding:'12px 16px',marginBottom:12,fontSize:16,color:'var(--teal-dark)',fontWeight:700,border:'1.5px solid var(--teal-mid)'}}>⏱ {fmtH(h1)}</div>}
           </>}
           <div style={{marginBottom:4}}><div className="lbl">Note</div><input className="inp" type="text" placeholder="Remarque..." value={note} onChange={ev=>setNote(ev.target.value)}/></div>
         </div>
@@ -335,7 +343,7 @@ function ShiftModal({emp,dayIdx,day,shift,onSave,onDelete,onClose,types}){
                   </select>
                 </div>
               </div>
-              {h2>0&&<div style={{background:'rgba(208,91,0,.08)',borderRadius:8,padding:'7px 12px',marginBottom:8,fontSize:13,color:'#D05B00',fontWeight:600}}>⏱ {h2.toFixed(2)}h</div>}
+              {h2>0&&<div style={{background:'rgba(208,91,0,.08)',borderRadius:8,padding:'7px 12px',marginBottom:8,fontSize:13,color:'#D05B00',fontWeight:600}}>⏱ {fmtH(h2)}</div>}
             </>}
             <div><div className="lbl">Note</div><input className="inp" type="text" placeholder="Remarque..." value={note2} onChange={ev=>setNote2(ev.target.value)}/></div>
           </div>
@@ -1064,9 +1072,9 @@ function OvertimeModal({emp,schedule,weekDates,currentWeek,currentYear,overtimeR
         </div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:14,marginBottom:24}}>
           {[
-            {l:'Travaillé',v:`${workedH.toFixed(1)}h`,s:`S${currentWeek}`,bg:'var(--teal-light)',b:'var(--teal-mid)',c:'var(--teal-dark)'},
-            {l:'Supp. sem.',v:`${thisWeekExtra>0?'+':''}${thisWeekExtra.toFixed(1)}h`,s:'vs contrat',bg:thisWeekExtra>0?'#E8FAF0':'var(--card2)',b:thisWeekExtra>0?'var(--teal-mid)':'var(--border)',c:thisWeekExtra>0?'#1A8A42':'var(--dim)'},
-            {l:'Solde total',v:`+${pendingTotal.toFixed(1)}h`,s:'à régulariser',bg:pendingTotal>0?'#FFF7E0':'var(--card2)',b:pendingTotal>0?'#F5D06A':'var(--border)',c:pendingTotal>0?'#B07D00':'var(--dim)'},
+            {l:'Travaillé',v:fmtH(workedH),s:`S${currentWeek}`,bg:'var(--teal-light)',b:'var(--teal-mid)',c:'var(--teal-dark)'},
+            {l:'Supp. sem.',v:`${thisWeekExtra>0?'+':''}${fmtH(thisWeekExtra)}`,s:'vs contrat',bg:thisWeekExtra>0?'#E8FAF0':'var(--card2)',b:thisWeekExtra>0?'var(--teal-mid)':'var(--border)',c:thisWeekExtra>0?'#1A8A42':'var(--dim)'},
+            {l:'Solde total',v:`+${fmtH(pendingTotal)}`,s:'à régulariser',bg:pendingTotal>0?'#FFF7E0':'var(--card2)',b:pendingTotal>0?'#F5D06A':'var(--border)',c:pendingTotal>0?'#B07D00':'var(--dim)'},
           ].map((s,i)=>(
             <div key={i} style={{background:s.bg,border:`2px solid ${s.b}`,borderRadius:14,padding:'16px 12px',textAlign:'center'}}>
               <div style={{fontSize:12,fontWeight:700,color:s.c,textTransform:'uppercase',letterSpacing:'.05em',marginBottom:6}}>{s.l}</div>
@@ -1088,7 +1096,7 @@ function OvertimeModal({emp,schedule,weekDates,currentWeek,currentYear,overtimeR
                       <div style={{fontWeight:700,fontSize:17}}>{MONTHS[r.month-1]} {r.year}</div>
                       <div style={{fontSize:14,color:'var(--muted)',marginTop:2}}>{r.weeks?.length||0} sem. · {r.status==='paid'?'✅ Validé en heures supp':'⏳ En attente'}</div>
                     </div>
-                    <div className="num" style={{fontFamily:'var(--font-b)',fontWeight:800,fontSize:24,color:r.status==='paid'?'#1A8A42':'#B07D00',marginRight:6}}>+{(r.extraHours||0).toFixed(1)}h</div>
+                    <div className="num" style={{fontFamily:'var(--font-b)',fontWeight:800,fontSize:24,color:r.status==='paid'?'#1A8A42':'#B07D00',marginRight:6}}>+{fmtH(r.extraHours||0)}</div>
                     {isManager&&(
                       <div style={{display:'flex',gap:6,flexShrink:0}}>
                         {r.status!=='paid'&&(r.extraHours||0)>0&&(
@@ -1142,7 +1150,7 @@ function OvertimeModal({emp,schedule,weekDates,currentWeek,currentYear,overtimeR
         {payMonth&&(
           <div style={{background:'#E8FAF0',borderRadius:13,padding:'16px 18px',border:'2px solid var(--teal-mid)',marginBottom:14}}>
             <div style={{fontWeight:700,fontSize:16,color:'#1A8A42',marginBottom:12}}>
-              ✅ Valider {(payMonth.extraHours||0).toFixed(1)}h supp pour {MONTHS[payMonth.month-1]} {payMonth.year} ?
+              ✅ Valider {fmtH(payMonth.extraHours||0)} supp pour {MONTHS[payMonth.month-1]} {payMonth.year} ?
             </div>
             <div style={{fontSize:14,color:'var(--muted)',marginBottom:12}}>Ces heures seront marquées comme payées et ne s'accumuleront plus.</div>
             <div style={{display:'flex',gap:10}}>
@@ -1168,7 +1176,7 @@ function OvertimeModal({emp,schedule,weekDates,currentWeek,currentYear,overtimeR
         {deleteConfirm&&(
           <div style={{background:'#FFF0F2',borderRadius:13,padding:'16px 18px',border:'2px solid #FFCCD4',marginBottom:14}}>
             <div style={{fontWeight:700,fontSize:16,color:'#C8002B',marginBottom:8}}>
-              🗑 Supprimer {(deleteConfirm.extraHours||0).toFixed(1)}h de {MONTHS[deleteConfirm.month-1]} {deleteConfirm.year} ?
+              🗑 Supprimer {fmtH(deleteConfirm.extraHours||0)} de {MONTHS[deleteConfirm.month-1]} {deleteConfirm.year} ?
             </div>
             <div style={{fontSize:14,color:'var(--muted)',marginBottom:12}}>Cette action est irréversible. Les heures supplémentaires seront supprimées définitivement.</div>
             <div style={{display:'flex',gap:10}}>
@@ -1239,7 +1247,7 @@ function OvertimeTotalCell({t,diff,emp,overtimeRecords,onOvertimeClick}){
         <div style={{
           fontFamily:'var(--font-b)',fontWeight:800,fontSize:20,lineHeight:1,fontVariantNumeric:'tabular-nums lining-nums',letterSpacing:0,
           color:diff>0.5?'#C8002B':diff<-0.5?'var(--muted)':'var(--teal-dark)',
-        }}>{t.toFixed(1)}h</div>
+        }}>{fmtH(t)}</div>
 
         {/* Diff semaine */}
         <div style={{
@@ -1256,7 +1264,7 @@ function OvertimeTotalCell({t,diff,emp,overtimeRecords,onOvertimeClick}){
             display:'flex',alignItems:'center',gap:2,
             boxShadow:'0 2px 8px rgba(249,115,22,.4)',
           }}>
-            📅 +{totalSaved.toFixed(1)}h
+            📅 +{fmtH(totalSaved)}
           </div>
         )}
 
@@ -1269,7 +1277,7 @@ function OvertimeTotalCell({t,diff,emp,overtimeRecords,onOvertimeClick}){
             display:'flex',alignItems:'center',gap:2,
             boxShadow:'0 2px 8px rgba(200,0,43,.35)',
           }}>
-            ⚡ +{thisWeekExtra.toFixed(1)}h
+            ⚡ +{fmtH(thisWeekExtra)}
           </div>
         )}
       </button>
@@ -1344,7 +1352,7 @@ function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDra
                           >
                             <span style={{fontSize:13,fontWeight:700,color:isDragOver?'var(--teal-dark)':st.color}}>{st.label}</span>
                             {sh.startTime&&<span style={{fontSize:12,color:st.color,opacity:.9,fontWeight:600}}>{sh.startTime}–{sh.endTime}</span>}
-                            {sh.hours>0&&<span style={{fontSize:12,color:st.color,opacity:.75,fontWeight:600}}>{sh.hours}h</span>}
+                            {sh.hours>0&&<span style={{fontSize:12,color:st.color,opacity:.75,fontWeight:600}}>{fmtH(sh.hours)}</span>}
                             {sh.split&&(()=>{const st2=getMeta(types,sh.split.type);return(<>
                               <div style={{width:'80%',height:1,background:st.color,opacity:.3,margin:'2px 0'}}/>
                               <span style={{fontSize:10,fontWeight:700,color:st2.color}}>{st2.label}</span>

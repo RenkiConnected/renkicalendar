@@ -1,3 +1,10 @@
+function fmtH(decimalHours){
+  if(decimalHours==null||isNaN(decimalHours)) return '0h';
+  const totalMin=Math.round(decimalHours*60);
+  const h=Math.floor(totalMin/60), m=totalMin%60;
+  return m===0 ? `${h}h` : `${h}h${String(m).padStart(2,'0')}`;
+}
+
 export async function exportToPDF({ store, employees, schedules, weekDates, shiftTypes, currentWeek, currentYear, logoDataUrl }) {
 
   const schedKey = `${store.id}_${currentYear}_W${currentWeek}`;
@@ -34,11 +41,11 @@ export async function exportToPDF({ store, employees, schedules, weekDates, shif
       <div class="pill" style="background:${st.bgColor};border-color:${st.color}44">
         <span class="lbl" style="color:${st.color}">${st.label}</span>
         ${sh.startTime ? `<span class="tm" style="color:${st.color}">${sh.startTime}–${sh.endTime}</span>` : ''}
-        ${(sh.hours||0) > 0 ? `<span class="hr" style="color:${st.color}">${sh.hours}h</span>` : ''}
+        ${(sh.hours||0) > 0 ? `<span class="hr" style="color:${st.color}">${fmtH(sh.hours)}</span>` : ''}
         ${st2 ? `<div class="sep" style="background:${st.color}"></div>
           <span class="lbl" style="color:${st2.color};font-size:9px">${st2.label}</span>
           ${sh.split?.startTime ? `<span class="tm" style="color:${st2.color}">${sh.split.startTime}–${sh.split.endTime}</span>` : ''}
-          ${(sh.split?.hours||0) > 0 ? `<span class="hr" style="color:${st2.color}">${sh.split.hours}h</span>` : ''}` : ''}
+          ${(sh.split?.hours||0) > 0 ? `<span class="hr" style="color:${st2.color}">${fmtH(sh.split.hours)}</span>` : ''}` : ''}
       </div>
     </td>`;
   }
@@ -242,7 +249,7 @@ tbody tr:nth-child(even) td{background:#FAFCFC}
             </td>
             ${cells.map(c => cellHTML(c)).join('')}
             <td class="tot">
-              <div class="tot-h ${Math.abs(diff)<0.2?'c-ok':diff>0?'c-over':'c-under'}">${totalH.toFixed(1)}h</div>
+              <div class="tot-h ${Math.abs(diff)<0.2?'c-ok':diff>0?'c-over':'c-under'}">${fmtH(totalH)}</div>
               <div class="tot-d ${Math.abs(diff)<0.2?'c-ok':diff>0?'c-over':'c-under'}">${diff>0?'+':''}${diff.toFixed(1)}</div>
             </td>
           </tr>`).join('')}
@@ -292,7 +299,7 @@ export function exportToNotion({ store, employees, schedules, weekDates, shiftTy
       if(sh.hours&&workTypes.includes(sh.type)) t+=sh.hours;
       return sh.startTime?`${st?.label||'?'} ${sh.startTime}-${sh.endTime}`:(st?.label||'—');
     });
-    lines.push(`| **${emp.name}** | ${cells.join(' | ')} | **${t.toFixed(1)}h** |`);
+    lines.push(`| **${emp.name}** | ${cells.join(' | ')} | **${fmtH(t)}** |`);
   });
   lines.push('\n---\n*Généré par Care Planning*');
   const text=lines.join('\n');

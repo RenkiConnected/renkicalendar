@@ -1,6 +1,13 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 
+function fmtH(decimalHours){
+  if(decimalHours==null||isNaN(decimalHours)) return '0h';
+  const totalMin=Math.round(decimalHours*60);
+  const h=Math.floor(totalMin/60), m=totalMin%60;
+  return m===0 ? `${h}h` : `${h}h${String(m).padStart(2,'0')}`;
+}
+
 const DAY_SHORT = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
 
 function ShiftPopup({ data, onClose }) {
@@ -238,7 +245,7 @@ export default function PublicPlanning({ onLogin }) {
                     <div style={{ fontSize:13, color:'var(--dim)', textTransform:'capitalize' }}>{emp.role} · {emp.contractHours}h/sem</div>
                   </div>
                   <div style={{ textAlign:'right' }}>
-                    <div style={{ fontFamily:'var(--font-h)', fontWeight:800, fontSize:16, color:'var(--teal-dark)' }}>{totalH.toFixed(1)}h</div>
+                    <div style={{ fontFamily:'var(--font-h)', fontWeight:800, fontSize:16, color:'var(--teal-dark)' }}>{fmtH(totalH)}</div>
                     <div style={{ fontSize:12, color:'var(--dim)' }}>cette sem.</div>
                   </div>
                 </div>
@@ -274,7 +281,7 @@ export default function PublicPlanning({ onLogin }) {
                             <>
                               <span style={{ fontSize:11, fontWeight:700, color:st.color, textAlign:'center', lineHeight:1.2 }}>{st.label.slice(0,5)}</span>
                               {sh.startTime && <span style={{ fontSize:11, color:st.color, opacity:.85 }}>{sh.startTime}</span>}
-                              {(sh.hours||0) > 0 && <span style={{ fontSize:11, color:st.color, opacity:.7 }}>{sh.hours}h</span>}
+                              {(sh.hours||0) > 0 && <span style={{ fontSize:11, color:st.color, opacity:.7 }}>{fmtH(sh.hours)}</span>}
                             </>
                           ) : (
                             <span style={{ color:'#DDE3E8', fontSize:11 }}>—</span>
