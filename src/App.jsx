@@ -37,10 +37,16 @@ function AppContent() {
       try { await exportToPDF({ store, employees: employees.filter(e=>e.storeId===storeId), schedules, weekDates: getWeekDatesForCurrentWeek(week), shiftTypes, currentWeek: week, currentYear, logoDataUrl }); }
       catch (err) { alert('Erreur PDF : ' + err.message); }
     };
-    const notion = (e) => {
+    const notion = async (e) => {
       const { storeId, week } = e.detail;
       const store = stores.find(s=>s.id===storeId); if (!store) return;
-      exportToNotion({ store, employees: employees.filter(e=>e.storeId===storeId), schedules, weekDates: getWeekDatesForCurrentWeek(week), shiftTypes, currentWeek: week, currentYear });
+      let logoDataUrl = null;
+      if (appSettings?.logoDataUrl) logoDataUrl = appSettings.logoDataUrl;
+      else {
+        try { const r=await fetch(appSettings?.logoUrl||'care-logo.png'); const b=await r.blob(); logoDataUrl=await new Promise(res=>{const rd=new FileReader();rd.onload=ev=>res(ev.target.result);rd.readAsDataURL(b);}); } catch {}
+      }
+      try { await exportToNotion({ store, employees: employees.filter(e=>e.storeId===storeId), schedules, weekDates: getWeekDatesForCurrentWeek(week), shiftTypes, currentWeek: week, currentYear, logoDataUrl }); }
+      catch (err) { alert('Erreur Notion : ' + err.message); }
     };
     window.addEventListener('exportPDF', pdf);
     window.addEventListener('exportNotion', notion);
