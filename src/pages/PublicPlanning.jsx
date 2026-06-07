@@ -7,6 +7,13 @@ function fmtH(decimalHours){
   const h=Math.floor(totalMin/60), m=totalMin%60;
   return m===0 ? `${h}h` : `${h}h${String(m).padStart(2,'0')}`;
 }
+function calcH(s,e,b){
+  try{const[sh,sm]=s.split(':').map(Number),[eh,em]=e.split(':').map(Number);
+  const d=(eh*60+em)-(sh*60+sm);if(d<=0)return 0;
+  return Math.max(0,parseFloat(((d-Math.round((b||0)*60))/60).toFixed(2)));}catch{return 0;}
+}
+function mainHours(sh){ if(!sh||!sh.startTime||!sh.endTime)return 0; return calcH(sh.startTime,sh.endTime,sh.breakH||0); }
+function splitHours(sh){ if(!sh||!sh.split||!sh.split.startTime||!sh.split.endTime)return 0; return calcH(sh.split.startTime,sh.split.endTime,sh.split.breakH||0); }
 
 const DAY_SHORT = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
 
@@ -229,7 +236,7 @@ export default function PublicPlanning({ onLogin }) {
             const workTypes=['work','communication','meeting','school'];
             const totalH = weekDates.reduce((t,_,di)=>{
               const sh=sched[`${emp.id}_${di}`];
-              if(sh?.hours && workTypes.includes(sh.type)) return t+sh.hours;
+              if(sh && workTypes.includes(sh.type)) return t+mainHours(sh)+(workTypes.includes(sh.split?.type)?splitHours(sh):0);
               return t;
             }, 0);
 
@@ -281,7 +288,7 @@ export default function PublicPlanning({ onLogin }) {
                             <>
                               <span style={{ fontSize:11, fontWeight:700, color:st.color, textAlign:'center', lineHeight:1.2 }}>{st.label.slice(0,5)}</span>
                               {sh.startTime && <span style={{ fontSize:11, color:st.color, opacity:.85 }}>{sh.startTime}</span>}
-                              {(sh.hours||0) > 0 && <span style={{ fontSize:11, color:st.color, opacity:.7 }}>{fmtH(sh.hours)}</span>}
+                              {(sh.hours||0) > 0 && <span style={{ fontSize:11, color:st.color, opacity:.7 }}>{fmtH(mainHours(sh))}</span>}
                             </>
                           ) : (
                             <span style={{ color:'#DDE3E8', fontSize:11 }}>—</span>

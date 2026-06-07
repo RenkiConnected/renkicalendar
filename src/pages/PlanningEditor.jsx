@@ -39,6 +39,30 @@ function fmtH(decimalHours){
   const m=totalMin%60;
   return m===0 ? `${h}h` : `${h}h${String(m).padStart(2,'0')}`;
 }
+
+// SINGLE SOURCE OF TRUTH for a shift's hours.
+// ALWAYS recomputes from start/end times minus break, NEVER trusts stored 'hours'.
+// This guarantees displayed hours always match displayed times, even for old data.
+function shiftHours(sh){
+  if(!sh) return 0;
+  let total=0;
+  if(sh.startTime && sh.endTime){
+    total += calcH(sh.startTime, sh.endTime, sh.breakH||0);
+  }
+  if(sh.split && sh.split.startTime && sh.split.endTime){
+    total += calcH(sh.split.startTime, sh.split.endTime, sh.split.breakH||0);
+  }
+  return parseFloat(total.toFixed(2));
+}
+// Hours for just the main part (not split) - for per-part display
+function mainHours(sh){
+  if(!sh||!sh.startTime||!sh.endTime) return 0;
+  return calcH(sh.startTime, sh.endTime, sh.breakH||0);
+}
+function splitHours(sh){
+  if(!sh||!sh.split||!sh.split.startTime||!sh.split.endTime) return 0;
+  return calcH(sh.split.startTime, sh.split.endTime, sh.split.breakH||0);
+}
 /* ── SHIFT DETAIL POPUP — desktop + mobile, animated ─────── */
 function ShiftDetailPopup({emp,day,shift,onClose,types,onEdit}){
   if(!shift) return null;
@@ -118,7 +142,7 @@ function ShiftDetailPopup({emp,day,shift,onClose,types,onEdit}){
             </div>
             {(shift.hours||0)>0&&(
               <div style={{background:st.color,color:'#fff',borderRadius:20,padding:'5px 14px',fontWeight:800,fontSize:18}}>
-                {fmtH(shift.hours)}
+                {fmtH(mainHours(shift))}
               </div>
             )}
           </div>
@@ -599,14 +623,13 @@ export default function PlanningEditor(){
   const setStore=id=>{ setAS(id); setSelectedStore(id); setBorrowedEmps([]); };
   const totalH=empId=>{
     let t=0;
+    const workTypes=['work','communication','meeting','school'];
     weekDates.forEach((_,i)=>{
       const s=schedule[`${empId}_${i}`];
       if(!s) return;
-      // Only count actual work types (not rest, vacation, holiday)
-      const workTypes=['work','communication','meeting','school'];
-      if(s.hours && workTypes.includes(s.type)) t+=s.hours;
-      // Also count split day hours
-      if(s.split?.hours && workTypes.includes(s.split.type)) t+=s.split.hours;
+      // Recompute hours from actual times (never trust stored 'hours')
+      if(workTypes.includes(s.type)) t+=mainHours(s);
+      if(s.split && workTypes.includes(s.split.type)) t+=splitHours(s);
     });
     return parseFloat(t.toFixed(2));
   };
@@ -1037,9 +1060,10 @@ function OvertimeModal({emp,schedule,weekDates,currentWeek,currentYear,overtimeR
   const MONTHS=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
   const workedH=weekDates.reduce((t,_,di)=>{
     const sh=schedule[`${emp.id}_${di}`];
+    if(!sh) return t;
     let h=0;
-    if(sh?.hours&&workTypes.includes(sh.type)) h+=sh.hours;
-    if(sh?.split?.hours&&workTypes.includes(sh.split.type)) h+=sh.split.hours;
+    if(workTypes.includes(sh.type)) h+=mainHours(sh);
+    if(sh.split&&workTypes.includes(sh.split.type)) h+=splitHours(sh);
     return t+h;
   },0);
   const contractH=emp.contractHours||35;
@@ -1252,8 +1276,8 @@ function OvertimeTotalCell({t,diff,emp,overtimeRecords,onOvertimeClick}){
         {/* Diff semaine */}
         <div style={{
           fontSize:13,fontWeight:800,lineHeight:1,
-          color:Math.abs(diff)<0.1?'var(--teal-dark)':diff>0?'#C8002B':'#1A8A42',
-        }}>{diff>0?'+':''}{diff.toFixed(1)}</div>
+          color:Math.abs(diff)<0.02?'var(--teal-dark)':diff>0?'#C8002B':'#1A8A42',
+        }}>{diff>0?'+':diff<0?'-':''}{fmtH(Math.abs(diff))}</div>
 
         {/* Badge solde accumulé */}
         {totalSaved>0&&(
@@ -1352,11 +1376,12 @@ function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDra
                           >
                             <span style={{fontSize:13,fontWeight:700,color:isDragOver?'var(--teal-dark)':st.color}}>{st.label}</span>
                             {sh.startTime&&<span style={{fontSize:12,color:st.color,opacity:.9,fontWeight:600}}>{sh.startTime}–{sh.endTime}</span>}
-                            {sh.hours>0&&<span style={{fontSize:12,color:st.color,opacity:.75,fontWeight:600}}>{fmtH(sh.hours)}</span>}
+                            {mainHours(sh)>0&&<span style={{fontSize:12,color:st.color,opacity:.75,fontWeight:600}}>{fmtH(mainHours(sh))}</span>}
                             {sh.split&&(()=>{const st2=getMeta(types,sh.split.type);return(<>
                               <div style={{width:'80%',height:1,background:st.color,opacity:.3,margin:'2px 0'}}/>
                               <span style={{fontSize:10,fontWeight:700,color:st2.color}}>{st2.label}</span>
                               {sh.split.startTime&&<span style={{fontSize:9,color:st2.color,opacity:.8}}>{sh.split.startTime}–{sh.split.endTime}</span>}
+                              {splitHours(sh)>0&&<span style={{fontSize:9,color:st2.color,opacity:.7}}>{fmtH(splitHours(sh))}</span>}
                             </>);})()}
                           </div>
                         ):(

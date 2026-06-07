@@ -7,6 +7,13 @@ function fmtH(decimalHours){
   const h=Math.floor(totalMin/60), m=totalMin%60;
   return m===0 ? `${h}h` : `${h}h${String(m).padStart(2,'0')}`;
 }
+function calcH(s,e,b){
+  try{const[sh,sm]=s.split(':').map(Number),[eh,em]=e.split(':').map(Number);
+  const d=(eh*60+em)-(sh*60+sm);if(d<=0)return 0;
+  return Math.max(0,parseFloat(((d-Math.round((b||0)*60))/60).toFixed(2)));}catch{return 0;}
+}
+function mainHours(sh){ if(!sh||!sh.startTime||!sh.endTime)return 0; return calcH(sh.startTime,sh.endTime,sh.breakH||0); }
+function splitHours(sh){ if(!sh||!sh.split||!sh.split.startTime||!sh.split.endTime)return 0; return calcH(sh.split.startTime,sh.split.endTime,sh.split.breakH||0); }
 
 export default function ViewPlanning() {
   const { stores, employees, shiftTypes, getSchedule, currentWeek, setCurrentWeek, currentYear, currentEmpId, authRole, getWeekDatesForCurrentWeek } = useApp();
@@ -46,7 +53,7 @@ export default function ViewPlanning() {
           <div style={{background:st.bgColor,border:`2px solid ${st.color}50`,borderRadius:14,padding:'16px 18px',marginBottom:st2?10:0}}>
             <div style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
               <span style={{fontWeight:800,fontSize:18,color:st.color}}>{st.label}</span>
-              {sh.hours>0&&<span style={{fontWeight:700,fontSize:20,color:st.color}}>{fmtH(sh.hours)}</span>}
+              {sh.hours>0&&<span style={{fontWeight:700,fontSize:20,color:st.color}}>{fmtH(mainHours(sh))}</span>}
             </div>
             {sh.startTime&&<div style={{fontSize:16,color:st.color}}>🕐 {sh.startTime} → {sh.endTime}{sh.breakH>0?` (-${sh.breakH}h pause)`:''}</div>}
             {sh.note&&<div style={{marginTop:8,fontSize:15,color:st.color,opacity:.7,fontStyle:'italic'}}>💬 {sh.note}</div>}
@@ -55,7 +62,7 @@ export default function ViewPlanning() {
             <div style={{background:st2.bgColor,border:`2px solid ${st2.color}50`,borderRadius:14,padding:'16px 18px'}}>
               <div style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
                 <span style={{fontWeight:800,fontSize:18,color:st2.color}}>{st2.label}</span>
-                {sh.split.hours>0&&<span style={{fontWeight:700,fontSize:20,color:st2.color}}>{fmtH(sh.split.hours)}</span>}
+                {sh.split.hours>0&&<span style={{fontWeight:700,fontSize:20,color:st2.color}}>{fmtH(splitHours(sh))}</span>}
               </div>
               {sh.split.startTime&&<div style={{fontSize:16,color:st2.color}}>🕐 {sh.split.startTime} → {sh.split.endTime}</div>}
             </div>
@@ -170,7 +177,7 @@ export default function ViewPlanning() {
                           <div style={{ background:st.bgColor, border:`1.5px solid ${st.color}50`, borderRadius:10, padding:'7px 5px', minHeight:58, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:2 }}>
                             <span style={{ fontSize:12, fontWeight:700, color:st.color }}>{st.label}</span>
                             {sh.startTime && <span style={{ fontSize:11, color:st.color, opacity:.8 }}>{sh.startTime}–{sh.endTime}</span>}
-                            {sh.hours > 0 && <span style={{ fontSize:11, color:st.color, opacity:.7 }}>{fmtH(sh.hours)}</span>}
+                            {sh.hours > 0 && <span style={{ fontSize:11, color:st.color, opacity:.7 }}>{fmtH(mainHours(sh))}</span>}
                           </div>
                         ) : (
                           <div style={{ minHeight:58, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--border)', fontSize:20 }}>—</div>

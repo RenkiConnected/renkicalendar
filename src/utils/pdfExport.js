@@ -1,3 +1,10 @@
+function calcH(s,e,b){
+  try{const[sh,sm]=s.split(':').map(Number),[eh,em]=e.split(':').map(Number);
+  const d=(eh*60+em)-(sh*60+sm);if(d<=0)return 0;
+  return Math.max(0,parseFloat(((d-Math.round((b||0)*60))/60).toFixed(2)));}catch{return 0;}
+}
+function mainHours(sh){ if(!sh||!sh.startTime||!sh.endTime)return 0; return calcH(sh.startTime,sh.endTime,sh.breakH||0); }
+function splitHours(sh){ if(!sh||!sh.split||!sh.split.startTime||!sh.split.endTime)return 0; return calcH(sh.split.startTime,sh.split.endTime,sh.split.breakH||0); }
 function fmtH(decimalHours){
   if(decimalHours==null||isNaN(decimalHours)) return '0h';
   const totalMin=Math.round(decimalHours*60);
@@ -24,8 +31,8 @@ export async function exportToPDF({ store, employees, schedules, weekDates, shif
       if (!sh) return { empty:true, isSun:wd.date.getDay()===0 };
       const st = stMap[sh.type] || { label:sh.type, color:'#6366F1', bgColor:'#EEF2FF' };
       const st2 = sh.split ? (stMap[sh.split.type]||{label:sh.split.type,color:'#F97316',bgColor:'#FFF3E0'}) : null;
-      if (sh.hours && workTypes.includes(sh.type)) totalH += sh.hours;
-      if (sh.split?.hours && workTypes.includes(sh.split.type)) totalH += sh.split.hours;
+      if (workTypes.includes(sh.type)) totalH += mainHours(sh);
+      if (sh.split && workTypes.includes(sh.split.type)) totalH += splitHours(sh);
       return { sh, st, st2, isSun:wd.date.getDay()===0 };
     });
     const diff = totalH - (emp.contractHours||35);
@@ -41,11 +48,11 @@ export async function exportToPDF({ store, employees, schedules, weekDates, shif
       <div class="pill" style="background:${st.bgColor};border-color:${st.color}44">
         <span class="lbl" style="color:${st.color}">${st.label}</span>
         ${sh.startTime ? `<span class="tm" style="color:${st.color}">${sh.startTime}–${sh.endTime}</span>` : ''}
-        ${(sh.hours||0) > 0 ? `<span class="hr" style="color:${st.color}">${fmtH(sh.hours)}</span>` : ''}
+        ${(sh.hours||0) > 0 ? `<span class="hr" style="color:${st.color}">${fmtH(mainHours(sh))}</span>` : ''}
         ${st2 ? `<div class="sep" style="background:${st.color}"></div>
           <span class="lbl" style="color:${st2.color};font-size:9px">${st2.label}</span>
           ${sh.split?.startTime ? `<span class="tm" style="color:${st2.color}">${sh.split.startTime}–${sh.split.endTime}</span>` : ''}
-          ${(sh.split?.hours||0) > 0 ? `<span class="hr" style="color:${st2.color}">${fmtH(sh.split.hours)}</span>` : ''}` : ''}
+          ${(sh.split?.hours||0) > 0 ? `<span class="hr" style="color:${st2.color}">${fmtH(splitHours(sh))}</span>` : ''}` : ''}
       </div>
     </td>`;
   }
@@ -296,7 +303,7 @@ export function exportToNotion({ store, employees, schedules, weekDates, shiftTy
     const cells=weekDates.map((_,i)=>{
       const sh=sched[`${emp.id}_${i}`]; if(!sh) return '—';
       const st=shiftTypes.find(s=>s.id===sh.type);
-      if(sh.hours&&workTypes.includes(sh.type)) t+=sh.hours;
+      if(workTypes.includes(sh.type)) t+=mainHours(sh); if(sh.split&&workTypes.includes(sh.split.type)) t+=splitHours(sh);
       return sh.startTime?`${st?.label||'?'} ${sh.startTime}-${sh.endTime}`:(st?.label||'—');
     });
     lines.push(`| **${emp.name}** | ${cells.join(' | ')} | **${fmtH(t)}** |`);
