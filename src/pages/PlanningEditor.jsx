@@ -580,7 +580,7 @@ function WeekNav({cw,setCw}){
 
 /* ── MAIN ─────────────────────────────────────────────────── */
 export default function PlanningEditor(){
-  const{stores,employees,shiftTypes,getSchedule,setShift,setBulkSchedule,currentWeek,setCurrentWeek,currentYear,selectedStore,setSelectedStore,getWeekDatesForCurrentWeek,leaveRequests,overtimeRecords,getEmpOvertimeBalance,resolveOvertime,deleteOvertimeEntry,updateOvertimeHours,authRole}=useApp();
+  const{stores,employees,shiftTypes,getSchedule,setShift,setBulkSchedule,currentWeek,setCurrentWeek,currentYear,selectedStore,setSelectedStore,getWeekDatesForCurrentWeek,leaveRequests,overtimeRecords,getEmpOvertimeBalance,resolveOvertime,deleteOvertimeEntry,updateOvertimeHours,authRole,schedules}=useApp();
   const[activeStore,setAS]=useState(selectedStore||stores[0]?.id||'');
   const[viewMode,setViewMode]=useState('week');
   const[activeDay,setActiveDay]=useState(0);
@@ -593,6 +593,7 @@ export default function PlanningEditor(){
   const[borrowedEmps,setBorrowedEmps]=useState([]);
   const[detailPopup,setDetailPopup]=useState(null); // {empId, dayIdx}
   const[overtimeModal,setOvertimeModal]=useState(null); // {empId}
+  const[clipboard,setClipboard]=useState(null); // copied shift data
 
   // Drag state — use refs for performance during drag
   const dragSrcRef=useRef(null);
@@ -617,7 +618,34 @@ export default function PlanningEditor(){
     return alerts;
   },[allDisplayEmps,leaveRequests,currentWeek,currentYear]);
   const weekDates=getWeekDatesForCurrentWeek(currentWeek);
-  const schedule=getSchedule(activeStore,currentWeek,currentYear);
+  const ownSchedule=getSchedule(activeStore,currentWeek,currentYear);
+
+  // Build merged schedule: own shifts + "déplacement" shifts found in OTHER stores
+  // for employees whose home store is the active store.
+  const {schedule, awayShifts} = React.useMemo(()=>{
+    const merged = {...ownSchedule};
+    const away = {}; // key empId_dayIdx -> {storeId, storeName, shift}
+    // For each employee of THIS store, look in all other stores' schedules this week
+    storeEmps.forEach(emp=>{
+      stores.forEach(st=>{
+        if(st.id===activeStore) return;
+        const otherSched=schedules[`${st.id}_${currentYear}_W${currentWeek}`]||{};
+        weekDates.forEach((_,di)=>{
+          const key=`${emp.id}_${di}`;
+          const sh=otherSched[key];
+          if(sh && (sh.type==='work'||sh.type==='communication'||sh.type==='meeting')){
+            // This employee is working in another store this day = déplacement
+            // Only show if their OWN store doesn't already have a shift that day
+            if(!merged[key] || merged[key].type==='rest' || !merged[key].startTime){
+              merged[key]={...sh, _away:true, _awayStoreId:st.id, _awayStoreName:st.name, _awayColor:st.color};
+              away[key]={storeId:st.id, storeName:st.name, color:st.color, shift:sh};
+            }
+          }
+        });
+      });
+    });
+    return {schedule: merged, awayShifts: away};
+  },[ownSchedule, schedules, storeEmps, stores, activeStore, currentWeek, currentYear, weekDates]);
   const displayDays=showWknd?weekDates:weekDates.slice(0,6);
 
   const setStore=id=>{ setAS(id); setSelectedStore(id); setBorrowedEmps([]); };
@@ -641,8 +669,31 @@ export default function PlanningEditor(){
     setEditCell({empId,dayIdx});
   };
 
-  const handleSave=data=>{ if(!editCell) return; setShift(activeStore,currentWeek,currentYear,editCell.empId,editCell.dayIdx,data); setEditCell(null); };
-  const handleDelete=()=>{ if(!editCell) return; setShift(activeStore,currentWeek,currentYear,editCell.empId,editCell.dayIdx,null); setEditCell(null); };
+  // ── COPY / PASTE shifts ──
+  const handleCopyShift=(sh)=>{
+    // Store a clean copy (strip away-markers)
+    const clean={type:sh.type,startTime:sh.startTime,endTime:sh.endTime,breakH:sh.breakH||0,hours:sh.hours,note:sh.note||'',depannage:sh.depannage||false};
+    if(sh.split) clean.split={...sh.split};
+    setClipboard(clean);
+  };
+  const handlePasteShift=(empId,dayIdx)=>{
+    if(!clipboard) return;
+    const dow=weekDates[dayIdx].date.getDay();
+    if(!showWknd&&dow===0){ setConfirmWknd({empId,dayIdx}); return; }
+    setShift(activeStore,currentWeek,currentYear,empId,dayIdx,{...clipboard});
+  };
+
+  // Where to save a shift: if it's an "away" (déplacement) shift, save to the OTHER store
+  const resolveSaveTarget=(empId,dayIdx)=>{
+    const sh=schedule[`${empId}_${dayIdx}`];
+    if(sh && sh._away && sh._awayStoreId){
+      return {storeId:sh._awayStoreId, isAway:true};
+    }
+    return {storeId:activeStore, isAway:false};
+  };
+
+  const handleSave=data=>{ if(!editCell) return; const tgt=resolveSaveTarget(editCell.empId,editCell.dayIdx); setShift(tgt.storeId,currentWeek,currentYear,editCell.empId,editCell.dayIdx,data); setEditCell(null); };
+  const handleDelete=()=>{ if(!editCell) return; const tgt=resolveSaveTarget(editCell.empId,editCell.dayIdx); setShift(tgt.storeId,currentWeek,currentYear,editCell.empId,editCell.dayIdx,null); setEditCell(null); };
 
   /* ── AUTO GENERATE — SMART ALGORITHM ───────────────────────── */
   const handleAutoGen=async({openStart,openEnd,brk})=>{
@@ -917,6 +968,15 @@ export default function PlanningEditor(){
         <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'5px 12px',background:'var(--card2)',borderRadius:20,border:'1.5px solid var(--border)',fontSize:12,color:'var(--muted)'}}>
           ↔ Glisser pour déplacer / échanger
         </span>
+        <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'5px 12px',background:'var(--card2)',borderRadius:20,border:'1.5px solid var(--border)',fontSize:12,color:'var(--muted)'}}>
+          📋 Copier · 📌 Coller
+        </span>
+        {clipboard&&(
+          <span style={{display:'inline-flex',alignItems:'center',gap:8,padding:'5px 12px',background:'var(--teal-light)',borderRadius:20,border:'1.5px solid var(--teal-mid)',fontSize:12,color:'var(--teal-dark)',fontWeight:700}}>
+            📋 Copié : {clipboard.startTime?`${clipboard.startTime}–${clipboard.endTime}`:getMeta(shiftTypes,clipboard.type).label}
+            <button onClick={()=>setClipboard(null)} style={{background:'none',border:'none',cursor:'pointer',color:'var(--teal-dark)',fontSize:14,padding:0,lineHeight:1}}>✕</button>
+          </span>
+        )}
       </div>
 
       {/* ── LEAVE ALERTS BANNER ───────────────────────────────── */}
@@ -996,6 +1056,7 @@ export default function PlanningEditor(){
             onDrop={handleDrop} onDragEnd={handleDragEnd}
             dragOver={dragOver} extraEmpIds={extraEmps.map(e=>e.id)}
             overtimeRecords={overtimeRecords} onOvertimeClick={(empId)=>setOvertimeModal({empId})}
+            clipboard={clipboard} onCopyShift={handleCopyShift} onPasteShift={handlePasteShift}
           />
           :<DayView
             emps={allDisplayEmps} day={weekDates[activeDay]} dayIdx={activeDay}
@@ -1310,7 +1371,7 @@ function OvertimeTotalCell({t,diff,emp,overtimeRecords,onOvertimeClick}){
 }
 
 /* ── WEEK VIEW ────────────────────────────────────────────── */
-function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDragOver,onDrop,onDragEnd,dragOver,extraEmpIds,overtimeRecords,onOvertimeClick}){
+function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDragOver,onDrop,onDragEnd,dragOver,extraEmpIds,overtimeRecords,onOvertimeClick,clipboard,onCopyShift,onPasteShift}){
   return(
     <div className="card" style={{overflow:'hidden'}}>
       <div style={{overflowX:'auto'}}>
@@ -1359,13 +1420,13 @@ function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDra
                       >
                         {sh?(
                           <div
-                            draggable
-                            onDragStart={e=>onDragStart(emp.id,ri,e)}
+                            draggable={!sh._away}
+                            onDragStart={e=>!sh._away&&onDragStart(emp.id,ri,e)}
                             onDragEnd={onDragEnd}
                             onClick={()=>onCell(emp.id,ri)}
                             style={{
-                              background:isDragOver?'var(--teal-light)':st.bgColor,
-                              border:`1.5px solid ${isDragOver?'var(--teal)':st.color+'50'}`,
+                              background:isDragOver?'var(--teal-light)':(sh._away?`${sh._awayColor||st.color}14`:st.bgColor),
+                              border:sh._away?`2px dashed ${sh._awayColor||st.color}`:`1.5px solid ${isDragOver?'var(--teal)':st.color+'50'}`,
                               borderRadius:12,padding:'10px 7px',minHeight:72,
                               cursor:'pointer',transition:'all .12s',
                               display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:2,
@@ -1374,7 +1435,21 @@ function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDra
                             onMouseEnter={e=>{e.currentTarget.style.transform='scale(1.03)';e.currentTarget.style.boxShadow=`0 4px 16px ${st.color}40`;e.currentTarget.style.zIndex='2';}}
                             onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow='none';e.currentTarget.style.zIndex='1';}}
                           >
-                            <span style={{fontSize:13,fontWeight:700,color:isDragOver?'var(--teal-dark)':st.color}}>{st.label}</span>
+                            {/* Copy button (top-right) */}
+                            {!sh._away&&onCopyShift&&(
+                              <button onClick={e=>{e.stopPropagation();onCopyShift(sh);}}
+                                title="Copier cet horaire"
+                                style={{position:'absolute',top:3,right:3,width:20,height:20,borderRadius:5,border:'none',background:'rgba(255,255,255,.7)',cursor:'pointer',fontSize:10,lineHeight:1,padding:0,opacity:.6,transition:'opacity .15s'}}
+                                onMouseEnter={e=>e.currentTarget.style.opacity='1'}
+                                onMouseLeave={e=>e.currentTarget.style.opacity='.6'}
+                              >📋</button>
+                            )}
+                            {sh._away&&(
+                              <span style={{position:'absolute',top:2,left:4,fontSize:8,fontWeight:800,color:sh._awayColor||st.color,background:'rgba(255,255,255,.85)',borderRadius:4,padding:'1px 4px'}}>
+                                ✈ {sh._awayStoreName?.slice(0,10)}
+                              </span>
+                            )}
+                            <span style={{fontSize:13,fontWeight:700,color:isDragOver?'var(--teal-dark)':st.color,marginTop:sh._away?8:0}}>{sh._away?'Déplacement':st.label}</span>
                             {sh.startTime&&<span style={{fontSize:12,color:st.color,opacity:.9,fontWeight:600}}>{sh.startTime}–{sh.endTime}</span>}
                             {mainHours(sh)>0&&<span style={{fontSize:12,color:st.color,opacity:.75,fontWeight:600}}>{fmtH(mainHours(sh))}</span>}
                             {sh.split&&(()=>{const st2=getMeta(types,sh.split.type);return(<>
@@ -1390,7 +1465,7 @@ function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDra
                             onDrop={e=>onDrop(emp.id,ri,e)}
                             onClick={()=>onCell(emp.id,ri)}
                             style={{
-                              minHeight:68,borderRadius:12,
+                              minHeight:68,borderRadius:12,position:'relative',
                               border:`2px dashed ${isDragOver?'var(--teal)':'var(--border)'}`,
                               background:isDragOver?'var(--teal-light)':'transparent',
                               display:'flex',alignItems:'center',justifyContent:'center',
@@ -1399,7 +1474,15 @@ function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDra
                             }}
                             onMouseEnter={e=>{if(!isDragOver){e.currentTarget.style.background='var(--teal-light)';e.currentTarget.style.borderColor='var(--teal)';e.currentTarget.style.color='var(--teal-dark)';}}}
                             onMouseLeave={e=>{if(!isDragOver){e.currentTarget.style.background='transparent';e.currentTarget.style.borderColor='var(--border)';e.currentTarget.style.color='var(--dim)';}}}
-                          >+</div>
+                          >
+                            +
+                            {clipboard&&onPasteShift&&(
+                              <button onClick={e=>{e.stopPropagation();onPasteShift(emp.id,ri);}}
+                                title="Coller l'horaire copié"
+                                style={{position:'absolute',bottom:3,right:3,width:22,height:22,borderRadius:6,border:'none',background:'var(--teal)',color:'#fff',cursor:'pointer',fontSize:11,lineHeight:1,padding:0,boxShadow:'0 2px 6px rgba(0,201,177,.4)'}}
+                              >📌</button>
+                            )}
+                          </div>
                         )}
                       </td>
                     );
