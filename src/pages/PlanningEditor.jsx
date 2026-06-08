@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
 
-const BREAKS=[{v:0,l:'Pas de pause'},{v:.5,l:'30 min'},{v:1,l:'1h'}];
+const BREAKS=[{v:0,l:'Pas de pause'},{v:.5,l:'30 min'},{v:1,l:'1h'},{v:1.5,l:'1h30'},{v:2,l:'2h'}];
 const DAY_NAMES=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
 
 function calcH(s,e,b){
@@ -241,18 +241,18 @@ function ShiftModal({emp,dayIdx,day,shift,onSave,onDelete,onClose,types}){
   const[type,setType]=useState(shift?.type||'work');
   const[s,setS]=useState(shift?.startTime||'09:00');
   const[e,setE]=useState(shift?.endTime||'13:30');
-  const[brk,setBrk]=useState(shift?.breakH??0);
+  const[brk,setBrk]=useState(shift?.breakH!=null?shift.breakH:1);
   const[note,setNote]=useState(shift?.note||'');
   const[dep,setDep]=useState(shift?.depannage||false);
   // PM slot (split)
   const[type2,setType2]=useState(shift?.split?.type||'meeting');
   const[s2,setS2]=useState(shift?.split?.startTime||'14:00');
   const[e2,setE2]=useState(shift?.split?.endTime||'19:00');
-  const[brk2,setBrk2]=useState(shift?.split?.breakH??0);
+  const[brk2,setBrk2]=useState(shift?.split?.breakH!=null?shift.split.breakH:0);
   const[note2,setNote2]=useState(shift?.split?.note||'');
 
-  const needsT=['work','communication','meeting'].includes(type);
-  const needsT2=['work','communication','meeting'].includes(type2);
+  const needsT=['work','communication','meeting','school'].includes(type);
+  const needsT2=['work','communication','meeting','school'].includes(type2);
   const h1=needsT?calcH(s,e,brk):0;
   const h2=needsT2?calcH(s2,e2,brk2):0;
   const totalH=parseFloat((h1+h2).toFixed(2));
@@ -733,26 +733,45 @@ export default function PlanningEditor(){
     const storeCloseMins = toMins(openEnd);
     const breakMins = Math.round((brk||0)*60);
     const bulk = {};
-
-    // Track total hours assigned per employee (to respect weekly contract)
     const empHours = {};
     storeEmps.forEach(e=>{ empHours[e.id]=0; });
+
+    // ── PRE-ASSIGN REST DAYS (1 per employee, spread so no same-day clashes) ──
+    // Working days = Mon(0)..Sat(5), not Sunday(6)
+    const workingDays = [0,1,2,3,4,5]; // indices in weekDates (Mon-Sat)
+    const empRestDay = {}; // empId -> dayIdx
+    const dayRestCount = {}; // dayIdx -> how many resting that day
+    workingDays.forEach(d=>{ dayRestCount[d]=0; });
+
+    storeEmps.forEach((emp, i) => {
+      const leaveDays = getEmpLeaveDays(emp.id);
+      // Candidate days: working days where employee isn't on leave
+      const candidates = workingDays.filter(d => !leaveDays.has(d));
+      if (candidates.length === 0) return; // all days are leave, skip
+      // Pick the day with the fewest rests so far (spread evenly)
+      const restDay = candidates.reduce((best, d) =>
+        (dayRestCount[d] < dayRestCount[best]) ? d : best, candidates[0]);
+      empRestDay[emp.id] = restDay;
+      dayRestCount[restDay] = (dayRestCount[restDay]||0) + 1;
+    });
 
     // For each working day, build coverage with guaranteed opener + closer
     weekDates.forEach((wd, di) => {
       const dow = wd.date.getDay();
       const isSunday = dow === 0;
 
-      // Who is available today (not on leave, not Sunday)
-      const available = storeEmps.filter(e => !isSunday && !getEmpLeaveDays(e.id).has(di));
+      // Who is available today (not on leave, not Sunday, not on their rest day)
+      const available = storeEmps.filter(e => !isSunday && !getEmpLeaveDays(e.id).has(di) && empRestDay[e.id] !== di);
 
-      // Mark Sunday rest + leaves first
+      // Mark Sunday rest + leaves + assigned rest days first
       storeEmps.forEach(emp => {
         const key = `${emp.id}_${di}`;
         if (isSunday) {
           bulk[key] = {type:'rest',startTime:null,endTime:null,breakH:0,hours:null,note:'',depannage:false};
         } else if (getEmpLeaveDays(emp.id).has(di)) {
           bulk[key] = {type:'vacation',startTime:null,endTime:null,breakH:0,hours:null,note:'Congé approuvé',depannage:false};
+        } else if (empRestDay[emp.id] === di) {
+          bulk[key] = {type:'rest',startTime:null,endTime:null,breakH:0,hours:null,note:'Repos hebdomadaire',depannage:false};
         }
       });
 

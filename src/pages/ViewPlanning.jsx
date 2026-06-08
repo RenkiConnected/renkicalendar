@@ -16,7 +16,7 @@ function mainHours(sh){ if(!sh||!sh.startTime||!sh.endTime)return 0; return calc
 function splitHours(sh){ if(!sh||!sh.split||!sh.split.startTime||!sh.split.endTime)return 0; return calcH(sh.split.startTime,sh.split.endTime,sh.split.breakH||0); }
 
 export default function ViewPlanning() {
-  const { stores, employees, shiftTypes, getSchedule, currentWeek, setCurrentWeek, currentYear, currentEmpId, authRole, getWeekDatesForCurrentWeek } = useApp();
+  const { stores, employees, shiftTypes, getSchedule, schedules, currentWeek, setCurrentWeek, currentYear, currentEmpId, authRole, getWeekDatesForCurrentWeek } = useApp();
   const [selectedStore, setSelectedStore] = useState('');
   const [detailPopup, setDetailPopup] = React.useState(null);
   const weekDates = getWeekDatesForCurrentWeek(currentWeek);
@@ -25,9 +25,48 @@ export default function ViewPlanning() {
   const myEmp = employees.find(e => e.id === currentEmpId);
   const effectiveStore = selectedStore || myEmp?.storeId || stores[0]?.id || '';
   const store = stores.find(s => s.id === effectiveStore);
-  const storeEmps = employees.filter(e => e.storeId === effectiveStore);
-  const schedule = getSchedule(effectiveStore, currentWeek, currentYear);
 
+  // Home employees of this store
+  const homeEmps = employees.filter(e => e.storeId === effectiveStore);
+  const ownSchedule = getSchedule(effectiveStore, currentWeek, currentYear);
+
+  // Merge: for each employee, find their shift in ANY store (they might be in déplacement)
+  // Also detect visitors (employees from other stores with a shift HERE)
+  const { storeEmps, mergedSchedule } = React.useMemo(() => {
+    const merged = { ...ownSchedule };
+    const workTypes = ['work','communication','meeting'];
+    const visitorsMap = {};
+
+    // For home employees: check if they have a shift in another store this week (déplacement)
+    // Their OWN store might not have their shift - look in other stores
+    homeEmps.forEach(emp => {
+      stores.forEach(st => {
+        if (st.id === effectiveStore) return;
+        const otherSched = getSchedule(st.id, currentWeek, currentYear);
+        weekDates.forEach((_, di) => {
+          const key = `${emp.id}_${di}`;
+          const sh = otherSched[key];
+          if (sh && workTypes.includes(sh.type) && !merged[key]?.startTime) {
+            merged[key] = { ...sh, _awayStoreId: st.id, _awayStoreName: st.name, _away: true };
+          }
+        });
+      });
+    });
+
+    // Detect visitors (foreign employees with shift HERE)
+    employees.forEach(emp => {
+      if (emp.storeId === effectiveStore) return;
+      for (let di = 0; di < 7; di++) {
+        const sh = ownSchedule[`${emp.id}_${di}`];
+        if (sh && workTypes.includes(sh.type)) { visitorsMap[emp.id] = emp; break; }
+      }
+    });
+
+    const allEmps = [...homeEmps, ...Object.values(visitorsMap)];
+    return { storeEmps: allEmps, mergedSchedule: merged };
+  }, [homeEmps, ownSchedule, employees, stores, effectiveStore, currentWeek, currentYear, weekDates]);
+
+  const schedule = mergedSchedule;
   const getShift = (empId, di) => schedule[`${empId}_${di}`];
   const getShiftMeta = (typeId) => shiftTypes.find(s => s.id === typeId) || { label: typeId, color: '#6366F1', bgColor: '#EEF2FF' };
   const handleShiftClick=(emp,di,sh,wd)=>{ if(sh) setDetailPopup({empId:emp.id,sh,day:wd}); };
