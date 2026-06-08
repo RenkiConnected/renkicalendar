@@ -489,7 +489,7 @@ function AutoModal({store,emps,weekDates,currentWeek,currentYear,leaveRequests,o
               <div key={emp.id} style={{display:'flex',alignItems:'center',gap:10,marginBottom:8,padding:'8px 10px',background:'white',borderRadius:8,border:'1px solid var(--border)'}}>
                 <div style={{width:28,height:28,borderRadius:'50%',background:emp.color||'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,color:'#fff',flexShrink:0}}>{emp.name[0]}</div>
                 <div style={{flex:1}}>
-                  <div style={{fontWeight:700,fontSize:14}}>{emp.name}</div>
+                  <div style={{fontWeight:700,fontSize:16}}>{emp.name}</div>
                   <div style={{fontSize:12,color:'var(--muted)',marginTop:1}}>
                     Contrat <strong>{emp.contractHours}h</strong>/sem · {workDaysCount} jours · {dailyH}h/j → <strong style={{color:'var(--teal-dark)'}}>{expectedWeekH}h prévues</strong>
                   </div>
@@ -548,7 +548,7 @@ function BorrowModal({store,allEmployees,allStores,currentEmps,onBorrow,onClose}
               }}>
                 <div style={{width:36,height:36,borderRadius:'50%',background:emp.color||'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:15,fontWeight:700,color:'#fff',flexShrink:0}}>{emp.name[0]}</div>
                 <div style={{flex:1}}>
-                  <div style={{fontWeight:700,fontSize:14}}>{emp.name}</div>
+                  <div style={{fontWeight:700,fontSize:16}}>{emp.name}</div>
                   <div style={{fontSize:12,color:'var(--dim)',marginTop:1}}>{homeStore?.name} · {emp.contractHours}h/sem</div>
                 </div>
                 {homeStore&&<div style={{width:8,height:8,borderRadius:'50%',background:homeStore.color,flexShrink:0}}/>}
@@ -1469,13 +1469,13 @@ function OvertimeTotalCell({t,diff,emp,overtimeRecords,onOvertimeClick}){
       >
         {/* Heures totales */}
         <div style={{
-          fontFamily:'var(--font-b)',fontWeight:800,fontSize:20,lineHeight:1,fontVariantNumeric:'tabular-nums lining-nums',letterSpacing:0,
+          fontFamily:'var(--font-b)',fontWeight:800,fontSize:22,lineHeight:1,fontVariantNumeric:'tabular-nums lining-nums',letterSpacing:0,
           color:diff>0.5?'#C8002B':diff<-0.5?'var(--muted)':'var(--teal-dark)',
         }}>{fmtH(t)}</div>
 
         {/* Diff semaine */}
         <div style={{
-          fontSize:13,fontWeight:800,lineHeight:1,
+          fontSize:14,fontWeight:800,lineHeight:1,
           color:Math.abs(diff)<0.02?'var(--teal-dark)':diff>0?'#C8002B':'#1A8A42',
         }}>{diff>0?'+':diff<0?'-':''}{fmtH(Math.abs(diff))}</div>
 
@@ -1640,7 +1640,7 @@ function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDra
         <table style={{width:'100%',borderCollapse:'collapse',minWidth:800}}>
           <thead>
             <tr style={{background:'var(--card2)',borderBottom:'2px solid var(--border)'}}>
-              <th style={{padding:'18px 24px',textAlign:'left',fontSize:14,color:'var(--muted)',fontWeight:700,textTransform:'uppercase',letterSpacing:'.05em',width:220}}>Employé</th>
+              <th style={{padding:'18px 24px',textAlign:'left',fontSize:14,color:'var(--muted)',fontWeight:700,textTransform:'uppercase',letterSpacing:'.05em',width:240}}>Employé</th>
               {days.map((wd,i)=>(
                 <th key={i} style={{padding:'13px 8px',textAlign:'center',minWidth:100}}>
                   <div style={{fontWeight:800,fontSize:16,color:wd.date.getDay()===0?'#C8002B':'var(--text)'}}>{wd.day.slice(0,3)}</div>
@@ -1658,7 +1658,7 @@ function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDra
                 <tr key={emp.id} style={{borderBottom:'1px solid var(--border)',background:isBorrowed?'#FFFDE7':ei%2===0?'#fff':'var(--card2)'}}>
                   <td style={{padding:'10px 20px'}}>
                     <div style={{display:'flex',alignItems:'center',gap:10}}>
-                      <div style={{width:42,height:42,borderRadius:'50%',background:emp.color||'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:17,fontWeight:800,color:'#fff',flexShrink:0}}>
+                      <div style={{width:46,height:46,borderRadius:'50%',background:emp.color||'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:19,fontWeight:800,color:'#fff',flexShrink:0}}>
                         {emp.name[0]}
                       </div>
                       <div>
@@ -1671,7 +1671,7 @@ function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDra
                             </span>;
                           })()}
                         </div>
-                        <div style={{fontSize:13,color:'var(--muted)',marginTop:2,textTransform:'capitalize'}}>{emp.role} · {c}h</div>
+                        <div style={{fontSize:13,color:'var(--muted)',marginTop:3,textTransform:'capitalize'}}>{emp.role} · {c}h</div>
                       </div>
                     </div>
                   </td>
@@ -1694,7 +1694,7 @@ function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDra
                             style={{
                               background:isDragOver?'var(--teal-light)':(sh._away?`${sh._awayColor||st.color}14`:st.bgColor),
                               border:sh._away?`2px dashed ${sh._awayColor||st.color}`:`1.5px solid ${isDragOver?'var(--teal)':st.color+'50'}`,
-                              borderRadius:12,padding:'10px 7px',minHeight:72,
+                              borderRadius:12,padding:'12px 8px',minHeight:82,
                               cursor:'pointer',transition:'all .12s',
                               display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:2,
                               userSelect:'none',position:'relative',
@@ -1716,14 +1716,14 @@ function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDra
                                 ✈ {sh._awayStoreName?.slice(0,10)}
                               </span>
                             )}
-                            <span style={{fontSize:13,fontWeight:700,color:isDragOver?'var(--teal-dark)':st.color,marginTop:sh._away?8:0}}>{sh._away?'Déplacement':st.label}</span>
-                            {sh.startTime&&<span style={{fontSize:12,color:st.color,opacity:.9,fontWeight:600}}>{sh.startTime}–{sh.endTime}</span>}
-                            {mainHours(sh)>0&&<span style={{fontSize:12,color:st.color,opacity:.75,fontWeight:600}}>{fmtH(mainHours(sh))}</span>}
+                            <span style={{fontSize:14,fontWeight:700,color:isDragOver?'var(--teal-dark)':st.color,marginTop:sh._away?8:0}}>{sh._away?'Déplacement':st.label}</span>
+                            {sh.startTime&&<span style={{fontSize:14,color:st.color,opacity:.9,fontWeight:700}}>{sh.startTime}–{sh.endTime}</span>}
+                            {mainHours(sh)>0&&<span style={{fontSize:13,color:st.color,opacity:.8,fontWeight:700}}>{fmtH(mainHours(sh))}</span>}
                             {sh.split&&(()=>{const st2=getMeta(types,sh.split.type);return(<>
                               <div style={{width:'80%',height:1,background:st.color,opacity:.3,margin:'2px 0'}}/>
-                              <span style={{fontSize:10,fontWeight:700,color:st2.color}}>{st2.label}</span>
-                              {sh.split.startTime&&<span style={{fontSize:9,color:st2.color,opacity:.8}}>{sh.split.startTime}–{sh.split.endTime}</span>}
-                              {splitHours(sh)>0&&<span style={{fontSize:9,color:st2.color,opacity:.7}}>{fmtH(splitHours(sh))}</span>}
+                              <span style={{fontSize:13,fontWeight:700,color:st2.color}}>{st2.label}</span>
+                              {sh.split.startTime&&<span style={{fontSize:12,color:st2.color,opacity:.85}}>{sh.split.startTime}–{sh.split.endTime}</span>}
+                              {splitHours(sh)>0&&<span style={{fontSize:12,color:st2.color,opacity:.75}}>{fmtH(splitHours(sh))}</span>}
                             </>);})()}
                           </div>
                         ):(
