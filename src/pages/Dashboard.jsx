@@ -26,7 +26,7 @@ export default function Dashboard({ setPage }) {
           <p className="page-sub">Vue d'ensemble · Semaine <strong style={{color:'var(--teal-dark)'}}>S{currentWeek}</strong> · 2026</p>
         </div>
         <button className="btn btn-primary" onClick={()=>setPage&&setPage('planning')} style={{ fontSize:15, padding:'12px 24px' }}>
-          📅 Ouvrir les plannings
+          📅 Plannings semaine
         </button>
       </div>
 

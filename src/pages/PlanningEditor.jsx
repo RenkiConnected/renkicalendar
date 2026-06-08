@@ -965,13 +965,13 @@ export default function PlanningEditor(){
       {/* VIEW TOGGLE + borrowed employees */}
       <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16,flexWrap:'wrap'}}>
         <div style={{background:'var(--card2)',borderRadius:10,padding:3,border:'1px solid var(--border)',display:'inline-flex'}}>
-          {['week','day'].map(m=>(
+          {[['week','Semaine'],['day','Journée'],['month','Mois']].map(([m,label])=>(
             <button key={m} onClick={()=>setViewMode(m)} style={{
-              padding:'8px 20px',borderRadius:8,border:'none',cursor:'pointer',
+              padding:'8px 18px',borderRadius:8,border:'none',cursor:'pointer',
               background:viewMode===m?'var(--teal)':'transparent',
               color:viewMode===m?'#fff':'var(--muted)',
               fontFamily:'var(--font-b)',fontSize:14,fontWeight:viewMode===m?700:500,
-            }}>{m==='week'?'Semaine':'Journée'}</button>
+            }}>{label}</button>
           ))}
         </div>
         {viewMode==='day'&&weekDates.map((wd,i)=>(
@@ -1086,23 +1086,31 @@ export default function PlanningEditor(){
         </div>
       )}
       {!generating&&allDisplayEmps.length>0&&(
-        viewMode==='week'
-          ?<WeekView
-            emps={allDisplayEmps} days={displayDays} allDays={weekDates}
-            sched={schedule} types={shiftTypes} onCell={handleCell} totalH={totalH}
-            onDragStart={handleDragStart} onDragOver={handleDragOver}
-            onDrop={handleDrop} onDragEnd={handleDragEnd}
-            dragOver={dragOver} extraEmpIds={extraEmps.map(e=>e.id)} allStores={stores} activeStoreId={activeStore}
-            overtimeRecords={overtimeRecords} onOvertimeClick={(empId)=>setOvertimeModal({empId})}
-            clipboard={clipboard} onCopyShift={handleCopyShift} onPasteShift={handlePasteShift}
+        viewMode==='month'
+          ?<MonthManagerView
+              emps={allDisplayEmps} storeId={activeStore} currentWeek={currentWeek}
+              currentYear={currentYear} getSchedule={getSchedule} types={shiftTypes}
+              onCell={handleCell} stores={stores} totalH={totalH}
+              getWeekDates={getWeekDatesForCurrentWeek}
+              overtimeRecords={overtimeRecords} onOvertimeClick={(empId)=>setOvertimeModal({empId})}
           />
-          :<DayView
-            emps={allDisplayEmps} day={weekDates[activeDay]} dayIdx={activeDay}
-            sched={schedule} types={shiftTypes} onCell={handleCell}
-            onDragStart={handleDragStart} onDragOver={handleDragOver}
-            onDrop={handleDrop} onDragEnd={handleDragEnd}
-            dragOver={dragOver}
-          />
+          : viewMode==='week'
+            ?<WeekView
+              emps={allDisplayEmps} days={displayDays} allDays={weekDates}
+              sched={schedule} types={shiftTypes} onCell={handleCell} totalH={totalH}
+              onDragStart={handleDragStart} onDragOver={handleDragOver}
+              onDrop={handleDrop} onDragEnd={handleDragEnd}
+              dragOver={dragOver} extraEmpIds={extraEmps.map(e=>e.id)} allStores={stores} activeStoreId={activeStore}
+              overtimeRecords={overtimeRecords} onOvertimeClick={(empId)=>setOvertimeModal({empId})}
+              clipboard={clipboard} onCopyShift={handleCopyShift} onPasteShift={handlePasteShift}
+            />
+            :<DayView
+              emps={allDisplayEmps} day={weekDates[activeDay]} dayIdx={activeDay}
+              sched={schedule} types={shiftTypes} onCell={handleCell}
+              onDragStart={handleDragStart} onDragOver={handleDragOver}
+              onDrop={handleDrop} onDragEnd={handleDragEnd}
+              dragOver={dragOver}
+            />
       )}
 
       {/* MODALS */}
@@ -1405,6 +1413,129 @@ function OvertimeTotalCell({t,diff,emp,overtimeRecords,onOvertimeClick}){
         )}
       </button>
     </td>
+  );
+}
+
+/* ── MONTH VIEW (MANAGER) ────────────────────────────────── */
+function MonthManagerView({emps,storeId,currentWeek,currentYear,getSchedule,types,onCell,stores,totalH,getWeekDates,overtimeRecords,onOvertimeClick}){
+  const getMeta=id=>types.find(t=>t.id===id)||{label:id,color:'#6366F1',bgColor:'#EEF2FF'};
+  const WORK=['work','communication','meeting','school'];
+  const DAY_S=['L','M','M','J','V','S','D'];
+
+  // Get weeks of current month
+  const refDate = getWeekDates(currentWeek)[0].date;
+  const month = refDate.getMonth();
+  const year = refDate.getFullYear();
+  const months=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+
+  const weeks = [];
+  for(let wk=currentWeek-2;wk<=currentWeek+5;wk++){
+    if(wk<1||wk>53) continue;
+    const wd=getWeekDates(wk);
+    if(wd.some(d=>d.date.getMonth()===month&&d.date.getFullYear()===year)){
+      weeks.push({wk,wd});
+    }
+  }
+
+  const getShift=(empId,di,wk)=>{
+    const sched=getSchedule(storeId,wk,currentYear);
+    let sh=sched[`${empId}_${di}`];
+    // check déplacement
+    if(!sh?.startTime){
+      stores.forEach(st=>{
+        if(st.id===storeId) return;
+        const o=getSchedule(st.id,wk,currentYear);
+        const s=o[`${empId}_${di}`];
+        if(s&&WORK.includes(s.type)) sh={...s,_away:true,_awayStoreName:st.name,_awayColor:st.color};
+      });
+    }
+    return sh;
+  };
+
+  const monthTotal=(empId)=>{
+    let t=0;
+    weeks.forEach(({wk,wd})=>{
+      wd.forEach((_,di)=>{
+        const sh=getShift(empId,di,wk);
+        if(sh&&WORK.includes(sh.type)){
+          if(sh.startTime&&sh.endTime){const d=(()=>{try{const[sh2,sm]=sh.startTime.split(':').map(Number),[eh,em]=sh.endTime.split(':').map(Number);const d=(eh*60+em)-(sh2*60+sm);return Math.max(0,parseFloat(((d-Math.round((sh.breakH||0)*60))/60).toFixed(2)));}catch{return 0;}})(); t+=d; }
+          if(sh.split?.startTime&&sh.split?.endTime){const d=(()=>{try{const[sh2,sm]=sh.split.startTime.split(':').map(Number),[eh,em]=sh.split.endTime.split(':').map(Number);const d=(eh*60+em)-(sh2*60+sm);return Math.max(0,parseFloat(((d-Math.round((sh.split.breakH||0)*60))/60).toFixed(2)));}catch{return 0;}})(); t+=d; }
+        }
+      });
+    });
+    return parseFloat(t.toFixed(2));
+  };
+
+  function fH(d){if(!d||isNaN(d))return'0h';const t=Math.round(d*60),h=Math.floor(t/60),m=t%60;return m===0?`${h}h`:`${h}h${String(m).padStart(2,'0')}`;}
+
+  return(
+    <div style={{overflowX:'auto'}}>
+      <div style={{fontFamily:'var(--font-h)',fontWeight:700,fontSize:18,marginBottom:14,textTransform:'capitalize',color:'var(--text)'}}>
+        {months[month]} {year}
+      </div>
+      {emps.map(emp=>{
+        const mt=monthTotal(emp.id);
+        const isVisitor=emp.storeId!==storeId;
+        const homeStore=isVisitor?stores.find(s=>s.id===emp.storeId):null;
+        return(
+          <div key={emp.id} style={{background:'#fff',borderRadius:14,border:'1.5px solid var(--border)',marginBottom:12,overflow:'hidden',boxShadow:'var(--shadow)'}}>
+            <div style={{display:'flex',alignItems:'center',gap:12,padding:'11px 18px',borderBottom:'1px solid #F0F5F7',background:'var(--card2)'}}>
+              <div style={{width:36,height:36,borderRadius:'50%',background:emp.color||'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,color:'#fff',fontSize:16,flexShrink:0}}>{emp.name[0]}</div>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:700,fontSize:15,display:'flex',alignItems:'center',gap:6}}>
+                  {emp.name}
+                  {isVisitor&&homeStore&&<span style={{fontSize:9,fontWeight:700,color:homeStore.color,background:`${homeStore.color}1A`,border:`1px solid ${homeStore.color}55`,borderRadius:5,padding:'1px 5px'}}>✈ {homeStore.name}</span>}
+                </div>
+                <div style={{fontSize:12,color:'var(--muted)',textTransform:'capitalize'}}>{emp.role} · {emp.contractHours}h/sem</div>
+              </div>
+              <div style={{textAlign:'right'}}>
+                <div style={{fontWeight:800,fontSize:16,color:'var(--teal-dark)',fontVariantNumeric:'tabular-nums'}}>{fH(mt)}</div>
+                <div style={{fontSize:11,color:'var(--dim)'}}>ce mois</div>
+              </div>
+              <button onClick={()=>onOvertimeClick(emp.id)} title="Heures supp" style={{background:'none',border:'1px solid var(--border)',borderRadius:8,padding:'4px 8px',cursor:'pointer',fontSize:12,color:'var(--muted)'}}>⚡</button>
+            </div>
+            {/* Weeks */}
+            {weeks.map(({wk,wd})=>(
+              <div key={wk} style={{display:'grid',gridTemplateColumns:'52px repeat(7,1fr) 60px',borderBottom:'1px solid #F0F5F7'}}>
+                <div style={{padding:'6px 8px',background:'#F8FAFB',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',borderRight:'1px solid #F0F5F7'}}>
+                  <div style={{fontWeight:700,fontSize:12,color:'var(--muted)'}}>S{wk}</div>
+                </div>
+                {wd.map((day,di)=>{
+                  const sh=getShift(emp.id,di,wk);
+                  const st=sh?getMeta(sh.type):{};
+                  const isSun=day.date.getDay()===0;
+                  return(
+                    <div key={di} onClick={()=>sh?.startTime&&onCell(emp.id,di)} style={{padding:'3px 2px',background:isSun?'#FFF8F8':'',cursor:sh?.startTime?'pointer':'default'}}>
+                      <div style={{fontSize:9,fontWeight:600,color:isSun?'#C8002B':'var(--dim)',textAlign:'center',marginBottom:1}}>{DAY_S[di]} {day.date.getDate()}</div>
+                      <div style={{
+                        borderRadius:6,padding:'4px 3px',minHeight:36,
+                        background:sh?sh._away?`${sh._awayColor||st.color}12`:st.bgColor:'#F8FAFB',
+                        border:`1px solid ${sh?sh._away?sh._awayColor||st.color:st.color+'35':'#E8EDF0'}`,
+                        display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:0,
+                      }}>
+                        {sh?(
+                          <>
+                            <span style={{fontSize:9,fontWeight:700,color:sh._away?sh._awayColor||st.color:st.color,textAlign:'center',lineHeight:1.2}}>{sh._away?'✈':st.label?.slice(0,4)}</span>
+                            {sh.startTime&&<span style={{fontSize:8,color:sh._away?sh._awayColor||st.color:st.color,opacity:.85}}>{sh.startTime}</span>}
+                          </>
+                        ):<span style={{color:'#DDE3E8',fontSize:10}}>—</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+                <div style={{padding:'6px 4px',background:'#F8FAFB',borderLeft:'1px solid #F0F5F7',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                  {(()=>{
+                    let wt=0;
+                    wd.forEach((_,di)=>{const sh=getShift(emp.id,di,wk);if(sh&&WORK.includes(sh.type)){if(sh.startTime&&sh.endTime){try{const[sh2,sm]=sh.startTime.split(':').map(Number),[eh,em]=sh.endTime.split(':').map(Number);const d=(eh*60+em)-(sh2*60+sm);wt+=Math.max(0,(d-Math.round((sh.breakH||0)*60))/60);}catch{}}if(sh.split?.startTime&&sh.split?.endTime){try{const[sh2,sm]=sh.split.startTime.split(':').map(Number),[eh,em]=sh.split.endTime.split(':').map(Number);const d=(eh*60+em)-(sh2*60+sm);wt+=Math.max(0,(d-Math.round((sh.split.breakH||0)*60))/60);}catch{}}}});
+                    return <span style={{fontSize:11,fontWeight:700,color:'var(--teal-dark)',fontVariantNumeric:'tabular-nums'}}>{fH(parseFloat(wt.toFixed(2)))}</span>;
+                  })()}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      })}
+    </div>
   );
 }
 

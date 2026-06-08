@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 
 function fmtH(decimalHours){
@@ -166,6 +166,7 @@ export default function PublicPlanning({ onLogin }) {
   const { stores, employees, shiftTypes, schedules, currentWeek, setCurrentWeek, currentYear, getWeekDatesForCurrentWeek } = useApp();
   const [activeStore, setActiveStore] = useState(stores[0]?.id || '');
   const [popup, setPopup] = useState(null);
+  const [viewMode, setViewMode] = useState('week');
 
   const weekDates = getWeekDatesForCurrentWeek(currentWeek);
   const store = stores.find(s => s.id === activeStore);
@@ -185,6 +186,20 @@ export default function PublicPlanning({ onLogin }) {
   const getMeta = id => shiftTypes.find(s => s.id === id) || { label:id, color:'#6366F1', bgColor:'#EEF2FF' };
   const startDate = weekDates[0]?.date.toLocaleDateString('fr-FR',{day:'numeric',month:'long'});
   const endDate   = weekDates[6]?.date.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+
+  // Month weeks computation
+  const monthWeeks = useMemo(()=>{
+    const fd = weekDates[0]?.date;
+    if(!fd) return [];
+    const month=fd.getMonth(), year=fd.getFullYear();
+    const wks=[];
+    for(let wk=currentWeek-2;wk<=currentWeek+5;wk++){
+      if(wk<1||wk>53) continue;
+      const wd=getWeekDatesForCurrentWeek(wk);
+      if(wd.some(d=>d.date.getMonth()===month&&d.date.getFullYear()===year)) wks.push({wk,wd});
+    }
+    return wks;
+  },[weekDates,currentWeek]);
 
   const handleCellClick = (emp, di) => {
     const sh = sched[`${emp.id}_${di}`];
@@ -226,6 +241,13 @@ export default function PublicPlanning({ onLogin }) {
           <button onClick={()=>setCurrentWeek(w=>Math.min(52,w+1))} style={{ background:'none', border:'1.5px solid #E2EBF0', borderRadius:8, width:38, height:38, cursor:'pointer', fontSize:18, color:'var(--muted)', display:'flex', alignItems:'center', justifyContent:'center' }}>›</button>
         </div>
 
+        {/* View toggle */}
+        <div style={{display:'flex',justifyContent:'center',gap:4,marginBottom:12,background:'var(--card2)',borderRadius:10,padding:3,border:'1.5px solid var(--border)',width:'fit-content',margin:'0 auto 14px'}}>
+          {[['week','Semaine'],['month','Mois']].map(([m,label])=>(
+            <button key={m} onClick={()=>setViewMode(m)} style={{padding:'7px 20px',borderRadius:8,border:'none',cursor:'pointer',fontFamily:'var(--font-b)',fontSize:14,fontWeight:viewMode===m?700:500,background:viewMode===m?'var(--card)':'transparent',color:viewMode===m?'var(--text)':'var(--muted)',boxShadow:viewMode===m?'var(--shadow)':'none',transition:'all .15s'}}>{label}</button>
+          ))}
+        </div>
+
         {/* Store tabs */}
         <div style={{ display:'flex', gap:8, marginBottom:14, overflowX:'auto', paddingBottom:4 }}>
           {stores.map(s=>(
@@ -241,8 +263,8 @@ export default function PublicPlanning({ onLogin }) {
           ))}
         </div>
 
-        {/* Employee cards */}
-        <div style={{ display:'grid', gap:10 }}>
+        {/* Employee cards - WEEK */}
+        {viewMode==='week'&&<div style={{ display:'grid', gap:10 }}>
           {storeEmps.map(emp => {
             const workTypes=['work','communication','meeting','school'];
             const totalH = weekDates.reduce((t,_,di)=>{
@@ -318,7 +340,48 @@ export default function PublicPlanning({ onLogin }) {
               </div>
             );
           })}
-        </div>
+        </div>}
+
+        {/* Employee cards - MONTH */}
+        {viewMode==='month'&&(
+          <div>
+            <div style={{fontFamily:'var(--font-h)',fontWeight:700,fontSize:17,marginBottom:14,textTransform:'capitalize',color:'var(--teal-dark)'}}>
+              {weekDates[0]?.date.toLocaleDateString('fr-FR',{month:'long',year:'numeric'})}
+            </div>
+            {storeEmps.map(emp=>(
+              <div key={emp.id} style={{background:'white',borderRadius:14,border:'1.5px solid #E2EBF0',marginBottom:10,overflow:'hidden',boxShadow:'0 2px 8px rgba(0,0,0,.06)'}}>
+                <div style={{display:'flex',alignItems:'center',gap:10,padding:'11px 14px',borderBottom:'1px solid #F0F5F7',background:'#F8FAFB'}}>
+                  <div style={{width:34,height:34,borderRadius:'50%',background:emp.color||'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,color:'white',fontSize:15}}>{emp.name[0]}</div>
+                  <div><div style={{fontWeight:700,fontSize:15}}>{emp.name}</div><div style={{fontSize:11,color:'var(--dim)',textTransform:'capitalize'}}>{emp.role} · {emp.contractHours}h/sem</div></div>
+                </div>
+                {monthWeeks.map(({wk,wd})=>{
+                  const wSched=schedules[`${activeStore}_${currentYear}_W${wk}`]||{};
+                  return(
+                    <div key={wk} style={{display:'grid',gridTemplateColumns:'44px repeat(7,1fr)',borderBottom:'1px solid #F8FAFB'}}>
+                      <div style={{padding:'4px 6px',background:'#F4F7F9',display:'flex',alignItems:'center',justifyContent:'center',borderRight:'1px solid #F0F5F7'}}>
+                        <span style={{fontSize:10,fontWeight:700,color:'var(--muted)'}}>S{wk}</span>
+                      </div>
+                      {wd.map((day,di)=>{
+                        const sh=wSched[`${emp.id}_${di}`];
+                        const st=sh?getMeta(sh.type):null;
+                        const isSun=day.date.getDay()===0;
+                        return(
+                          <div key={di} onClick={()=>sh&&st&&setPopup({emp,sh,st,st2:sh.split?getMeta(sh.split.type):null,day})}
+                            style={{padding:'2px',background:isSun?'#FFF8F8':'',cursor:sh?'pointer':'default'}}>
+                            <div style={{fontSize:8,color:isSun?'#C8002B':'var(--dim)',textAlign:'center',marginBottom:1}}>{['L','M','M','J','V','S','D'][di]} {day.date.getDate()}</div>
+                            <div style={{borderRadius:5,padding:'3px 2px',minHeight:32,background:sh?st.bgColor:'#F8FAFB',border:`1px solid ${sh?st.color+'35':'#EAEEF0'}`,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:0}}>
+                              {sh?<><span style={{fontSize:8,fontWeight:700,color:st.color,textAlign:'center'}}>{st.label.slice(0,4)}</span>{sh.startTime&&<span style={{fontSize:7,color:st.color,opacity:.8}}>{sh.startTime}</span>}</>:<span style={{color:'#DDE3E8',fontSize:9}}>—</span>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Legend */}
         <div style={{ display:'flex', flexWrap:'wrap', gap:7, marginTop:16, justifyContent:'center' }}>
