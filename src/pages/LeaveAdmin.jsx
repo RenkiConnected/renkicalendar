@@ -62,7 +62,7 @@ export default function LeaveAdmin(){
   const LEAVE_TYPES_MAP=Object.fromEntries(LEAVE_TYPES.map(l=>[l.id,l]));
 
   return(
-    <div className="anim-up" style={{maxWidth:1100,margin:'0 auto'}}>
+    <div className="anim-up" style={{width:'100%'}}>
       {/* Header */}
       <div style={{marginBottom:20}}>
         <h1 className="page-title">🗂️ Congés & Demandes</h1>

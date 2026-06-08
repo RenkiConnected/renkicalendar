@@ -593,6 +593,7 @@ export default function PlanningEditor(){
   const[borrowedEmps,setBorrowedEmps]=useState([]);
   const[detailPopup,setDetailPopup]=useState(null); // {empId, dayIdx}
   const[overtimeModal,setOvertimeModal]=useState(null); // {empId}
+  const[showClearConfirm,setShowClearConfirm]=useState(false);
   const[clipboard,setClipboard]=useState(null); // copied shift data
 
   // Drag state — use refs for performance during drag
@@ -865,6 +866,20 @@ export default function PlanningEditor(){
     setGenerating(false);
   };
 
+  // ── EFFACER LE PLANNING ──────────────────────────────────
+  const handleClearPlanning=async()=>{
+    if(!activeStore) return;
+    const bulk={};
+    // Set all cells for all store employees to null (empty)
+    allDisplayEmps.forEach(emp=>{
+      weekDates.forEach((_,di)=>{
+        bulk[`${emp.id}_${di}`]=null;
+      });
+    });
+    await setBulkSchedule(activeStore,currentWeek,currentYear,bulk);
+    setShowClearConfirm(false);
+  };
+
   /* ── DRAG & DROP — ATOMIC SWAP ───────────────────────────── */
   const handleDragStart=useCallback((empId,dayIdx,e)=>{
     const sh=schedule[`${empId}_${dayIdx}`];
@@ -937,11 +952,14 @@ export default function PlanningEditor(){
         <div style={{display:'flex',gap:9,flexWrap:'wrap',alignItems:'center'}}>
           <WeekNav cw={currentWeek} setCw={setCurrentWeek}/>
           <button className="btn btn-ghost btn-sm" onClick={()=>setShowWknd(!showWknd)}>{showWknd?'Masquer dim.':'Voir dim.'}</button>
-          {store&&storeEmps.length>0&&(
+          {store&&storeEmps.length>0&&(<>
             <button className="btn btn-sec btn-sm" disabled={generating} onClick={()=>setShowAuto(true)}>
               {generating?'⏳ Génération...':'⚡ Auto-générer'}
             </button>
-          )}
+            <button className="btn btn-ghost btn-sm" style={{color:'#C8002B',borderColor:'#FFCCD4',gap:6}} onClick={()=>setShowClearConfirm(true)} title="Effacer tout le planning de cette semaine">
+              🗑 Effacer
+            </button>
+          </>)}
           <button className="btn btn-sec btn-sm" onClick={()=>setShowBorrow(true)}>👥 Ajouter</button>
           <button className="btn btn-primary btn-sm" onClick={()=>window.dispatchEvent(new CustomEvent('exportPDF',{detail:{storeId:activeStore,week:currentWeek}}))}>📄 PDF</button>
           <button className="btn btn-ghost btn-sm" title="Copier le planning en image pour Notion" onClick={()=>window.dispatchEvent(new CustomEvent('exportNotion',{detail:{storeId:activeStore,week:currentWeek}}))}>🖼️ Notion</button>
@@ -1155,6 +1173,26 @@ export default function PlanningEditor(){
           isManager={['manager','dirigeant','admin'].includes(authRole)}
         />;
       })()}
+      {showClearConfirm&&(
+        <div className="overlay" onClick={()=>setShowClearConfirm(false)}>
+          <div className="modal" style={{maxWidth:480,textAlign:'center'}} onClick={e=>e.stopPropagation()}>
+            <div style={{fontSize:52,marginBottom:16}}>🗑️</div>
+            <h3 style={{fontFamily:'var(--font-h)',fontWeight:800,fontSize:22,marginBottom:10}}>Effacer le planning ?</h3>
+            <p style={{color:'var(--muted)',fontSize:16,marginBottom:8}}>
+              Tous les créneaux de <strong style={{color:'var(--text)'}}>{store?.name}</strong> pour la semaine <strong style={{color:'var(--teal-dark)'}}>S{currentWeek}</strong> seront supprimés.
+            </p>
+            <p style={{color:'#C8002B',fontSize:14,marginBottom:24,fontWeight:600}}>⚠️ Cette action est irréversible.</p>
+            <div style={{display:'flex',gap:12,justifyContent:'center'}}>
+              <button className="btn btn-danger" style={{padding:'13px 28px',fontSize:15}} onClick={handleClearPlanning}>
+                🗑 Confirmer — Effacer
+              </button>
+              <button className="btn btn-ghost" style={{padding:'13px 24px',fontSize:15}} onClick={()=>setShowClearConfirm(false)}>
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {showAuto&&store&&<AutoModal store={store} emps={storeEmps} weekDates={weekDates} currentWeek={currentWeek} currentYear={currentYear} leaveRequests={leaveRequests} onGenerate={handleAutoGen} onClose={()=>setShowAuto(false)}/>}
       {showBorrow&&store&&<BorrowModal store={store} allEmployees={employees} allStores={stores} currentEmps={allDisplayEmps} onBorrow={handleBorrow} onClose={()=>setShowBorrow(false)}/>}
     </div>
@@ -1180,8 +1218,12 @@ function OvertimeModal({emp,schedule,weekDates,currentWeek,currentYear,overtimeR
   const[action,setAction]=useState('accumulate');
   const[saving,setSaving]=useState(false);
   const[payMonth,setPayMonth]=useState(null);
-  const[editRecord,setEditRecord]=useState(null); // {month, year, editH}
-  const[deleteConfirm,setDeleteConfirm]=useState(null); // record to delete
+  const[editRecord,setEditRecord]=useState(null);
+  const[deleteConfirm,setDeleteConfirm]=useState(null);
+  const[manualH,setManualH]=useState(0);
+  const[manualDir,setManualDir]=useState('add');
+  const[manualNote,setManualNote]=useState('');
+  const[showManual,setShowManual]=useState(false);
   const handleResolve=async()=>{
     if(thisWeekExtra<=0) return;
     setSaving(true);
@@ -1214,6 +1256,57 @@ function OvertimeModal({emp,schedule,weekDates,currentWeek,currentYear,overtimeR
             </div>
           ))}
         </div>
+        {/* Manual overtime add/remove (manager only) */}
+        {isManager&&(
+          <div style={{marginBottom:20}}>
+            <button onClick={()=>setShowManual(v=>!v)} style={{display:'flex',alignItems:'center',gap:8,background:'none',border:'1.5px solid var(--border)',borderRadius:10,padding:'9px 16px',cursor:'pointer',fontSize:14,fontWeight:600,color:'var(--muted)',fontFamily:'var(--font-b)',width:'100%',justifyContent:'space-between'}}>
+              <span>✏️ Ajustement manuel des heures</span>
+              <span style={{fontSize:18}}>{showManual?'▲':'▼'}</span>
+            </button>
+            {showManual&&(
+              <div style={{background:'var(--card2)',borderRadius:12,padding:'16px',marginTop:8,border:'1.5px solid var(--border)'}}>
+                <p style={{fontSize:13,color:'var(--muted)',marginBottom:14}}>Ajoutez ou retirez des heures supplémentaires manuellement avec une note.</p>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
+                  <div>
+                    <div className="lbl">Action</div>
+                    <div style={{display:'flex',gap:6}}>
+                      {[['add','+ Ajouter'],['remove','- Retirer']].map(([v,l])=>(
+                        <button key={v} onClick={()=>setManualDir(v)} style={{flex:1,padding:'10px',borderRadius:9,border:`2px solid ${manualDir===v?'var(--teal)':'var(--border)'}`,background:manualDir===v?'var(--teal-light)':'#fff',color:manualDir===v?'var(--teal-dark)':'var(--muted)',fontFamily:'var(--font-b)',fontSize:14,fontWeight:700,cursor:'pointer'}}>{l}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="lbl">Heures</div>
+                    <div style={{display:'flex',alignItems:'center',gap:8}}>
+                      <button onClick={()=>setManualH(h=>Math.max(0,parseFloat((h-0.5).toFixed(2))))} style={{width:36,height:44,borderRadius:8,border:'1.5px solid var(--border)',background:'#fff',fontSize:20,cursor:'pointer',fontFamily:'var(--font-b)'}}>-</button>
+                      <input type="number" step="0.5" min="0" max="100" value={manualH} onChange={e=>setManualH(parseFloat(e.target.value)||0)} className="inp" style={{textAlign:'center',fontSize:18,fontWeight:700,padding:'10px'}}/>
+                      <button onClick={()=>setManualH(h=>parseFloat((h+0.5).toFixed(2)))} style={{width:36,height:44,borderRadius:8,border:'1.5px solid var(--border)',background:'#fff',fontSize:20,cursor:'pointer',fontFamily:'var(--font-b)'}}>+</button>
+                    </div>
+                  </div>
+                </div>
+                <div style={{marginBottom:12}}>
+                  <div className="lbl">Note / raison <span style={{color:'#C8002B'}}>*</span></div>
+                  <input className="inp" value={manualNote} onChange={e=>setManualNote(e.target.value)} placeholder="Ex: rattrapage erreur saisie, bonus exceptionnel..."/>
+                </div>
+                <button className="btn btn-primary btn-sm" style={{width:'100%',justifyContent:'center',padding:'12px',fontSize:15}}
+                  disabled={manualH<=0||!manualNote.trim()||saving}
+                  onClick={async()=>{
+                    if(manualH<=0||!manualNote.trim()) return;
+                    setSaving(true);
+                    const month=Math.ceil(currentWeek/4.33);
+                    const key=`${emp.id}_${currentYear}_M${month}`;
+                    const existing=overtimeRecords[key]||{extraHours:0,weeks:[],status:'pending'};
+                    const delta=manualDir==='add'?manualH:-manualH;
+                    await updateOvertimeHours(emp.id,currentYear,month,Math.max(0,(existing.extraHours||0)+delta));
+                    setSaving(false); setManualH(0); setManualNote(''); setShowManual(false);
+                  }}>
+                  {saving?'⏳ ...':`${manualDir==='add'?'+ Ajouter':'- Retirer'} ${fmtH(manualH)} heures`}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {empRecords.length>0&&(
           <div style={{marginBottom:18}}>
             <div style={{fontFamily:'var(--font-h)',fontWeight:700,fontSize:19,marginBottom:14}}>📊 Historique des heures supp.</div>

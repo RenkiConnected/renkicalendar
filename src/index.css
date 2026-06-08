@@ -76,9 +76,7 @@ body {
 }
 .main-content {
   flex: 1;
-  padding: 36px 48px;
-  max-width: 1400px;
-  margin: 0 auto;
+  padding: 32px 48px;
   width: 100%;
 }
 
@@ -182,7 +180,7 @@ body {
 @media (min-width: 1400px) {
   :root { --sidebar-w: 260px; }
   html { font-size: 17px; }
-  .main-content { padding: 40px 56px; }
+  .main-content { padding: 36px 52px; }
 }
 
 /* ═══════════════════════════════════════════════════
@@ -191,7 +189,7 @@ body {
 @media (max-width: 1399px) and (min-width: 861px) {
   :root { --sidebar-w: 220px; }
   html { font-size: 15px; }
-  .main-content { padding: 28px 36px; }
+  .main-content { padding: 24px 32px; }
   .modal { padding: 30px 38px; }
 }
 
