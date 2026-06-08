@@ -142,3 +142,50 @@ export async function fetchSchedule(storeId, week, year) {
   const snap = await getDoc(doc(db, 'schedules', key));
   return snap.exists() ? snap.data() : {};
 }
+
+// ── OVERTIME TRACKING ────────────────────────────────────
+export async function saveOvertimeRecord(empId, year, month, data) {
+  const key = `${empId}_${year}_M${month}`;
+  await setDoc(doc(db, 'overtime', key), { ...data, empId, year, month, updatedAt: new Date().toISOString() });
+}
+
+export async function fetchOvertimeRecords(storeId, year) {
+  const snap = await getDocs(collection(db, 'overtime'));
+  const records = {};
+  snap.forEach(d => {
+    const data = d.data();
+    if (data.year === year) records[d.id] = data;
+  });
+  return records;
+}
+
+export function listenOvertime(year, cb) {
+  return onSnapshot(collection(db, 'overtime'), snap => {
+    const records = {};
+    snap.forEach(d => {
+      const data = d.data();
+      if (data.year === year) records[d.id] = data;
+    });
+    cb(records);
+  });
+}
+
+export async function deleteOvertimeRecord(empId, year, month) {
+  const key = `${empId}_${year}_M${month}`;
+  await deleteDoc(doc(db, 'overtime', key));
+}
+
+// ── CONTRAINTES ET DEMANDES EXCEPTIONNELLES ──────────────────
+export async function saveConstraintRequest(data) {
+  const id = data.id || `cr_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+  await setDoc(doc(db,'constraints',id),{...data,id,updatedAt:new Date().toISOString()});
+  return id;
+}
+export function listenConstraints(cb){
+  return onSnapshot(collection(db,'constraints'),snap=>{
+    const items=[];snap.forEach(d=>items.push(d.data()));cb(items);
+  });
+}
+export async function deleteConstraintRequest(id){
+  await deleteDoc(doc(db,'constraints',id));
+}
