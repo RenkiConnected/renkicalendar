@@ -8,6 +8,7 @@ import {
   saveLeaveRequest, removeLeaveRequest,
   fetchSchedule,
   saveOvertimeRecord, deleteOvertimeRecord, listenOvertime,
+  saveConstraintRequest, listenConstraints, deleteConstraintRequest,
   seedIfEmpty, forceResetAll, ALL_EMPLOYEES,
 } from '../firebaseService';
 
@@ -84,7 +85,8 @@ export function AppProvider({ children }) {
   const [shiftTypes, setShiftTypes] = useState([]);
   const [schedules, setSchedules] = useState({});
   const [leaveRequests, setLeaveRequests] = useState([]);
-  const [overtimeRecords, setOvertimeRecords] = useState({}); // key: empId_year_Mmonth
+  const [overtimeRecords, setOvertimeRecords] = useState({});
+  const [constraintRequests, setConstraintRequests] = useState([]); // key: empId_year_Mmonth
   const [appSettings, setAppSettings] = useState({});
   const [loading, setLoading] = useState(true);
 
@@ -101,6 +103,12 @@ export function AppProvider({ children }) {
     const u4=listenLeaveRequests(setLeaveRequests);
     const u5=listenSettings(setAppSettings);
     return()=>{ u1();u2();u3();u4();u5(); };
+  },[]);
+
+  // Listen to constraint/exceptional requests
+  useEffect(()=>{
+    const unsub = listenConstraints(data => setConstraintRequests(data));
+    return () => unsub();
   },[]);
 
   // Listen to overtime records
@@ -321,6 +329,28 @@ export function AppProvider({ children }) {
   const doResetEmployees=async()=>{ await forceResetAll(); };
 
 
+  // ── CONSTRAINT/EXCEPTIONAL HELPERS ───────────────────────
+  const submitConstraintRequest = async (data) => {
+    const emp = employees.find(e => e.id === currentEmpId);
+    return await saveConstraintRequest({
+      ...data,
+      employeeId: currentEmpId,
+      employeeName: emp?.name || '',
+      storeId: emp?.storeId,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+    });
+  };
+  const approveConstraintRequest = async (req) => {
+    await saveConstraintRequest({ ...req, status: 'approved', resolvedAt: new Date().toISOString() });
+  };
+  const refuseConstraintRequest = async (req, reason='') => {
+    await saveConstraintRequest({ ...req, status: 'refused', managerNote: reason, resolvedAt: new Date().toISOString() });
+  };
+  const removeConstraintRequest = async (id) => {
+    await deleteConstraintRequest(id);
+  };
+
   // ── OVERTIME HELPERS ──────────────────────────────────
   const getEmpOvertimeBalance = (empId) => {
     let total = 0;
@@ -374,6 +404,7 @@ export function AppProvider({ children }) {
       doResetEmployees,
       currentWeek,setCurrentWeek,currentYear,
       overtimeRecords,getEmpOvertimeBalance,resolveOvertime,deleteOvertimeEntry,updateOvertimeHours,
+      constraintRequests,submitConstraintRequest,approveConstraintRequest,refuseConstraintRequest,removeConstraintRequest,
       selectedStore,setSelectedStore,
       getWeekDatesForCurrentWeek:w=>getWeekDates(w,currentYear),
       DAYS,

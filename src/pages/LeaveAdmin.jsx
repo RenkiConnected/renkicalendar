@@ -19,12 +19,15 @@ function StatusBadge({status}){
 }
 
 export default function LeaveAdmin(){
-  const{leaveRequests,approveLeaveRequest,rejectLeaveRequest,cancelApprovedLeave,deleteLeaveRequest,employees,stores}=useApp();
+  const{leaveRequests,approveLeaveRequest,rejectLeaveRequest,cancelApprovedLeave,deleteLeaveRequest,employees,stores,constraintRequests,approveConstraintRequest,refuseConstraintRequest,removeConstraintRequest}=useApp();
   const[filter,setFilter]=useState('all'); // all|pending|approved|rejected
   const[storeFilter,setStoreFilter]=useState('all');
   const[approving,setApproving]=useState(null);
   const[cancelling,setCancelling]=useState(null);
   const[rejecting,setRejecting]=useState(null);
+  const[adminTab,setAdminTab]=useState('leaves');
+  const[refuseNote,setRefuseNote]=useState('');
+  const[refusingId,setRefusingId]=useState(null);
 
   const filtered=leaveRequests
     .filter(r=>filter==='all'||r.status===filter)
@@ -61,11 +64,18 @@ export default function LeaveAdmin(){
   return(
     <div className="anim-up" style={{maxWidth:1100,margin:'0 auto'}}>
       {/* Header */}
-      <div style={{marginBottom:32}}>
-        <h1 className="page-title">🗂️ Gestion des congés</h1>
-        <p className="page-sub">Validez ou refusez les demandes · Mise à jour automatique du planning</p>
+      <div style={{marginBottom:20}}>
+        <h1 className="page-title">🗂️ Congés & Demandes</h1>
+        <p className="page-sub">Validez les demandes · Mise à jour automatique du planning</p>
       </div>
 
+      <div style={{display:'flex',gap:4,background:'var(--card2)',borderRadius:12,padding:4,marginBottom:24,border:'1.5px solid var(--border)',width:'fit-content'}}>
+        {[['leaves',`🌴 Congés (${leaveRequests.filter(r=>r.status==='pending').length})`],['constraints',`⚡ Demandes (${(constraintRequests||[]).filter(r=>r.status==='pending').length})`]].map(([id,label])=>(
+          <button key={id} onClick={()=>setAdminTab(id)} style={{padding:'10px 22px',borderRadius:9,border:'none',cursor:'pointer',fontFamily:'var(--font-b)',fontSize:14,fontWeight:adminTab===id?700:500,background:adminTab===id?'#fff':'transparent',color:adminTab===id?'var(--text)':'var(--muted)',boxShadow:adminTab===id?'var(--shadow)':'none',transition:'all .15s'}}>{label}</button>
+        ))}
+      </div>
+
+      {adminTab==='leaves'&&(<>
       {/* Stats */}
       <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16,marginBottom:28}}>
         {[
@@ -220,6 +230,71 @@ export default function LeaveAdmin(){
               </div>
             );
           })}
+        </div>
+      )}
+
+      </>
+      )}
+
+      {adminTab==='constraints'&&(
+        <div>
+          {!(constraintRequests&&constraintRequests.length>0)?(
+            <div style={{textAlign:'center',padding:60,color:'var(--muted)',fontSize:15,background:'var(--card2)',borderRadius:14,border:'1.5px dashed var(--border)'}}>
+              Aucune demande en cours
+            </div>
+          ):(
+            <div style={{display:'grid',gap:14}}>
+              {[...(constraintRequests||[])].sort((a,b)=>{const o={pending:0,approved:1,refused:2};return (o[a.status]||0)-(o[b.status]||0)||new Date(b.createdAt||0)-new Date(a.createdAt||0);}).map(r=>{
+                const emp=employees.find(e=>e.id===r.employeeId);
+                const store=emp?stores.find(s=>s.id===emp.storeId):null;
+                const dateStr=r.date?new Date(r.date+'T12:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'}):'—';
+                return(
+                  <div key={r.id} style={{background:r.status==='approved'?'#E8FAF0':r.status==='refused'?'#FFF0F2':'#fff',border:`1.5px solid ${r.status==='approved'?'var(--teal-mid)':r.status==='refused'?'#FFCCD4':'var(--border)'}`,borderRadius:14,padding:'18px 22px',boxShadow:'var(--shadow)'}}>
+                    <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12,flexWrap:'wrap',marginBottom:12}}>
+                      <div style={{display:'flex',alignItems:'center',gap:12}}>
+                        <div style={{width:42,height:42,borderRadius:'50%',background:emp?.color||'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,color:'#fff',fontSize:17,flexShrink:0}}>{(emp?.name||r.employeeName||'?')[0]}</div>
+                        <div>
+                          <div style={{fontWeight:700,fontSize:16}}>{emp?.name||r.employeeName}</div>
+                          <div style={{fontSize:13,color:'var(--muted)',marginTop:2}}>{store?.name||'—'} · {r.type==='constraint'?'⏰ Contrainte horaire':'🌟 Demande exceptionnelle'}</div>
+                        </div>
+                      </div>
+                      <span style={{fontSize:12,fontWeight:700,padding:'4px 12px',borderRadius:20,background:r.status==='approved'?'var(--teal)':r.status==='refused'?'#C8002B':'#F59E0B',color:'#fff'}}>
+                        {r.status==='approved'?'✅ Approuvé':r.status==='refused'?'❌ Refusé':'⏳ En attente'}
+                      </span>
+                    </div>
+                    <div style={{padding:'12px 16px',background:'rgba(0,0,0,.03)',borderRadius:10,marginBottom:12}}>
+                      <div style={{fontWeight:600,fontSize:15,marginBottom:8}}>📅 {dateStr}</div>
+                      {(r.requestedStart||r.requestedEnd)&&(
+                        <div style={{display:'flex',alignItems:'center',gap:20,marginBottom:6}}>
+                          {r.requestedStart&&<div><div style={{fontSize:10,color:'var(--muted)',textTransform:'uppercase',fontWeight:700}}>{r.type==='constraint'?'Arrivée souhaitée':'Début proposé'}</div><div style={{fontSize:26,fontWeight:800,fontVariantNumeric:'tabular-nums',color:'var(--text)'}}>{r.requestedStart}</div></div>}
+                          {r.requestedStart&&r.requestedEnd&&<div style={{fontSize:22,color:'var(--muted)'}}>→</div>}
+                          {r.requestedEnd&&<div><div style={{fontSize:10,color:'var(--muted)',textTransform:'uppercase',fontWeight:700}}>{r.type==='constraint'?'Départ souhaité':'Fin proposée'}</div><div style={{fontSize:26,fontWeight:800,fontVariantNumeric:'tabular-nums',color:'var(--text)'}}>{r.requestedEnd}</div></div>}
+                        </div>
+                      )}
+                      {r.note&&<div style={{fontSize:13,color:'var(--muted)',fontStyle:'italic'}}>💬 {r.note}</div>}
+                      {r.managerNote&&<div style={{fontSize:13,color:'#C8002B',marginTop:4}}>Note : {r.managerNote}</div>}
+                    </div>
+                    {r.status==='pending'&&(
+                      <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'center'}}>
+                        <button className="btn btn-sm" style={{background:'#1A8A42',color:'#fff',border:'none'}} onClick={async()=>await approveConstraintRequest(r)}>✅ Approuver</button>
+                        {refusingId===r.id?(
+                          <div style={{display:'flex',gap:8,alignItems:'center',flex:1}}>
+                            <input className="inp" style={{flex:1,fontSize:13,padding:'8px 12px'}} placeholder="Raison (optionnel)" value={refuseNote} onChange={e=>setRefuseNote(e.target.value)}/>
+                            <button className="btn btn-danger btn-sm" onClick={async()=>{await refuseConstraintRequest(r,refuseNote);setRefusingId(null);setRefuseNote('');}}>Confirmer</button>
+                            <button className="btn btn-ghost btn-sm" onClick={()=>{setRefusingId(null);setRefuseNote('');}}>Annuler</button>
+                          </div>
+                        ):(
+                          <button className="btn btn-danger btn-sm" onClick={()=>setRefusingId(r.id)}>❌ Refuser</button>
+                        )}
+                        <button className="btn btn-ghost btn-sm" onClick={()=>removeConstraintRequest(r.id)}>🗑</button>
+                      </div>
+                    )}
+                    {r.status!=='pending'&&<button className="btn btn-ghost btn-xs" style={{marginTop:8}} onClick={()=>removeConstraintRequest(r.id)}>🗑 Supprimer</button>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>

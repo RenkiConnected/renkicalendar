@@ -231,7 +231,7 @@ function LeaveCalendar({ empId, leaveRequests }) {
 
 /* ── MAIN ─────────────────────────────────────────── */
 export default function LeaveRequestPage() {
-  const { currentUser, currentEmpId, employees, leaveRequests, submitLeaveRequest, deleteLeaveRequest } = useApp();
+  const { currentUser, currentEmpId, employees, leaveRequests, submitLeaveRequest, deleteLeaveRequest, constraintRequests, submitConstraintRequest, removeConstraintRequest } = useApp();
   const emp = employees.find(e=>e.id===currentEmpId||e.name===currentUser);
   const [selDates, setSelDates] = useState([]);
   const [type, setType] = useState('vacation');
@@ -239,8 +239,16 @@ export default function LeaveRequestPage() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [tab, setTab] = useState('new');
+  const [ctab, setCtab] = useState('constraint'); // constraint | exceptional
+  const [cDate, setCDate] = useState('');
+  const [cStartTime, setCStartTime] = useState('');
+  const [cEndTime, setCEndTime] = useState('');
+  const [cNote, setCNote] = useState('');
+  const [cSubmitting, setCSubmitting] = useState(false);
+  const [cSuccess, setCSuccess] = useState(false);
 
   const myReqs = leaveRequests.filter(r=>r.employeeId===emp?.id).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  const myConstraints = constraintRequests.filter(r=>r.employeeId===emp?.id).sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
 
   const toggleDate = d => setSelDates(prev => {
     const ex=prev.some(p=>p.toDateString()===d.toDateString());
@@ -283,7 +291,7 @@ export default function LeaveRequestPage() {
     <div className="anim-up">
       <div style={{marginBottom:28}}>
         <h1 className="page-title">🌴 Mes congés</h1>
-        <p className="page-sub">Bonjour <strong style={{color:'var(--teal-dark)'}}>{emp.name}</strong> · {myReqs.length} demande(s)</p>
+        <p className="page-sub">Bonjour <strong style={{color:'var(--teal-dark)'}}>{emp.name}</strong> · {myReqs.length} congé(s) · {myConstraints.length} demande(s)</p>
       </div>
 
       {/* Success */}
@@ -296,7 +304,7 @@ export default function LeaveRequestPage() {
 
       {/* Tabs */}
       <div style={{display:'flex',gap:4,background:'var(--card2)',borderRadius:12,padding:4,marginBottom:26,border:'1.5px solid var(--border)',width:'fit-content'}}>
-        {[{id:'new',l:'✏️ Nouvelle'},{id:'history',l:`📋 Historique (${myReqs.length})`},{id:'calendar',l:'📅 Calendrier'}].map(t=>(
+        {[{id:'new',l:'✏️ Nouvelle'},{id:'history',l:`📋 Historique (${myReqs.length})`},{id:'calendar',l:'📅 Calendrier'},{id:'requests',l:`⚡ Demandes (${myConstraints.length})`}].map(t=>(
           <button key={t.id} onClick={()=>setTab(t.id)} style={{
             padding:'10px 18px',borderRadius:9,border:'none',cursor:'pointer',
             background:tab===t.id?'#fff':'transparent',
@@ -414,6 +422,175 @@ export default function LeaveRequestPage() {
       )}
 
       {/* ── CALENDRIER */}
+      {tab==='requests' && (
+        <div className="anim-up">
+          {/* Success banner */}
+          {cSuccess&&(
+            <div style={{background:'#E8FAF0',border:'2px solid var(--teal-mid)',borderRadius:14,padding:'16px 22px',marginBottom:20,display:'flex',alignItems:'center',gap:14}}>
+              <span style={{fontSize:28}}>✅</span>
+              <div><div style={{fontWeight:700,color:'#1A8A42',fontSize:16}}>Demande envoyée !</div><div style={{color:'var(--muted)',fontSize:14,marginTop:2}}>Votre manager la traitera bientôt.</div></div>
+            </div>
+          )}
+
+          {/* Sub-tabs */}
+          <div style={{display:'flex',gap:4,background:'var(--card2)',borderRadius:10,padding:3,marginBottom:22,border:'1.5px solid var(--border)',width:'fit-content'}}>
+            {[['constraint','⏰ Contrainte horaire'],['exceptional','🌟 Demande exceptionnelle']].map(([id,l])=>(
+              <button key={id} onClick={()=>setCtab(id)} style={{padding:'9px 18px',borderRadius:8,border:'none',cursor:'pointer',fontFamily:'var(--font-b)',fontSize:13,fontWeight:ctab===id?700:500,background:ctab===id?'#fff':'transparent',color:ctab===id?'var(--text)':'var(--muted)',boxShadow:ctab===id?'var(--shadow)':'none',transition:'all .15s'}}>{l}</button>
+            ))}
+          </div>
+
+          {/* CONTRAINTE HORAIRE */}
+          {ctab==='constraint'&&(
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:22}}>
+              <div className="card" style={{padding:'28px'}}>
+                <h3 style={{fontFamily:'var(--font-h)',fontWeight:700,fontSize:18,marginBottom:6}}>⏰ Contrainte horaire</h3>
+                <p style={{color:'var(--muted)',fontSize:14,marginBottom:22}}>Signalez une contrainte pour un jour précis : heure d'arrivée ou départ imposée.</p>
+
+                <div style={{marginBottom:16}}>
+                  <label className="lbl">Jour concerné</label>
+                  <input className="inp" type="date" value={cDate} onChange={e=>setCDate(e.target.value)} min={new Date().toISOString().slice(0,10)}/>
+                </div>
+
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
+                  <div>
+                    <label className="lbl">Pas avant (arrivée souhaitée)</label>
+                    <input className="inp" type="time" value={cStartTime} onChange={e=>setCStartTime(e.target.value)} placeholder="optionnel"/>
+                  </div>
+                  <div>
+                    <label className="lbl">Pas après (départ souhaité)</label>
+                    <input className="inp" type="time" value={cEndTime} onChange={e=>setCEndTime(e.target.value)} placeholder="optionnel"/>
+                  </div>
+                </div>
+
+                <div style={{marginBottom:22}}>
+                  <label className="lbl">Raison / précision</label>
+                  <textarea className="inp" rows={3} value={cNote} onChange={e=>setCNote(e.target.value)} placeholder="Ex: dépose enfant à l'école, rendez-vous médical..."/>
+                </div>
+
+                <button className="btn btn-primary" style={{width:'100%',justifyContent:'center',padding:'14px',fontSize:15}}
+                  disabled={!cDate||cSubmitting}
+                  onClick={async()=>{
+                    if(!cDate) return;
+                    setCSubmitting(true);
+                    await submitConstraintRequest({type:'constraint',date:cDate,requestedStart:cStartTime||null,requestedEnd:cEndTime||null,note:cNote});
+                    setCSubmitting(false); setCSuccess(true); setCDate(''); setCStartTime(''); setCEndTime(''); setCNote('');
+                    setTimeout(()=>setCSuccess(false),4000);
+                  }}>
+                  {cSubmitting?'⏳ Envoi...':'✓ Envoyer la contrainte'}
+                </button>
+              </div>
+
+              {/* My constraints */}
+              <div>
+                <h3 style={{fontFamily:'var(--font-h)',fontWeight:700,fontSize:17,marginBottom:14}}>Mes contraintes</h3>
+                {myConstraints.filter(r=>r.type==='constraint').length===0?(
+                  <div style={{textAlign:'center',padding:32,color:'var(--muted)',fontSize:14,background:'var(--card2)',borderRadius:12,border:'1.5px dashed var(--border)'}}>Aucune contrainte envoyée</div>
+                ):(
+                  myConstraints.filter(r=>r.type==='constraint').map(r=>(
+                    <div key={r.id} style={{background:r.status==='approved'?'#E8FAF0':r.status==='refused'?'#FFF0F2':'#FFF7E0',border:`1.5px solid ${r.status==='approved'?'var(--teal-mid)':r.status==='refused'?'#FFCCD4':'#F5D06A'}`,borderRadius:12,padding:'14px 16px',marginBottom:10}}>
+                      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
+                        <div style={{fontWeight:700,fontSize:15}}>{new Date(r.date+'T12:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>
+                        <span style={{fontSize:12,fontWeight:700,padding:'3px 10px',borderRadius:20,background:r.status==='approved'?'var(--teal)':r.status==='refused'?'#C8002B':'#F59E0B',color:'#fff'}}>
+                          {r.status==='approved'?'✅ Approuvé':r.status==='refused'?'❌ Refusé':'⏳ En attente'}
+                        </span>
+                      </div>
+                      {(r.requestedStart||r.requestedEnd)&&(
+                        <div style={{fontSize:13,color:'var(--muted)',marginBottom:4}}>
+                          {r.requestedStart&&`Arrivée : ${r.requestedStart}`}{r.requestedStart&&r.requestedEnd&&' · '}{r.requestedEnd&&`Départ : ${r.requestedEnd}`}
+                        </div>
+                      )}
+                      {r.note&&<div style={{fontSize:13,color:'var(--muted)',fontStyle:'italic',marginBottom:4}}>💬 {r.note}</div>}
+                      {r.managerNote&&<div style={{fontSize:13,color:'#C8002B',marginBottom:6}}>Manager : {r.managerNote}</div>}
+                      {r.status==='pending'&&(
+                        <button className="btn btn-danger btn-xs" onClick={()=>removeConstraintRequest(r.id)}>🗑 Annuler</button>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* DEMANDE EXCEPTIONNELLE */}
+          {ctab==='exceptional'&&(
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:22}}>
+              <div className="card" style={{padding:'28px'}}>
+                <h3 style={{fontFamily:'var(--font-h)',fontWeight:700,fontSize:18,marginBottom:6}}>🌟 Demande exceptionnelle</h3>
+                <p style={{color:'var(--muted)',fontSize:14,marginBottom:22}}>Proposez un créneau de travail spécifique à votre manager : horaires personnalisés pour un jour particulier.</p>
+
+                <div style={{marginBottom:16}}>
+                  <label className="lbl">Jour concerné</label>
+                  <input className="inp" type="date" value={cDate} onChange={e=>setCDate(e.target.value)} min={new Date().toISOString().slice(0,10)}/>
+                </div>
+
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
+                  <div>
+                    <label className="lbl">🕐 Heure de début proposée</label>
+                    <input className="inp" type="time" value={cStartTime} onChange={e=>setCStartTime(e.target.value)}/>
+                  </div>
+                  <div>
+                    <label className="lbl">🕐 Heure de fin proposée</label>
+                    <input className="inp" type="time" value={cEndTime} onChange={e=>setCEndTime(e.target.value)}/>
+                  </div>
+                </div>
+
+                {cStartTime&&cEndTime&&(
+                  <div style={{background:'var(--teal-light)',borderRadius:10,padding:'10px 14px',marginBottom:14,border:'1.5px solid var(--teal-mid)',fontSize:14,color:'var(--teal-dark)',fontWeight:600}}>
+                    ⏱ Durée proposée : {(()=>{const[sh,sm]=cStartTime.split(':').map(Number),[eh,em]=cEndTime.split(':').map(Number);const d=(eh*60+em)-(sh*60+sm);if(d<=0)return '–';const h=Math.floor(d/60),m=d%60;return m===0?`${h}h`:`${h}h${String(m).padStart(2,'0')}`;})()}
+                  </div>
+                )}
+
+                <div style={{marginBottom:22}}>
+                  <label className="lbl">Motif / contexte</label>
+                  <textarea className="inp" rows={3} value={cNote} onChange={e=>setCNote(e.target.value)} placeholder="Ex: disponible uniquement le matin, souhait de finir tôt ce jour..."/>
+                </div>
+
+                <button className="btn btn-primary" style={{width:'100%',justifyContent:'center',padding:'14px',fontSize:15}}
+                  disabled={!cDate||!cStartTime||!cEndTime||cSubmitting}
+                  onClick={async()=>{
+                    if(!cDate||!cStartTime||!cEndTime) return;
+                    setCSubmitting(true);
+                    await submitConstraintRequest({type:'exceptional',date:cDate,requestedStart:cStartTime,requestedEnd:cEndTime,note:cNote});
+                    setCSubmitting(false); setCSuccess(true); setCDate(''); setCStartTime(''); setCEndTime(''); setCNote('');
+                    setTimeout(()=>setCSuccess(false),4000);
+                  }}>
+                  {cSubmitting?'⏳ Envoi...':'✓ Proposer ce créneau'}
+                </button>
+              </div>
+
+              {/* My exceptional requests */}
+              <div>
+                <h3 style={{fontFamily:'var(--font-h)',fontWeight:700,fontSize:17,marginBottom:14}}>Mes propositions</h3>
+                {myConstraints.filter(r=>r.type==='exceptional').length===0?(
+                  <div style={{textAlign:'center',padding:32,color:'var(--muted)',fontSize:14,background:'var(--card2)',borderRadius:12,border:'1.5px dashed var(--border)'}}>Aucune proposition envoyée</div>
+                ):(
+                  myConstraints.filter(r=>r.type==='exceptional').map(r=>(
+                    <div key={r.id} style={{background:r.status==='approved'?'#E8FAF0':r.status==='refused'?'#FFF0F2':'#FFF7E0',border:`1.5px solid ${r.status==='approved'?'var(--teal-mid)':r.status==='refused'?'#FFCCD4':'#F5D06A'}`,borderRadius:12,padding:'14px 16px',marginBottom:10}}>
+                      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
+                        <div style={{fontWeight:700,fontSize:15}}>{new Date(r.date+'T12:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>
+                        <span style={{fontSize:12,fontWeight:700,padding:'3px 10px',borderRadius:20,background:r.status==='approved'?'var(--teal)':r.status==='refused'?'#C8002B':'#F59E0B',color:'#fff'}}>
+                          {r.status==='approved'?'✅ Approuvé':r.status==='refused'?'❌ Refusé':'⏳ En attente'}
+                        </span>
+                      </div>
+                      <div style={{display:'flex',alignItems:'center',gap:12,padding:'10px 14px',background:'rgba(255,255,255,.7)',borderRadius:9}}>
+                        <div style={{textAlign:'center',flex:1}}><div style={{fontSize:10,color:'var(--muted)',textTransform:'uppercase',fontWeight:700}}>Début</div><div style={{fontSize:22,fontWeight:800,color:'var(--text)',fontVariantNumeric:'tabular-nums'}}>{r.requestedStart}</div></div>
+                        <div style={{color:'var(--muted)',fontSize:18}}>→</div>
+                        <div style={{textAlign:'center',flex:1}}><div style={{fontSize:10,color:'var(--muted)',textTransform:'uppercase',fontWeight:700}}>Fin</div><div style={{fontSize:22,fontWeight:800,color:'var(--text)',fontVariantNumeric:'tabular-nums'}}>{r.requestedEnd}</div></div>
+                      </div>
+                      {r.note&&<div style={{fontSize:13,color:'var(--muted)',fontStyle:'italic',marginTop:8}}>💬 {r.note}</div>}
+                      {r.managerNote&&<div style={{fontSize:13,color:'#C8002B',marginTop:6}}>Manager : {r.managerNote}</div>}
+                      {r.status==='pending'&&(
+                        <button className="btn btn-danger btn-xs" style={{marginTop:8}} onClick={()=>removeConstraintRequest(r.id)}>🗑 Annuler</button>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {tab==='calendar' && (
         <div className="card" style={{padding:28,maxWidth:520}}>
           <h3 style={{fontFamily:'var(--font-h)',fontWeight:700,fontSize:17,marginBottom:20}}>📅 Mes congés sur le calendrier</h3>
