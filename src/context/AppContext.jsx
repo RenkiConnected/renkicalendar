@@ -12,13 +12,27 @@ import {
 } from '../firebaseService';
 
 const AppContext = createContext(null);
-const CURRENT_WEEK = 23; // auto-computed ISO week
+// Compute current ISO week number dynamically
+function getISOWeek(date) {
+  const d = new Date(date);
+  d.setHours(0,0,0,0);
+  d.setDate(d.getDate() + 4 - (d.getDay()||7)); // Thursday of this week
+  const yearStart = new Date(d.getFullYear(), 0, 1);
+  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
+function getISOYear(date) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + 4 - (d.getDay()||7));
+  return d.getFullYear();
+}
+const CURRENT_WEEK = getISOWeek(new Date());
+const CURRENT_YEAR = getISOYear(new Date());
 const DAYS = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
 
 // Roles that require password
 export const MANAGER_ROLES = ['manager','dirigeant','admin'];
 
-function getWeekDates(wn, year=2026) {
+function getWeekDates(wn, year=new Date().getFullYear()) {
   // Use ISO week: week 1 = week containing Jan 4, Monday = first day
   const jan4 = new Date(year, 0, 4);
   const dow = jan4.getDay(); // 0=Sun,1=Mon,...
@@ -75,7 +89,7 @@ export function AppProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   const [currentWeek, setCurrentWeek] = useState(CURRENT_WEEK);
-  const [currentYear] = useState(2026);
+  const [currentYear] = useState(CURRENT_YEAR);
   const [selectedStore, setSelectedStore] = useState(null);
   const listeners = useRef({});
 
