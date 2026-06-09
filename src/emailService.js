@@ -4,50 +4,44 @@ const SERVICE_ID  = 'service_qbwxrfs';
 const TEMPLATE_ID = 'template_fidobtf';
 const PUBLIC_KEY  = 'aeWj_p7LQqxhj5fu3';
 
-// Initialize once
 emailjs.init(PUBLIC_KEY);
 
-// Get notification emails from appSettings (stored in Firebase)
-function getNotifEmails(appSettings) {
-  return appSettings?.notificationEmails || '';
-}
-
 export async function sendLeaveRequestEmail({ employee, leaveType, dates, storeName, appSettings }) {
-  const to = getNotifEmails(appSettings);
-  if (!to) return; // no emails configured
+  const to = appSettings?.notificationEmails?.trim();
+
+  // Debug log so we can see what's happening in the console
+  console.log('[EmailJS] sendLeaveRequestEmail called');
+  console.log('[EmailJS] to_emails:', to);
+  console.log('[EmailJS] appSettings:', appSettings);
+
+  if (!to) {
+    console.warn('[EmailJS] No notification emails configured — skipping. Go to Paramètres → Notifications email to add addresses.');
+    return;
+  }
 
   const typeLabel = leaveType === 'vacation' ? 'Congés payés'
-    : leaveType === 'sick' ? 'Arrêt maladie'
+    : leaveType === 'sick'   ? 'Arrêt maladie'
     : leaveType === 'unpaid' ? 'Congé sans solde'
-    : leaveType === 'rtt' ? 'RTT'
-    : leaveType;
+    : leaveType === 'rtt'    ? 'RTT'
+    : leaveType || 'Congé';
 
-  await emailjs.send(SERVICE_ID, TEMPLATE_ID, {
+  const params = {
     to_emails:     to,
-    employee_name: employee,
-    store_name:    storeName,
+    employee_name: employee || '—',
+    store_name:    storeName || '—',
     leave_type:    typeLabel,
-    leave_dates:   dates,
+    leave_dates:   dates || '—',
     subject:       `🌴 Nouvelle demande de congé — ${employee}`,
     message:       `${employee} (${storeName}) a posé une demande de congé.\n\nType : ${typeLabel}\nDates : ${dates}\n\nConnectez-vous sur Care Planning pour valider ou refuser.`,
-  });
-}
+  };
 
-export async function sendConstraintRequestEmail({ employee, type, date, startTime, endTime, note, storeName, appSettings }) {
-  const to = getNotifEmails(appSettings);
-  if (!to) return;
+  console.log('[EmailJS] Sending with params:', params);
 
-  const typeLabel = type === 'constraint' ? '⏰ Contrainte horaire' : '🌟 Demande exceptionnelle';
-  const timeInfo = startTime && endTime ? `${startTime} → ${endTime}` : startTime ? `Arrivée : ${startTime}` : endTime ? `Départ : ${endTime}` : '—';
-  const dateStr = date ? new Date(date + 'T12:00').toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long', year:'numeric' }) : date;
-
-  await emailjs.send(SERVICE_ID, TEMPLATE_ID, {
-    to_emails:     to,
-    employee_name: employee,
-    store_name:    storeName,
-    leave_type:    typeLabel,
-    leave_dates:   dateStr,
-    subject:       `${typeLabel} — ${employee}`,
-    message:       `${employee} (${storeName}) a soumis une ${typeLabel}.\n\nDate : ${dateStr}\nHoraires : ${timeInfo}${note ? `\nRaison : ${note}` : ''}\n\nConnectez-vous sur Care Planning pour valider ou refuser.`,
-  });
+  try {
+    const result = await emailjs.send(SERVICE_ID, TEMPLATE_ID, params);
+    console.log('[EmailJS] ✅ Email sent successfully:', result.status, result.text);
+  } catch (err) {
+    console.error('[EmailJS] ❌ Send failed:', err);
+    throw err; // re-throw so AppContext catches it
+  }
 }

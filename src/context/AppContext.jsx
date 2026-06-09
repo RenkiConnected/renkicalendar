@@ -211,7 +211,7 @@ export function AppProvider({ children }) {
         storeName:store?.name||'—',
         appSettings,
       });
-    }catch(e){console.warn('Email notif failed:',e);}
+    }catch(e){console.error('[Email] Failed to send leave notification:', e?.text||e?.message||e);}
     return n;
   };
 
