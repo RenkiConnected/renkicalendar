@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { sendLeaveRequestEmail } from '../emailService';
 import {
   listenStores, listenEmployees, listenShiftTypes, listenSchedule,
   listenLeaveRequests, listenSettings,
