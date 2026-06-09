@@ -6,7 +6,7 @@ const PUBLIC_KEY  = 'aeWj_p7LQqxhj5fu3';
 
 emailjs.init(PUBLIC_KEY);
 
-export async function sendLeaveRequestEmail({ employee, leaveType, dates, storeName, appSettings }) {
+export async function sendLeaveRequestEmail({ employee, leaveType, dates, weeks, storeName, appSettings }) {
   const to = appSettings?.notificationEmails?.trim();
 
   // Debug log so we can see what's happening in the console
@@ -31,8 +31,8 @@ export async function sendLeaveRequestEmail({ employee, leaveType, dates, storeN
     store_name:    storeName || '—',
     leave_type:    typeLabel,
     leave_dates:   dates || '—',
-    subject:       `🌴 Nouvelle demande de congé — ${employee}`,
-    message:       `${employee} (${storeName}) a posé une demande de congé.\n\nType : ${typeLabel}\nDates : ${dates}\n\nConnectez-vous sur Care Planning pour valider ou refuser.`,
+    subject:       `🌴 Demande de congé — ${employee} · ${weeks||dates||''}`,
+    message:       `Bonjour,\n\n${employee} (${storeName}) a posé une demande de congé.\n\n📋 Type    : ${typeLabel}\n📅 Dates   : ${dates}\n🗓️ Semaine : ${weeks||'—'}\n\nConnectez-vous sur Care Planning pour valider ou refuser.\n\nhttps://renkicalendar.vercel.app`,
   };
 
   console.log('[EmailJS] Sending with params:', params);

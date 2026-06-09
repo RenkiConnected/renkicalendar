@@ -203,13 +203,36 @@ export function AppProvider({ children }) {
     try {
       const emp=employees.find(e=>e.id===req.employeeId||e.id===currentEmpId);
       const store=stores.find(s=>s.id===(emp?.storeId));
-      const dateStr=req.dates?.map(d=>new Date(d+'T12:00').toLocaleDateString('fr-FR')).join(', ')
-        ||req.dateRange||'—';
+
+      // Parse dates properly (they are ISO strings like "2026-06-15T00:00:00.000Z")
+      let dateStr = '—';
+      if (req.dates && req.dates.length > 0) {
+        const sorted = [...req.dates].sort();
+        const fmt = d => {
+          const dt = new Date(d);
+          return dt.toLocaleDateString('fr-FR', { weekday:'short', day:'numeric', month:'long', year:'numeric' });
+        };
+        if (sorted.length === 1) {
+          dateStr = fmt(sorted[0]);
+        } else {
+          // Show range if consecutive, list if scattered
+          dateStr = `${fmt(sorted[0])} → ${fmt(sorted[sorted.length-1])} (${sorted.length} jours)`;
+        }
+      }
+
+      // Get ISO week numbers from weeks data
+      let weekStr = '';
+      if (req.weeks && req.weeks.length > 0) {
+        const wks = [...new Set(req.weeks.map(w => w.week))].sort((a,b)=>a-b);
+        weekStr = wks.length === 1 ? `Semaine ${wks[0]}` : `Semaines ${wks.join(', ')}`;
+      }
+
       await sendLeaveRequestEmail({
-        employee:emp?.name||req.employeeName||'—',
-        leaveType:req.leaveType||req.type||'vacation',
-        dates:dateStr,
-        storeName:store?.name||'—',
+        employee: emp?.name || req.employeeName || '—',
+        leaveType: req.leaveType || req.type || 'vacation',
+        dates: dateStr,
+        weeks: weekStr,
+        storeName: store?.name || '—',
         appSettings,
       });
     }catch(e){console.error('[Email] Failed to send leave notification:', e?.text||e?.message||e);}
