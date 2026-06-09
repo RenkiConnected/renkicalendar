@@ -197,7 +197,22 @@ export function AppProvider({ children }) {
   // ── LEAVE ─────────────────────────────────────────────
   const submitLeaveRequest=async(req)=>{
     const n={...req,id:`leave_${Date.now()}`,status:'pending',createdAt:new Date().toISOString()};
-    await saveLeaveRequest(n); return n;
+    await saveLeaveRequest(n);
+    // Send notification email
+    try {
+      const emp=employees.find(e=>e.id===req.employeeId||e.id===currentEmpId);
+      const store=stores.find(s=>s.id===(emp?.storeId));
+      const dateStr=req.dates?.map(d=>new Date(d+'T12:00').toLocaleDateString('fr-FR')).join(', ')
+        ||req.dateRange||'—';
+      await sendLeaveRequestEmail({
+        employee:emp?.name||req.employeeName||'—',
+        leaveType:req.leaveType||req.type||'vacation',
+        dates:dateStr,
+        storeName:store?.name||'—',
+        appSettings,
+      });
+    }catch(e){console.warn('Email notif failed:',e);}
+    return n;
   };
 
   const approveLeaveRequest=async(reqId)=>{
@@ -332,7 +347,7 @@ export function AppProvider({ children }) {
   // ── CONSTRAINT/EXCEPTIONAL HELPERS ───────────────────────
   const submitConstraintRequest = async (data) => {
     const emp = employees.find(e => e.id === currentEmpId);
-    return await saveConstraintRequest({
+    const id = await saveConstraintRequest({
       ...data,
       employeeId: currentEmpId,
       employeeName: emp?.name || '',
@@ -340,6 +355,7 @@ export function AppProvider({ children }) {
       status: 'pending',
       createdAt: new Date().toISOString(),
     });
+    return id;
   };
   const approveConstraintRequest = async (req) => {
     await saveConstraintRequest({ ...req, status: 'approved', resolvedAt: new Date().toISOString() });

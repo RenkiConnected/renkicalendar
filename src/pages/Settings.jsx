@@ -9,6 +9,9 @@ export default function Settings() {
   const [logoUrl, setLogoUrl] = useState(appSettings.logoUrl || '');
   const [logoPreview, setLogoPreview] = useState(appSettings.logoDataUrl || appSettings.logoUrl || '');
   const [savingLogo, setSavingLogo] = useState(false);
+  const [notifEmails, setNotifEmails] = useState(appSettings.notificationEmails || '');
+  const [savingNotif, setSavingNotif] = useState(false);
+  const [notifSaved, setNotifSaved] = useState(false);
   const [resetDone, setResetDone] = useState(false);
   const fileRef = useRef();
 
@@ -196,6 +199,45 @@ export default function Settings() {
           🔄 Forcer la migration V6 (nouveaux utilisateurs)
         </button>
       </div>
+      {/* NOTIFICATIONS */}
+      <div className="card" style={{ padding:'28px', marginBottom:24 }}>
+        <h2 className="section-title" style={{ marginBottom:6 }}>📧 Notifications email</h2>
+        <p style={{ color:'var(--muted)', fontSize:15, marginBottom:20 }}>
+          Ces adresses reçoivent un email automatique dès qu'un employé pose un congé ou une demande.
+        </p>
+        <div style={{ marginBottom:16 }}>
+          <label className="lbl">Adresses email (séparées par des virgules)</label>
+          <input
+            className="inp"
+            style={{ fontSize:16 }}
+            value={notifEmails}
+            onChange={e => setNotifEmails(e.target.value)}
+            placeholder="manager@gmail.com, direction@exemple.com"
+          />
+          <div style={{ fontSize:13, color:'var(--dim)', marginTop:6 }}>
+            💡 Vous pouvez mettre autant d'adresses que vous voulez.
+          </div>
+        </div>
+        {notifSaved && (
+          <div style={{ background:'#E8FAF0', border:'1.5px solid var(--teal-mid)', borderRadius:10, padding:'10px 16px', marginBottom:14, color:'#1A8A42', fontWeight:600, fontSize:14 }}>
+            ✅ Emails de notification sauvegardés !
+          </div>
+        )}
+        <button
+          className="btn btn-primary"
+          style={{ gap:8 }}
+          disabled={savingNotif}
+          onClick={async () => {
+            setSavingNotif(true);
+            await updateSettings({ notificationEmails: notifEmails.trim() });
+            setSavingNotif(false); setNotifSaved(true);
+            setTimeout(() => setNotifSaved(false), 3000);
+          }}
+        >
+          {savingNotif ? '⏳ Sauvegarde...' : '💾 Sauvegarder les emails'}
+        </button>
+      </div>
+
     </div>
   );
 }
