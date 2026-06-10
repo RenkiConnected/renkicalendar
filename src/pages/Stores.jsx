@@ -21,32 +21,31 @@ function StoreModal({ store, managers, onSave, onClose }) {
           <button className="btn btn-ghost btn-xs" onClick={onClose}>✕</button>
         </div>
 
-        <div style={{display:'grid',gap:13}}>
-          <div>
-            <div className="lbl">Nom du magasin</div>
-            <input className="inp" value={form.name} onChange={e=>set('name',e.target.value)} placeholder="Ex: Save Marseille"/>
-          </div>
-
-          <div>
-            <div className="lbl">📧 Email de notification du magasin</div>
-            <input className="inp" type="email" value={form.notifyEmail||''} onChange={e=>set('notifyEmail',e.target.value)} placeholder="cogolin@exemple.com"/>
-            <div style={{fontSize:12,color:'var(--dim)',marginTop:4}}>Reçoit un email quand un employé de ce magasin pose un congé (+ direction).</div>
+        <div style={{display:'grid',gap:10}}>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+            <div>
+              <div className="lbl">Nom du magasin</div>
+              <input className="inp" value={form.name} onChange={e=>set('name',e.target.value)} placeholder="Ex: Save Marseille"/>
+            </div>
+            <div>
+              <div className="lbl">📧 Email notification</div>
+              <input className="inp" type="email" value={form.notifyEmail||''} onChange={e=>set('notifyEmail',e.target.value)} placeholder="cogolin@exemple.com"/>
+            </div>
           </div>
 
           <div>
             <div className="lbl">👔 Responsable(s) du magasin</div>
-            <div style={{fontSize:12,color:'var(--dim)',marginBottom:8}}>Ces managers gèrent le planning et reçoivent les congés de ce magasin.</div>
             {(managers||[]).length===0?(
               <div style={{fontSize:13,color:'var(--muted)',fontStyle:'italic'}}>Aucun manager créé. Ajoutez-en dans la page Employés.</div>
             ):(
-              <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+              <div style={{display:'flex',flexWrap:'wrap',gap:7}}>
                 {(managers||[]).map(m=>{
                   const on=assignedMgrs.includes(m.id);
                   return (
                     <button key={m.id} type="button"
                       onClick={()=>setAssignedMgrs(cur=>on?cur.filter(id=>id!==m.id):[...cur,m.id])}
                       style={{
-                        display:'flex',alignItems:'center',gap:7,padding:'7px 13px',borderRadius:20,cursor:'pointer',
+                        display:'flex',alignItems:'center',gap:7,padding:'6px 12px',borderRadius:20,cursor:'pointer',
                         border:`2px solid ${on?(form.color||'#00C9B1'):'var(--border)'}`,
                         background:on?(form.color||'#00C9B1'):'#fff',
                         color:on?'#fff':'var(--muted)',
