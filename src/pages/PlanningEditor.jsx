@@ -93,7 +93,7 @@ function ShiftDetailPopup({emp,day,shift,onClose,types,onEdit}){
     background:'#fff',borderRadius:22,
     width:'100%',maxWidth:520,
     padding:'28px 34px',
-    maxHeight:'90vh',overflowY:'auto',
+    maxHeight:'calc(100vh - 32px)',overflowY:'auto',
     boxShadow:'0 24px 80px rgba(0,0,0,.22)',
     animation:'popIn .25s cubic-bezier(.34,1.56,.64,1) forwards',
   };
