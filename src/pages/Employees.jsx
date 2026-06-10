@@ -31,6 +31,41 @@ function EmpModal({ emp, stores, allEmps, onSave, onClose }) {
               {stores.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>
+          {(form.role==='manager'||form.role==='dirigeant'||form.role==='admin')&&(
+            <div>
+              <div className="lbl">📧 Email du responsable</div>
+              <input className="inp" type="email" value={form.email||''} onChange={e=>set('email',e.target.value)} placeholder="manager@exemple.com"/>
+              <div style={{fontSize:13,color:'var(--dim)',marginTop:5}}>Reçoit les emails de congés des boutiques gérées ci-dessous.</div>
+            </div>
+          )}
+          {(form.role==='manager'||form.role==='dirigeant'||form.role==='admin')&&(
+            <div>
+              <div className="lbl">🏪 Boutiques gérées (responsable)</div>
+              <div style={{fontSize:13,color:'var(--dim)',marginBottom:10}}>Ce manager peut gérer les plannings et reçoit les emails de congés de ces boutiques.</div>
+              <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+                {stores.map(s=>{
+                  const managed=(form.managedStores||[]).includes(s.id);
+                  return (
+                    <button key={s.id} type="button"
+                      onClick={()=>{
+                        const cur=form.managedStores||[];
+                        set('managedStores', managed ? cur.filter(id=>id!==s.id) : [...cur, s.id]);
+                      }}
+                      style={{
+                        padding:'8px 14px',borderRadius:20,cursor:'pointer',
+                        border:`2px solid ${managed?s.color:s.color+'40'}`,
+                        background:managed?s.color:'#fff',
+                        color:managed?'#fff':s.color,
+                        fontFamily:'var(--font-b)',fontSize:13,fontWeight:managed?700:500,
+                        transition:'all .15s',
+                      }}>
+                      {managed?'✓ ':''}{s.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           <div>
             <div className="lbl">Contrat heures/semaine</div>
             <div style={{ display:'flex', gap:8 }}>

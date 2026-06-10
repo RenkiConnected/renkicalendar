@@ -134,15 +134,17 @@ body {
   background: rgba(27,42,59,.52);
   backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   z-index: 300;
-  display: flex; align-items: center; justify-content: center;
-  padding: 40px 20px;
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 3vh 20px 3vh;
+  overflow-y: auto;
   animation: fadeIn .2s ease;
 }
 .modal {
   background: #fff; border-radius: var(--r-lg);
-  padding: 36px 44px;
+  padding: 32px 44px;
   width: 100%; max-width: 820px;
-  max-height: calc(100vh - 80px);
+  margin: auto;
+  max-height: 94vh;
   overflow-y: auto;
   box-shadow: 0 24px 80px rgba(0,0,0,.2);
   animation: popIn .25s cubic-bezier(.34,1.56,.64,1);
@@ -207,8 +209,8 @@ body {
   .mob-topbar { display: flex !important; }
   .mob-bottom { display: flex !important; }
 
-  .overlay { padding: 16px 14px; align-items: center; }
-  .modal { padding: 24px 22px; border-radius: 16px; max-width: 100%; max-height: calc(100vh - 32px); }
+  .overlay { padding: 2vh 14px; align-items: flex-start; }
+  .modal { padding: 24px 22px; border-radius: 16px; max-width: 100%; max-height: 96vh; }
   .page-title { font-size: 22px; }
   .btn { font-size: 14px; padding: 10px 18px; }
 }

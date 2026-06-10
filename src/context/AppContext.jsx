@@ -227,11 +227,22 @@ export function AppProvider({ children }) {
         weekStr = wks.length === 1 ? `Semaine ${wks[0]}` : `Semaines ${wks.join(', ')}`;
       }
 
-      // Recipients: direction emails (always) + this store's email
+      // Recipients: direction (always) + store email + managers who manage this store
       const directionEmails = (appSettings?.notificationEmails || '').split(',').map(s=>s.trim()).filter(Boolean);
-      const storeEmail = (store?.notifyEmail || '').trim();
       const allEmails = [...directionEmails];
+      // Store's own notification email
+      const storeEmail = (store?.notifyEmail || '').trim();
       if (storeEmail && !allEmails.includes(storeEmail)) allEmails.push(storeEmail);
+      // Managers who are responsible for this store (managedStores includes it, or it's their main store)
+      employees.forEach(m => {
+        const isManager = ['manager','dirigeant','admin'].includes(m.role);
+        if (!isManager || !m.email) return;
+        const managesThisStore = (m.managedStores||[]).includes(emp?.storeId) || m.storeId === emp?.storeId;
+        if (managesThisStore) {
+          const em = m.email.trim();
+          if (em && !allEmails.includes(em)) allEmails.push(em);
+        }
+      });
       const toEmails = allEmails.join(', ');
 
       await sendLeaveRequestEmail({
