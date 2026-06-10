@@ -240,7 +240,7 @@ export default function PublicPlanning({ onLogin }) {
 
       {/* TOP HEADER */}
       <div style={{ background:'white', borderBottom:'1.5px solid #E2EBF0', padding:'0 16px', boxShadow:'0 2px 12px rgba(0,0,0,.07)', position:'sticky', top:0, zIndex:50 }}>
-        <div style={{ maxWidth:700, margin:'0 auto', display:'flex', alignItems:'center', justifyContent:'space-between', height:56 }}>
+        <div style={{ maxWidth:1400, margin:'0 auto', display:'flex', alignItems:'center', justifyContent:'space-between', height:56 }}>
           <div style={{ display:'flex', alignItems:'center', gap:10 }}>
             <img src="care-logo.png" alt="Care" style={{ height:30, objectFit:'contain' }} onError={e=>e.target.style.display='none'}/>
             <div>
@@ -255,7 +255,7 @@ export default function PublicPlanning({ onLogin }) {
       </div>
 
       {/* CONTENT */}
-      <div style={{ flex:1, maxWidth:700, margin:'0 auto', width:'100%', padding:'16px 12px 100px' }}>
+      <div style={{ flex:1, maxWidth:1400, margin:'0 auto', width:'100%', padding:'20px 24px 100px' }}>
 
         {/* Week nav */}
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16, background:'white', borderRadius:14, padding:'12px 16px', boxShadow:'0 2px 10px rgba(0,0,0,.06)', border:'1.5px solid #E2EBF0' }}>
@@ -323,7 +323,7 @@ export default function PublicPlanning({ onLogin }) {
                 </div>
 
                 {/* Days grid */}
-                <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:3, padding:'8px' }}>
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:8, padding:'12px 14px' }}>
                   {weekDates.map((wd, di) => {
                     const sh = sched[`${emp.id}_${di}`];
                     const st = sh ? getMeta(sh.type) : null;
@@ -339,11 +339,11 @@ export default function PublicPlanning({ onLogin }) {
                         <div style={{ fontSize:12, color:'var(--dim)' }}>{wd.date.getDate()}</div>
                         <div
                           style={{
-                            width:'100%', minHeight:54, borderRadius:7,
+                            width:'100%', minHeight:72, borderRadius:9,
                             background: sh ? st.bgColor : isSun?'#FFF5F5':'#F8FAFB',
                             border: `1.5px solid ${sh ? st.color+'40' : isSun?'#FFCDD2':'#E8EDF0'}`,
                             display:'flex', flexDirection:'column', alignItems:'center',
-                            justifyContent:'center', gap:1, padding:'3px 2px',
+                            justifyContent:'center', gap:2, padding:'5px 3px',
                             transition: sh ? 'all .15s' : 'none',
                           }}
                           onMouseEnter={e=>{ if(sh){ e.currentTarget.style.transform='scale(1.06)'; e.currentTarget.style.boxShadow=`0 4px 14px ${st.color}40`; e.currentTarget.style.zIndex='2'; } }}
@@ -351,13 +351,13 @@ export default function PublicPlanning({ onLogin }) {
                         >
                           {sh ? (
                             <>
-                              {sh._away && <span style={{ fontSize:9, fontWeight:800, color:'#fff', background:st.color, borderRadius:5, padding:'1px 5px', marginBottom:1 }}>✈ {sh._awayStore}</span>}
-                              <span style={{ fontSize:11, fontWeight:700, color:st.color, textAlign:'center', lineHeight:1.2 }}>{st.label.slice(0,5)}</span>
-                              {sh.startTime && <span style={{ fontSize:11, color:st.color, opacity:.85 }}>{sh.startTime}</span>}
-                              {(sh.hours||0) > 0 && <span style={{ fontSize:11, color:st.color, opacity:.7 }}>{fmtH(mainHours(sh))}</span>}
+                              {sh._away && <span style={{ fontSize:10, fontWeight:800, color:'#fff', background:st.color, borderRadius:5, padding:'1px 6px', marginBottom:1 }}>✈ {sh._awayStore}</span>}
+                              <span style={{ fontSize:13, fontWeight:700, color:st.color, textAlign:'center', lineHeight:1.2 }}>{st.label.slice(0,5)}</span>
+                              {sh.startTime && <span style={{ fontSize:13, color:st.color, opacity:.85, fontWeight:600 }}>{sh.startTime}</span>}
+                              {(sh.hours||0) > 0 && <span style={{ fontSize:12, color:st.color, opacity:.7 }}>{fmtH(mainHours(sh))}</span>}
                             </>
                           ) : (
-                            <span style={{ color:'#DDE3E8', fontSize:11 }}>—</span>
+                            <span style={{ color:'#DDE3E8', fontSize:12 }}>—</span>
                           )}
                         </div>
                       </div>
@@ -426,7 +426,7 @@ export default function PublicPlanning({ onLogin }) {
 
       {/* BOTTOM CTA */}
       <div style={{ position:'fixed', bottom:0, left:0, right:0, background:'white', borderTop:'1.5px solid #E2EBF0', padding:'12px 16px', boxShadow:'0 -4px 20px rgba(0,0,0,.08)', zIndex:40 }}>
-        <button onClick={onLogin} style={{ width:'100%', maxWidth:700, display:'block', margin:'0 auto', background:'var(--teal)', color:'white', border:'none', borderRadius:12, padding:'14px', fontSize:16, fontWeight:700, cursor:'pointer', fontFamily:'var(--font-b)', boxShadow:'0 3px 14px rgba(0,201,177,.4)' }}>
+        <button onClick={onLogin} style={{ width:'100%', maxWidth:1400, display:'block', margin:'0 auto', background:'var(--teal)', color:'white', border:'none', borderRadius:12, padding:'14px', fontSize:16, fontWeight:700, cursor:'pointer', fontFamily:'var(--font-b)', boxShadow:'0 3px 14px rgba(0,201,177,.4)' }}>
           🔐 Se connecter pour gérer
         </button>
       </div>
