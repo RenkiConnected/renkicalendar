@@ -170,14 +170,40 @@ export default function PublicPlanning({ onLogin }) {
 
   const weekDates = getWeekDatesForCurrentWeek(currentWeek);
   const store = stores.find(s => s.id === activeStore);
-  const sched = schedules[`${activeStore}_${currentYear}_W${currentWeek}`] || {};
+  const baseSched = schedules[`${activeStore}_${currentYear}_W${currentWeek}`] || {};
   const homeEmps = employees.filter(e => e.storeId === activeStore);
+
+  // Build a merged schedule that ALSO includes home employees' shifts in OTHER stores (déplacements)
+  const sched = useMemo(() => {
+    const merged = { ...baseSched };
+    const wt = ['work','communication','meeting','school'];
+    homeEmps.forEach(emp => {
+      for (let di=0; di<7; di++) {
+        const key = `${emp.id}_${di}`;
+        // If no shift here (or it's empty) but the employee works in another store this day → show away
+        const here = merged[key];
+        if (here && wt.includes(here.type)) continue; // already working here
+        // Search other stores for this employee's shift this day
+        for (const s of stores) {
+          if (s.id === activeStore) continue;
+          const otherSched = schedules[`${s.id}_${currentYear}_W${currentWeek}`] || {};
+          const sh = otherSched[key];
+          if (sh && wt.includes(sh.type)) {
+            merged[key] = { ...sh, _away: true, _awayStore: s.name };
+            break;
+          }
+        }
+      }
+    });
+    return merged;
+  }, [baseSched, homeEmps, stores, schedules, activeStore, currentWeek, currentYear]);
+
   // Visitors: employees from other stores who have a shift here this week
   const visitorEmps = employees.filter(e => {
     if (e.storeId === activeStore) return false;
-    const wt = ['work','communication','meeting'];
+    const wt = ['work','communication','meeting','school'];
     for (let di=0; di<7; di++) {
-      const sh = sched[`${e.id}_${di}`];
+      const sh = baseSched[`${e.id}_${di}`];
       if (sh && wt.includes(sh.type)) return true;
     }
     return false;
@@ -325,6 +351,7 @@ export default function PublicPlanning({ onLogin }) {
                         >
                           {sh ? (
                             <>
+                              {sh._away && <span style={{ fontSize:9, fontWeight:800, color:'#fff', background:st.color, borderRadius:5, padding:'1px 5px', marginBottom:1 }}>✈ {sh._awayStore}</span>}
                               <span style={{ fontSize:11, fontWeight:700, color:st.color, textAlign:'center', lineHeight:1.2 }}>{st.label.slice(0,5)}</span>
                               {sh.startTime && <span style={{ fontSize:11, color:st.color, opacity:.85 }}>{sh.startTime}</span>}
                               {(sh.hours||0) > 0 && <span style={{ fontSize:11, color:st.color, opacity:.7 }}>{fmtH(mainHours(sh))}</span>}
