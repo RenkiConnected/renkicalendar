@@ -2,17 +2,25 @@ import React, { useState, useMemo } from 'react';
 import { useApp, MANAGER_ROLES } from '../context/AppContext';
 
 export default function Login({ logoUrl, onBack }) {
-  const { login, employees, loading } = useApp();
+  const { login, employees, loading, setupVendeurPassword, vendeurNeedsPassword } = useApp();
   const [mode, setMode] = useState('manager');
   const [selected, setSelected] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [showPass, setShowPass] = useState(false);
+  // First-connection vendeur password creation
+  const [setupMode, setSetupMode] = useState(false);
+  const [setupEmpId, setSetupEmpId] = useState(null);
+  const [newPass, setNewPass] = useState('');
+  const [confirmPass, setConfirmPass] = useState('');
 
   const managers = useMemo(() => employees.filter(e => MANAGER_ROLES.includes(e.role)).sort((a,b)=>a.name.localeCompare(b.name)), [employees]);
   const vendeurs  = useMemo(() => employees.filter(e => e.role==='vendeur').sort((a,b)=>a.name.localeCompare(b.name)), [employees]);
   const list = mode === 'manager' ? managers : vendeurs;
+
+  // Does the selected vendeur still need to create a password?
+  const selectedNeedsPw = mode==='vendeur' && selected && vendeurNeedsPassword && vendeurNeedsPassword(selected);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -20,9 +28,23 @@ export default function Login({ logoUrl, onBack }) {
     setSubmitting(true); setError('');
     setTimeout(() => {
       const r = login(selected, password, mode === 'manager');
+      if (r.needsPasswordSetup) {
+        // First connection for this vendeur — switch to creation screen
+        setSetupMode(true); setSetupEmpId(r.empId); setSubmitting(false);
+        return;
+      }
       if (!r.success) setError(r.error || 'Identifiants incorrects');
       setSubmitting(false);
     }, 400);
+  };
+
+  const handleSetup = async (e) => {
+    e.preventDefault();
+    if (newPass.length < 4) { setError('Le mot de passe doit faire au moins 4 caractères'); return; }
+    if (newPass !== confirmPass) { setError('Les deux mots de passe ne correspondent pas'); return; }
+    setSubmitting(true); setError('');
+    await setupVendeurPassword(setupEmpId, newPass);
+    setSubmitting(false);
   };
 
   return (
@@ -74,16 +96,50 @@ export default function Login({ logoUrl, onBack }) {
             ))}
           </div>
 
+          {setupMode ? (
+            /* ── FIRST CONNECTION: create password ── */
+            <form onSubmit={handleSetup}>
+              <div style={{ marginBottom:20,background:'var(--teal-light)',border:'1.5px solid var(--teal-mid)',borderRadius:12,padding:'16px 18px' }}>
+                <div style={{ fontWeight:800,color:'var(--teal-dark)',fontSize:18,marginBottom:4 }}>🔑 Première connexion</div>
+                <div style={{ fontSize:15,color:'var(--muted)' }}>Bienvenue {selected} ! Créez votre mot de passe personnel pour sécuriser votre accès. Vous l'utiliserez à chaque connexion.</div>
+              </div>
+              <div style={{ marginBottom:16 }}>
+                <div className="lbl">Nouveau mot de passe</div>
+                <input className="inp" type={showPass?'text':'password'} placeholder="Au moins 4 caractères"
+                  value={newPass} onChange={e=>{ setNewPass(e.target.value); setError(''); }}
+                  style={{ fontSize:16,padding:'14px 16px' }} autoFocus/>
+              </div>
+              <div style={{ marginBottom:24 }}>
+                <div className="lbl">Confirmer le mot de passe</div>
+                <input className="inp" type={showPass?'text':'password'} placeholder="Retapez le mot de passe"
+                  value={confirmPass} onChange={e=>{ setConfirmPass(e.target.value); setError(''); }}
+                  style={{ fontSize:16,padding:'14px 16px' }}/>
+              </div>
+              {error&&(
+                <div style={{ background:'#FFF0F2',border:'1.5px solid #FFCCD4',borderRadius:11,padding:'12px 16px',marginBottom:18,color:'#C8002B',fontSize:15,display:'flex',gap:9,alignItems:'center' }}>
+                  <span>⚠️</span>{error}
+                </div>
+              )}
+              <button type="submit" className="btn btn-primary" style={{ width:'100%',justifyContent:'center',padding:'16px',fontSize:17,fontWeight:700,borderRadius:13 }}
+                disabled={submitting}>
+                {submitting?'⏳ Création...':'✓ Créer mon mot de passe & me connecter'}
+              </button>
+              <button type="button" onClick={()=>{ setSetupMode(false); setNewPass(''); setConfirmPass(''); setError(''); }}
+                style={{ width:'100%',marginTop:10,background:'none',border:'none',cursor:'pointer',color:'var(--muted)',fontSize:14,fontFamily:'var(--font-b)' }}>
+                ← Retour
+              </button>
+            </form>
+          ) : (
           <form onSubmit={handleSubmit}>
             <div style={{ marginBottom:18 }}>
               <div className="lbl">{mode==='manager'?'Sélectionner le manager':'Sélectionner le vendeur'}</div>
               <div style={{ position:'relative' }}>
-                <select className="inp" value={selected} onChange={e=>{ setSelected(e.target.value); setError(''); }}
+                <select className="inp" value={selected} onChange={e=>{ setSelected(e.target.value); setError(''); setPassword(''); }}
                   style={{ fontSize:16,padding:'14px 44px 14px 16px',cursor:'pointer',appearance:'none' }}>
                   <option value="">— Choisissez votre nom —</option>
                   {list.map(emp=>(
                     <option key={emp.id} value={emp.name}>
-                      {emp.name}{emp.role==='dirigeant'?' · Dirigeant':emp.role==='manager'?' · Manager':''}
+                      {emp.name}{emp.role==='dirigeant'?' · Dirigeant':emp.role==='manager'?' · Manager':''}{emp.role==='vendeur'&&!emp.password?' · (mot de passe à créer)':''}
                     </option>
                   ))}
                 </select>
@@ -106,12 +162,27 @@ export default function Login({ logoUrl, onBack }) {
               </div>
             )}
 
-            {mode==='vendeur'&&selected&&(
-              <div style={{ marginBottom:20,background:'var(--teal-light)',border:'1.5px solid var(--teal-mid)',borderRadius:12,padding:'14px 18px',display:'flex',alignItems:'center',gap:13 }}>
-                <span style={{ fontSize:28 }}>👋</span>
+            {mode==='vendeur'&&selected&&selectedNeedsPw&&(
+              <div style={{ marginBottom:20,background:'#FFF7E0',border:'1.5px solid #F5D06A',borderRadius:12,padding:'14px 18px',display:'flex',alignItems:'center',gap:13 }}>
+                <span style={{ fontSize:28 }}>🔑</span>
                 <div>
-                  <div style={{ fontWeight:700,color:'var(--teal-dark)',fontSize:16 }}>Bonjour {selected} !</div>
-                  <div style={{ fontSize:15,color:'var(--muted)',marginTop:2 }}>Accès direct · Planning & Congés</div>
+                  <div style={{ fontWeight:700,color:'#B07D00',fontSize:16 }}>Première connexion</div>
+                  <div style={{ fontSize:15,color:'var(--muted)',marginTop:2 }}>Vous n'avez pas encore de mot de passe. En cliquant ci-dessous, vous pourrez en créer un.</div>
+                </div>
+              </div>
+            )}
+
+            {mode==='vendeur'&&selected&&!selectedNeedsPw&&(
+              <div style={{ marginBottom:24 }}>
+                <div className="lbl">Mot de passe</div>
+                <div style={{ position:'relative' }}>
+                  <input className="inp" type={showPass?'text':'password'} placeholder="••••••••••"
+                    value={password} onChange={e=>{ setPassword(e.target.value); setError(''); }}
+                    style={{ fontSize:16,padding:'14px 48px 14px 16px' }} autoComplete="current-password"/>
+                  <button type="button" onClick={()=>setShowPass(!showPass)} style={{
+                    position:'absolute',right:14,top:'50%',transform:'translateY(-50%)',
+                    background:'none',border:'none',cursor:'pointer',fontSize:18,color:'var(--dim)',lineHeight:1,
+                  }}>{showPass?'🙈':'👁️'}</button>
                 </div>
               </div>
             )}
@@ -129,9 +200,10 @@ export default function Login({ logoUrl, onBack }) {
                   <span style={{ width:19,height:19,border:'2px solid rgba(255,255,255,.4)',borderTopColor:'white',borderRadius:'50%',animation:'spin .7s linear infinite',display:'inline-block' }}/>
                   Connexion...
                 </span>
-              ):mode==='vendeur'?'Accéder au planning →':'Se connecter →'}
+              ):mode==='vendeur'?(selectedNeedsPw?'Créer mon mot de passe →':'Accéder au planning →'):'Se connecter →'}
             </button>
           </form>
+          )}
         </div>
 
         <p style={{ textAlign:'center',marginTop:22,fontSize:15,color:'var(--dim)' }}>Care Planning © 2026</p>

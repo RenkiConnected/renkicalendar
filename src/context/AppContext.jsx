@@ -145,21 +145,39 @@ export function AppProvider({ children }) {
     if(isManager){
       const emp=employees.find(e=>e.name===selectedName&&MANAGER_ROLES.includes(e.role));
       if(!emp) return {success:false,error:'Utilisateur introuvable'};
-      // Per-user password (falls back to default if not set)
       const expected = emp.password || 'Raphael2232';
       if(password!==expected) return {success:false,error:'Mot de passe incorrect'};
       _doLogin(emp);
       return {success:true,role:emp.role};
     } else {
-      // Vendeur: no password
+      // Vendeur
       const emp=employees.find(e=>e.name===selectedName&&e.role==='vendeur');
       if(!emp) return {success:false,error:'Utilisateur introuvable'};
+      // First connection: no password set yet → require creation
+      if(!emp.password) return {success:false,needsPasswordSetup:true,empId:emp.id};
+      if(password!==emp.password) return {success:false,error:'Mot de passe incorrect'};
       _doLogin(emp);
       return {success:true,role:'vendeur'};
     }
   };
 
-  // Change own password (manager/dirigeant)
+  // Vendeur creates their password on first connection, then logs in
+  const setupVendeurPassword = async (empId, newPassword) => {
+    const emp = employees.find(e=>e.id===empId);
+    if(!emp) return {success:false,error:'Introuvable'};
+    const updated = {...emp, password:newPassword};
+    await saveEmployee(updated);
+    _doLogin(updated);
+    return {success:true};
+  };
+
+  // Check if a vendeur (by name) still needs to create a password
+  const vendeurNeedsPassword = (name) => {
+    const emp = employees.find(e=>e.name===name&&e.role==='vendeur');
+    return emp ? !emp.password : false;
+  };
+
+  // Change own password (manager/dirigeant/vendeur)
   const changeOwnPassword = async (empId, newPassword) => {
     const emp = employees.find(e=>e.id===empId);
     if(!emp) return {success:false,error:'Introuvable'};
@@ -475,7 +493,7 @@ export function AppProvider({ children }) {
   return (
     <AppContext.Provider value={{
       isAuthenticated,authRole,currentUser,currentEmpId,currentEmp,login,logout,loading,
-      changeOwnPassword,isDirigeant,canValidateLeave,getVisibleStoreIds,
+      changeOwnPassword,isDirigeant,canValidateLeave,getVisibleStoreIds,setupVendeurPassword,vendeurNeedsPassword,
       stores,addStore,updateStore,deleteStore,
       employees,addEmployee,updateEmployee,deleteEmployee,
       getStoreEmployees:sid=>employees.filter(e=>e.storeId===sid),
