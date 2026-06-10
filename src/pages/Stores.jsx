@@ -72,9 +72,9 @@ function StoreModal({ store, managers, onSave, onClose }) {
           </div>
 
           {/* Horaires */}
-          <div style={{background:'var(--teal-light)',border:'1.5px solid var(--teal-mid)',borderRadius:12,padding:'16px'}}>
+          <div style={{background:'var(--teal-light)',border:'1.5px solid var(--teal-mid)',borderRadius:12,padding:'13px'}}>
             <div className="lbl" style={{color:'var(--teal-dark)',marginBottom:8}}>🕐 Horaires du magasin</div>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:10}}>
               <div>
                 <div className="lbl" style={{fontSize:12}}>Ouverture</div>
                 <input className="inp" type="time" value={form.openTime||'09:00'} onChange={e=>set('openTime',e.target.value)}/>
@@ -86,17 +86,17 @@ function StoreModal({ store, managers, onSave, onClose }) {
             </div>
 
             {/* Lunch break toggle */}
-            <label style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer',padding:'10px 12px',background:'white',borderRadius:9,border:'1px solid var(--teal-mid)',marginBottom:form.lunchBreak?10:0}}>
+            <label style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer',padding:'9px 12px',background:'white',borderRadius:9,border:'1px solid var(--teal-mid)',marginBottom:form.lunchBreak?10:0}}>
               <input type="checkbox" checked={!!form.lunchBreak} onChange={e=>set('lunchBreak',e.target.checked)}
                 style={{accentColor:'var(--teal)',width:17,height:17}}/>
               <div>
                 <div style={{fontWeight:700,fontSize:15,color:'var(--text)'}}>🍽️ Fermeture déjeuner</div>
-                <div style={{fontSize:14,color:'var(--muted)',marginTop:1}}>Le magasin ferme pendant la pause midi</div>
+                <div style={{fontSize:13,color:'var(--muted)',marginTop:1}}>Le magasin ferme pendant la pause midi</div>
               </div>
             </label>
 
             {form.lunchBreak&&(
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,padding:'12px',background:'white',borderRadius:9,border:'1px solid var(--teal-mid)'}}>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,padding:'11px',background:'white',borderRadius:9,border:'1px solid var(--teal-mid)'}}>
                 <div>
                   <div className="lbl" style={{fontSize:12}}>Fermeture midi</div>
                   <input className="inp" type="time" value={form.lunchStart||'12:00'} onChange={e=>set('lunchStart',e.target.value)}/>
@@ -110,14 +110,7 @@ function StoreModal({ store, managers, onSave, onClose }) {
           </div>
         </div>
 
-        {/* Preview horaires */}
-        <div style={{marginTop:14,background:'var(--card2)',borderRadius:10,padding:'10px 14px',border:'1px solid var(--border)',fontSize:15,color:'var(--muted)'}}>
-          <span style={{fontWeight:700,color:'var(--text)'}}>Amplitude : </span>
-          {form.openTime} → {form.closeTime}
-          {form.lunchBreak&&` (fermé ${form.lunchStart}–${form.lunchEnd})`}
-        </div>
-
-        <div style={{display:'flex',gap:10,marginTop:18}}>
+        <div style={{display:'flex',gap:10,marginTop:16}}>
           <button className="btn btn-primary" style={{flex:1,justifyContent:'center',padding:'13px'}}
             onClick={()=>form.name&&onSave(form, assignedMgrs)}>✓ Enregistrer</button>
           <button className="btn btn-ghost" onClick={onClose}>Annuler</button>
