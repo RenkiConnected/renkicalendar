@@ -151,6 +151,10 @@ body {
 }
 .modal::-webkit-scrollbar { width: 5px; }
 .modal::-webkit-scrollbar-thumb { background: var(--teal-mid); border-radius: 3px; }
+.store-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+@media (max-width: 720px) {
+  .store-form-grid { grid-template-columns: 1fr; gap: 16px; }
+}
 
 /* ═══════════════════════════════════════════════════
    TYPOGRAPHY
