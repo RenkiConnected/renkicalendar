@@ -78,8 +78,7 @@ function ShiftDetailPopup({emp,day,shift,onClose,types,onEdit}){
   }:{
     position:'fixed',inset:0,background:'rgba(27,42,59,.45)',
     backdropFilter:'blur(8px)',zIndex:400,
-    display:'flex',alignItems:'center',justifyContent:'center',
-    padding:'24px 20px',
+    display:'block',overflowY:'auto',
   };
 
   const cardStyle=isMob?{
@@ -91,9 +90,8 @@ function ShiftDetailPopup({emp,day,shift,onClose,types,onEdit}){
     animation:'slideUp .28s cubic-bezier(.32,0,.67,0) forwards',
   }:{
     background:'#fff',borderRadius:22,
-    width:'100%',maxWidth:520,
+    width:'calc(100% - 40px)',maxWidth:520,margin:'40px auto',
     padding:'28px 34px',
-    maxHeight:'calc(100vh - 48px)',overflowY:'auto',
     boxShadow:'0 24px 80px rgba(0,0,0,.22)',
     animation:'popIn .25s cubic-bezier(.34,1.56,.64,1) forwards',
   };

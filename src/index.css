@@ -134,20 +134,19 @@ body {
   background: rgba(27,42,59,.52);
   backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   z-index: 300;
-  display: flex; align-items: center; justify-content: center;
-  padding: 24px 20px;
+  display: block;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   animation: fadeIn .2s ease;
 }
 .modal {
   background: #fff; border-radius: var(--r-lg);
   padding: 28px 40px;
-  width: 100%; max-width: 760px;
-  max-height: calc(100vh - 48px);
-  overflow-y: auto;
+  width: calc(100% - 40px); max-width: 760px;
+  margin: 40px auto;
   box-shadow: 0 24px 80px rgba(0,0,0,.2);
   animation: popIn .25s cubic-bezier(.34,1.56,.64,1);
   border: 1.5px solid var(--border);
-  -webkit-overflow-scrolling: touch;
 }
 .modal::-webkit-scrollbar { width: 5px; }
 .modal::-webkit-scrollbar-thumb { background: var(--teal-mid); border-radius: 3px; }
@@ -207,8 +206,7 @@ body {
   .mob-topbar { display: flex !important; }
   .mob-bottom { display: flex !important; }
 
-  .overlay { padding: 16px 14px; align-items: center; }
-  .modal { padding: 22px 20px; border-radius: 16px; max-width: 100%; max-height: calc(100vh - 32px); }
+  .modal { padding: 22px 20px; border-radius: 16px; margin: 20px auto; width: calc(100% - 28px); }
   .page-title { font-size: 22px; }
   .btn { font-size: 14px; padding: 10px 18px; }
 }
@@ -228,12 +226,15 @@ body {
   .mob-bottom { display: flex !important; }
 
   /* Modal: full-width bottom sheet on tiny screens */
-  .overlay { padding: 0; align-items: flex-end; }
+  .overlay { display: flex; align-items: flex-end; padding: 0; overflow-y: auto; }
   .modal {
     border-radius: 20px 20px 0 0;
     padding: 20px 18px 32px;
     max-width: 100%;
+    width: 100%;
+    margin: 0;
     max-height: 92vh;
+    overflow-y: auto;
   }
   .page-title { font-size: 20px; }
   .page-sub { font-size: 14px; }
