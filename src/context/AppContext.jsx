@@ -227,13 +227,20 @@ export function AppProvider({ children }) {
         weekStr = wks.length === 1 ? `Semaine ${wks[0]}` : `Semaines ${wks.join(', ')}`;
       }
 
+      // Recipients: direction emails (always) + this store's email
+      const directionEmails = (appSettings?.notificationEmails || '').split(',').map(s=>s.trim()).filter(Boolean);
+      const storeEmail = (store?.notifyEmail || '').trim();
+      const allEmails = [...directionEmails];
+      if (storeEmail && !allEmails.includes(storeEmail)) allEmails.push(storeEmail);
+      const toEmails = allEmails.join(', ');
+
       await sendLeaveRequestEmail({
         employee: emp?.name || req.employeeName || '—',
         leaveType: req.leaveType || req.type || 'vacation',
         dates: dateStr,
         weeks: weekStr,
         storeName: store?.name || '—',
-        appSettings,
+        toEmails,
       });
     }catch(e){console.error('[Email] Failed to send leave notification:', e?.text||e?.message||e);}
     return n;

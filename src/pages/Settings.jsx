@@ -201,12 +201,12 @@ export default function Settings() {
       </div>
       {/* NOTIFICATIONS */}
       <div className="card" style={{ padding:'28px', marginBottom:24 }}>
-        <h2 className="section-title" style={{ marginBottom:6 }}>📧 Notifications email</h2>
+        <h2 className="section-title" style={{ marginBottom:6 }}>📧 Emails de la Direction</h2>
         <p style={{ color:'var(--muted)', fontSize:15, marginBottom:20 }}>
-          Ces adresses reçoivent un email automatique dès qu'un employé pose un congé ou une demande.
+          La direction reçoit TOUJOURS un email quand un employé pose un congé. (L'email du magasin concerné est ajouté automatiquement.)
         </p>
         <div style={{ marginBottom:16 }}>
-          <label className="lbl">Adresses email (séparées par des virgules)</label>
+          <label className="lbl">Adresses de la direction (séparées par des virgules)</label>
           <input
             className="inp"
             style={{ fontSize:16 }}

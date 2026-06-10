@@ -24,6 +24,12 @@ function StoreModal({ store, onSave, onClose }) {
           </div>
 
           <div>
+            <div className="lbl">📧 Email de notification du magasin</div>
+            <input className="inp" type="email" value={form.notifyEmail||''} onChange={e=>set('notifyEmail',e.target.value)} placeholder="cogolin@exemple.com"/>
+            <div style={{fontSize:13,color:'var(--dim)',marginTop:5}}>Reçoit un email quand un employé de ce magasin pose un congé (en plus de la direction).</div>
+          </div>
+
+          <div>
             <div className="lbl">Couleur</div>
             <div style={{display:'flex',alignItems:'center',gap:12}}>
               <input type="color" value={form.color} onChange={e=>set('color',e.target.value)}

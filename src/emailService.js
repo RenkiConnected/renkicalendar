@@ -6,16 +6,14 @@ const PUBLIC_KEY  = 'aeWj_p7LQqxhj5fu3';
 
 emailjs.init(PUBLIC_KEY);
 
-export async function sendLeaveRequestEmail({ employee, leaveType, dates, weeks, storeName, appSettings }) {
-  const to = appSettings?.notificationEmails?.trim();
+export async function sendLeaveRequestEmail({ employee, leaveType, dates, weeks, storeName, toEmails, appSettings }) {
+  // Accept toEmails directly, or fall back to appSettings
+  const to = (toEmails || appSettings?.notificationEmails || '').trim();
 
-  // Debug log so we can see what's happening in the console
-  console.log('[EmailJS] sendLeaveRequestEmail called');
-  console.log('[EmailJS] to_emails:', to);
-  console.log('[EmailJS] appSettings:', appSettings);
+  console.log('[EmailJS] sendLeaveRequestEmail → recipients:', to);
 
   if (!to) {
-    console.warn('[EmailJS] No notification emails configured — skipping. Go to Paramètres → Notifications email to add addresses.');
+    console.warn('[EmailJS] Aucune adresse email configurée — envoi ignoré. Allez dans Paramètres → Emails de la Direction.');
     return;
   }
 

@@ -106,7 +106,7 @@ function CalendarPicker({ selectedDates, onToggle, onSelectWeek }) {
       {/* Month nav */}
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
         <button onClick={prev} className="btn btn-ghost btn-sm" style={{padding:'8px 12px'}}>‹</button>
-        <span style={{fontFamily:'var(--font-h)',fontWeight:700,fontSize:17}}>{MONTH_FULL[vm]} {vy}</span>
+        <span style={{fontFamily:'var(--font-h)',fontWeight:800,fontSize:19,color:'var(--text)'}}>{MONTH_FULL[vm]} <span style={{color:'var(--teal-dark)'}}>{vy}</span></span>
         <button onClick={next} className="btn btn-ghost btn-sm" style={{padding:'8px 12px'}}>›</button>
       </div>
 
@@ -154,7 +154,7 @@ function CalendarPicker({ selectedDates, onToggle, onSelectWeek }) {
                 }}
                   onMouseEnter={e=>{ if(!past&&!sel) e.currentTarget.style.background='var(--teal-light)'; }}
                   onMouseLeave={e=>{ if(!past&&!sel) e.currentTarget.style.background=sun?'#FEF2F2':'#fff'; }}
-                >{d.getDate()}</button>
+                >{d.getDate()===1?`1 ${['Jan','Fév','Mars','Avr','Mai','Juin','Juil','Août','Sept','Oct','Nov','Déc'][d.getMonth()]}`:d.getDate()}</button>
               );
             })}
           </div>
@@ -213,7 +213,7 @@ function LeaveCalendar({ empId, leaveRequests }) {
               border:isToday?'2.5px solid var(--teal)':st?`2px solid ${st.ring}`:'1.5px solid var(--border)',
               fontSize:13,fontWeight:isToday||st?700:400,
               color:st?st.color:isToday?'var(--teal-dark)':d.getDay()===0?'#C8002B':'var(--text)',
-            }}>{d.getDate()}</div>
+            }}>{d.getDate()===1?`1 ${['Jan','Fév','Août'][d.getMonth()]||['Jan','Fév','Mars','Avr','Mai','Juin','Juil','Août','Sept','Oct','Nov','Déc'][d.getMonth()]}`:d.getDate()}</div>
           );
         })}
       </div>
@@ -360,7 +360,7 @@ export default function LeaveRequestPage() {
                   <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
                     {selDates.sort((a,b)=>a-b).map(d=>(
                       <span key={d.toDateString()} style={{background:'white',border:'1px solid var(--teal-mid)',borderRadius:7,padding:'3px 9px',fontSize:14,color:'var(--teal-dark)',fontWeight:600}}>
-                        {d.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}
+                        {d.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'long',year:'numeric'})}
                       </span>
                     ))}
                   </div>
