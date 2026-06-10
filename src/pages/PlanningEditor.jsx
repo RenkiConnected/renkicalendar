@@ -78,8 +78,8 @@ function ShiftDetailPopup({emp,day,shift,onClose,types,onEdit}){
   }:{
     position:'fixed',inset:0,background:'rgba(27,42,59,.45)',
     backdropFilter:'blur(8px)',zIndex:400,
-    display:'flex',alignItems:'flex-start',justifyContent:'center',
-    padding:'3vh 20px',overflowY:'auto',
+    display:'flex',alignItems:'center',justifyContent:'center',
+    padding:'24px 20px',
   };
 
   const cardStyle=isMob?{
@@ -91,9 +91,9 @@ function ShiftDetailPopup({emp,day,shift,onClose,types,onEdit}){
     animation:'slideUp .28s cubic-bezier(.32,0,.67,0) forwards',
   }:{
     background:'#fff',borderRadius:22,
-    width:'100%',maxWidth:520,margin:'auto',
-    padding:'30px 36px',
-    maxHeight:'94vh',overflowY:'auto',
+    width:'100%',maxWidth:520,
+    padding:'28px 34px',
+    maxHeight:'calc(100vh - 48px)',overflowY:'auto',
     boxShadow:'0 24px 80px rgba(0,0,0,.22)',
     animation:'popIn .25s cubic-bezier(.34,1.56,.64,1) forwards',
   };
@@ -604,6 +604,13 @@ export default function PlanningEditor(){
   const storeEmps=employees.filter(e=>e.storeId===activeStore);
   const manualExtra=borrowedEmps.map(id=>employees.find(e=>e.id===id)).filter(Boolean);
 
+  // Managers assigned to this store (managedStores includes it) but whose home store is different
+  const assignedManagers = employees.filter(e=>
+    ['manager','dirigeant','admin'].includes(e.role) &&
+    e.storeId !== activeStore &&
+    (e.managedStores||[]).includes(activeStore)
+  );
+
   // AUTO-detect visitors: employees from OTHER stores who have a real shift in THIS store this week
   const autoVisitors = React.useMemo(()=>{
     const ownSched=getSchedule(activeStore,currentWeek,currentYear);
@@ -621,7 +628,7 @@ export default function PlanningEditor(){
     return employees.filter(e=>visitorIds.has(e.id));
   },[employees,activeStore,currentWeek,currentYear,schedules]);
 
-  const extraEmps=[...manualExtra,...autoVisitors.filter(v=>!manualExtra.find(m=>m.id===v.id))];
+  const extraEmps=[...manualExtra,...assignedManagers.filter(m=>!manualExtra.find(x=>x.id===m.id)),...autoVisitors.filter(v=>!manualExtra.find(m=>m.id===v.id)&&!assignedManagers.find(m=>m.id===v.id))];
   const allDisplayEmps=[...storeEmps,...extraEmps.filter(e=>!storeEmps.find(s=>s.id===e.id))];
 
   // ── LEAVE ALERTS for current week ────────────────────────────
@@ -1666,6 +1673,10 @@ function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDra
                           {emp.name}
                           {isBorrowed&&(()=>{
                             const homeStore=allStores?.find(s=>s.id===emp.storeId);
+                            const isAssignedManager=['manager','dirigeant','admin'].includes(emp.role)&&(emp.managedStores||[]).includes(activeStoreId);
+                            if(isAssignedManager){
+                              return <span style={{fontSize:10,background:'#6366F11A',color:'#6366F1',border:'1px solid #6366F155',borderRadius:6,padding:'2px 7px',fontWeight:700,whiteSpace:'nowrap'}}>👔 Responsable</span>;
+                            }
                             return <span style={{fontSize:10,background:`${homeStore?.color||'#B07D00'}1A`,color:homeStore?.color||'#B07D00',border:`1px solid ${homeStore?.color||'#B07D00'}55`,borderRadius:6,padding:'2px 7px',fontWeight:700,whiteSpace:'nowrap'}}>
                               ✈ vient de {homeStore?.name||'autre magasin'}
                             </span>;

@@ -1,23 +1,27 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 
-function StoreModal({ store, onSave, onClose }) {
+function StoreModal({ store, managers, onSave, onClose }) {
   const [form, setForm] = useState(store || {
     name:'', color:'#00C9B1',
     openTime:'09:00', closeTime:'19:30',
     lunchStart:'12:00', lunchEnd:'14:00', lunchBreak:false,
   });
+  // Which managers are assigned to this store (managedStores includes it, or home store)
+  const [assignedMgrs, setAssignedMgrs] = useState(
+    store ? (managers||[]).filter(m => (m.managedStores||[]).includes(store.id) || m.storeId===store.id).map(m=>m.id) : []
+  );
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
 
   return(
     <div className="overlay" onClick={onClose}>
       <div className="modal" style={{maxWidth:580}} onClick={e=>e.stopPropagation()}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:22}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
           <h3 style={{fontFamily:'var(--font-h)',fontWeight:800,fontSize:20}}>{store?'Modifier le magasin':'Nouveau magasin'}</h3>
           <button className="btn btn-ghost btn-xs" onClick={onClose}>✕</button>
         </div>
 
-        <div style={{display:'grid',gap:16}}>
+        <div style={{display:'grid',gap:13}}>
           <div>
             <div className="lbl">Nom du magasin</div>
             <input className="inp" value={form.name} onChange={e=>set('name',e.target.value)} placeholder="Ex: Save Marseille"/>
@@ -26,7 +30,35 @@ function StoreModal({ store, onSave, onClose }) {
           <div>
             <div className="lbl">📧 Email de notification du magasin</div>
             <input className="inp" type="email" value={form.notifyEmail||''} onChange={e=>set('notifyEmail',e.target.value)} placeholder="cogolin@exemple.com"/>
-            <div style={{fontSize:13,color:'var(--dim)',marginTop:5}}>Reçoit un email quand un employé de ce magasin pose un congé (en plus de la direction).</div>
+            <div style={{fontSize:12,color:'var(--dim)',marginTop:4}}>Reçoit un email quand un employé de ce magasin pose un congé (+ direction).</div>
+          </div>
+
+          <div>
+            <div className="lbl">👔 Responsable(s) du magasin</div>
+            <div style={{fontSize:12,color:'var(--dim)',marginBottom:8}}>Ces managers gèrent le planning et reçoivent les congés de ce magasin.</div>
+            {(managers||[]).length===0?(
+              <div style={{fontSize:13,color:'var(--muted)',fontStyle:'italic'}}>Aucun manager créé. Ajoutez-en dans la page Employés.</div>
+            ):(
+              <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+                {(managers||[]).map(m=>{
+                  const on=assignedMgrs.includes(m.id);
+                  return (
+                    <button key={m.id} type="button"
+                      onClick={()=>setAssignedMgrs(cur=>on?cur.filter(id=>id!==m.id):[...cur,m.id])}
+                      style={{
+                        display:'flex',alignItems:'center',gap:7,padding:'7px 13px',borderRadius:20,cursor:'pointer',
+                        border:`2px solid ${on?(form.color||'#00C9B1'):'var(--border)'}`,
+                        background:on?(form.color||'#00C9B1'):'#fff',
+                        color:on?'#fff':'var(--muted)',
+                        fontFamily:'var(--font-b)',fontSize:13,fontWeight:on?700:500,transition:'all .15s',
+                      }}>
+                      <span style={{width:22,height:22,borderRadius:'50%',background:on?'rgba(255,255,255,.25)':(m.color||'var(--teal)'),display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800,color:'#fff'}}>{m.name[0]}</span>
+                      {on?'✓ ':''}{m.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div>
@@ -42,7 +74,7 @@ function StoreModal({ store, onSave, onClose }) {
 
           {/* Horaires */}
           <div style={{background:'var(--teal-light)',border:'1.5px solid var(--teal-mid)',borderRadius:12,padding:'16px'}}>
-            <div className="lbl" style={{color:'var(--teal-dark)',marginBottom:12}}>🕐 Horaires du magasin</div>
+            <div className="lbl" style={{color:'var(--teal-dark)',marginBottom:8}}>🕐 Horaires du magasin</div>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
               <div>
                 <div className="lbl" style={{fontSize:12}}>Ouverture</div>
@@ -88,7 +120,7 @@ function StoreModal({ store, onSave, onClose }) {
 
         <div style={{display:'flex',gap:10,marginTop:18}}>
           <button className="btn btn-primary" style={{flex:1,justifyContent:'center',padding:'13px'}}
-            onClick={()=>form.name&&onSave(form)}>✓ Enregistrer</button>
+            onClick={()=>form.name&&onSave(form, assignedMgrs)}>✓ Enregistrer</button>
           <button className="btn btn-ghost" onClick={onClose}>Annuler</button>
         </div>
       </div>
@@ -97,12 +129,30 @@ function StoreModal({ store, onSave, onClose }) {
 }
 
 export default function Stores() {
-  const { stores, addStore, updateStore, deleteStore, employees } = useApp();
+  const { stores, addStore, updateStore, deleteStore, employees, updateEmployee } = useApp();
   const [editing, setEditing] = useState(null);
 
-  const handleSave = (form) => {
-    if(editing==='new') addStore(form);
-    else updateStore(editing.id, form);
+  const managers = employees.filter(e=>['manager','dirigeant','admin'].includes(e.role));
+
+  const handleSave = async (form, assignedMgrs=[]) => {
+    let storeId;
+    if(editing==='new'){ const n=await addStore(form); storeId=n.id; }
+    else { await updateStore(editing.id, form); storeId=editing.id; }
+
+    // Sync managers' managedStores with the assignment
+    if(storeId){
+      for(const m of managers){
+        const cur = m.managedStores||[];
+        const shouldHave = assignedMgrs.includes(m.id);
+        const has = cur.includes(storeId);
+        if(shouldHave && !has){
+          await updateEmployee(m.id, { managedStores:[...cur, storeId] });
+        } else if(!shouldHave && has && m.storeId!==storeId){
+          // Remove only if it's not their home store
+          await updateEmployee(m.id, { managedStores: cur.filter(id=>id!==storeId) });
+        }
+      }
+    }
     setEditing(null);
   };
 
@@ -125,7 +175,7 @@ export default function Stores() {
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:16}}>
         {stores.map(store=>{
           const emps=employees.filter(e=>e.storeId===store.id);
-          const mgrs=emps.filter(e=>['manager','dirigeant','admin'].includes(e.role));
+          const mgrs=employees.filter(e=>['manager','dirigeant','admin'].includes(e.role)&&(e.storeId===store.id||(e.managedStores||[]).includes(store.id)));
           return(
             <div key={store.id} className="card" style={{padding:'20px 22px',borderTop:`4px solid ${store.color}`}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:12}}>
@@ -167,7 +217,7 @@ export default function Stores() {
         })}
       </div>
 
-      {editing&&<StoreModal store={editing==='new'?null:editing} onSave={handleSave} onClose={()=>setEditing(null)}/>}
+      {editing&&<StoreModal store={editing==='new'?null:editing} managers={managers} onSave={handleSave} onClose={()=>setEditing(null)}/>}
     </div>
   );
 }
