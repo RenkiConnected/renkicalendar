@@ -250,6 +250,25 @@ export default function LeaveRequestPage() {
   const myReqs = leaveRequests.filter(r=>r.employeeId===emp?.id).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
   const myConstraints = constraintRequests.filter(r=>r.employeeId===emp?.id).sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
 
+  // ── CONFLICT DETECTION: colleagues in same store with overlapping dates ──
+  const colleagueConflicts = (() => {
+    if(!emp || selDates.length===0) return [];
+    const selSet = new Set(selDates.map(d=>new Date(d).toDateString()));
+    const conflicts = [];
+    leaveRequests.forEach(r=>{
+      if(r.employeeId===emp.id) return; // skip self
+      if(r.storeId!==emp.storeId) return; // same store only
+      if(r.status==='rejected') return; // ignore rejected
+      const rDates = (r.dates||[]).map(d=>new Date(d).toDateString());
+      const overlap = rDates.filter(d=>selSet.has(d));
+      if(overlap.length>0){
+        const colleague = employees.find(e=>e.id===r.employeeId);
+        conflicts.push({ name: colleague?.name||r.employeeName||'Un collègue', status:r.status, days:overlap.length });
+      }
+    });
+    return conflicts;
+  })();
+
   const toggleDate = d => setSelDates(prev => {
     const ex=prev.some(p=>p.toDateString()===d.toDateString());
     return ex?prev.filter(p=>p.toDateString()!==d.toDateString()):[...prev,d];
@@ -363,6 +382,22 @@ export default function LeaveRequestPage() {
                         {d.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'long',year:'numeric'})}
                       </span>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {colleagueConflicts.length>0 && (
+                <div style={{background:'#FFF0F2',border:'2px solid #FFAAB6',borderRadius:12,padding:'14px 16px',margin:'14px 0'}}>
+                  <div style={{fontWeight:800,color:'#C8002B',fontSize:15,marginBottom:6,display:'flex',alignItems:'center',gap:8}}>
+                    ⚠️ Attention — conflit possible
+                  </div>
+                  <div style={{fontSize:14,color:'#9B0021',lineHeight:1.5}}>
+                    {colleagueConflicts.map((c,i)=>(
+                      <div key={i} style={{marginBottom:3}}>
+                        <strong>{c.name}</strong> a déjà {c.status==='approved'?'des congés validés':'une demande en cours'} sur {c.days} jour(s) que vous avez sélectionné(s).
+                      </div>
+                    ))}
+                    <div style={{marginTop:8,fontWeight:700}}>👉 Voyez directement avec votre manager avant de confirmer, une autre requête a été posée avant la vôtre.</div>
                   </div>
                 </div>
               )}

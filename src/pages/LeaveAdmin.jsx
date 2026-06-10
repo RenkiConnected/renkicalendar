@@ -19,7 +19,13 @@ function StatusBadge({status}){
 }
 
 export default function LeaveAdmin(){
-  const{leaveRequests,approveLeaveRequest,rejectLeaveRequest,cancelApprovedLeave,deleteLeaveRequest,employees,stores,constraintRequests,approveConstraintRequest,refuseConstraintRequest,removeConstraintRequest}=useApp();
+  const{leaveRequests,approveLeaveRequest,rejectLeaveRequest,cancelApprovedLeave,deleteLeaveRequest,employees,stores,constraintRequests,approveConstraintRequest,refuseConstraintRequest,removeConstraintRequest,getVisibleStoreIds,canValidateLeave,isDirigeant}=useApp();
+
+  // Only stores this user is allowed to see
+  const visibleStoreIds = getVisibleStoreIds();
+  const visibleStores = stores.filter(s=>visibleStoreIds.includes(s.id));
+  const scopedLeaves = leaveRequests.filter(r=>visibleStoreIds.includes(r.storeId));
+  const scopedConstraints = (constraintRequests||[]).filter(r=>visibleStoreIds.includes(r.storeId));
   const[filter,setFilter]=useState('all'); // all|pending|approved|rejected
   const[storeFilter,setStoreFilter]=useState('all');
   const[approving,setApproving]=useState(null);
@@ -29,7 +35,7 @@ export default function LeaveAdmin(){
   const[refuseNote,setRefuseNote]=useState('');
   const[refusingId,setRefusingId]=useState(null);
 
-  const filtered=leaveRequests
+  const filtered=scopedLeaves
     .filter(r=>filter==='all'||r.status===filter)
     .filter(r=>storeFilter==='all'||r.storeId===storeFilter)
     .sort((a,b)=>{
@@ -39,9 +45,9 @@ export default function LeaveAdmin(){
       return new Date(b.createdAt)-new Date(a.createdAt);
     });
 
-  const pending=leaveRequests.filter(r=>r.status==='pending');
-  const approved=leaveRequests.filter(r=>r.status==='approved');
-  const rejected=leaveRequests.filter(r=>r.status==='rejected');
+  const pending=scopedLeaves.filter(r=>r.status==='pending');
+  const approved=scopedLeaves.filter(r=>r.status==='approved');
+  const rejected=scopedLeaves.filter(r=>r.status==='rejected');
 
   const handleApprove=async(id)=>{
     setApproving(id);
@@ -70,7 +76,7 @@ export default function LeaveAdmin(){
       </div>
 
       <div style={{display:'flex',gap:4,background:'var(--card2)',borderRadius:12,padding:4,marginBottom:24,border:'1.5px solid var(--border)',width:'fit-content'}}>
-        {[['leaves',`🌴 Congés (${leaveRequests.filter(r=>r.status==='pending').length})`],['constraints',`⚡ Demandes (${(constraintRequests||[]).filter(r=>r.status==='pending').length})`]].map(([id,label])=>(
+        {[['leaves',`🌴 Congés (${scopedLeaves.filter(r=>r.status==='pending').length})`],['constraints',`⚡ Demandes (${scopedConstraints.filter(r=>r.status==='pending').length})`]].map(([id,label])=>(
           <button key={id} onClick={()=>setAdminTab(id)} style={{padding:'10px 22px',borderRadius:9,border:'none',cursor:'pointer',fontFamily:'var(--font-b)',fontSize:14,fontWeight:adminTab===id?700:500,background:adminTab===id?'#fff':'transparent',color:adminTab===id?'var(--text)':'var(--muted)',boxShadow:adminTab===id?'var(--shadow)':'none',transition:'all .15s'}}>{label}</button>
         ))}
       </div>
@@ -110,7 +116,7 @@ export default function LeaveAdmin(){
         </div>
         <select className="inp" value={storeFilter} onChange={e=>setStoreFilter(e.target.value)} style={{maxWidth:180,fontSize:13,padding:'9px 12px'}}>
           <option value="all">Tous les magasins</option>
-          {stores.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
+          {visibleStores.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
       </div>
 
@@ -184,22 +190,30 @@ export default function LeaveAdmin(){
                   {/* Actions */}
                   {req.status==='pending'&&(
                     <div style={{display:'flex',gap:8,flexShrink:0,alignItems:'center'}}>
-                      <button className="btn" onClick={()=>handleApprove(req.id)} disabled={isApp||isRej} style={{
-                        background:isApp?'#C8E6C9':'#E8FAF0',color:'#1A8A42',
-                        border:'2px solid #A5D6A7',
-                        fontSize:14,fontWeight:700,padding:'10px 20px',borderRadius:10,
-                        cursor:isApp?'wait':'pointer',transition:'all .15s',
-                      }}>
-                        {isApp?'⏳ ...':'✅ Approuver'}
-                      </button>
-                      <button className="btn" onClick={()=>handleReject(req.id)} disabled={isApp||isRej} style={{
-                        background:isRej?'#FFCDD2':'#FFF0F2',color:'#C8002B',
-                        border:'2px solid #FFAAB6',
-                        fontSize:14,fontWeight:700,padding:'10px 20px',borderRadius:10,
-                        cursor:isRej?'wait':'pointer',transition:'all .15s',
-                      }}>
-                        {isRej?'⏳ ...':'❌ Refuser'}
-                      </button>
+                      {canValidateLeave?(
+                        <>
+                        <button className="btn" onClick={()=>handleApprove(req.id)} disabled={isApp||isRej} style={{
+                          background:isApp?'#C8E6C9':'#E8FAF0',color:'#1A8A42',
+                          border:'2px solid #A5D6A7',
+                          fontSize:14,fontWeight:700,padding:'10px 20px',borderRadius:10,
+                          cursor:isApp?'wait':'pointer',transition:'all .15s',
+                        }}>
+                          {isApp?'⏳ ...':'✅ Approuver'}
+                        </button>
+                        <button className="btn" onClick={()=>handleReject(req.id)} disabled={isApp||isRej} style={{
+                          background:isRej?'#FFCDD2':'#FFF0F2',color:'#C8002B',
+                          border:'2px solid #FFAAB6',
+                          fontSize:14,fontWeight:700,padding:'10px 20px',borderRadius:10,
+                          cursor:isRej?'wait':'pointer',transition:'all .15s',
+                        }}>
+                          {isRej?'⏳ ...':'❌ Refuser'}
+                        </button>
+                        </>
+                      ):(
+                        <div style={{background:'#FFF7E0',border:'1.5px solid #F5D06A',borderRadius:10,padding:'10px 16px',fontSize:13,color:'#B07D00',fontWeight:600,maxWidth:220,textAlign:'center'}}>
+                          🔒 Seuls les dirigeants (David, Yannis) peuvent valider les congés
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -244,7 +258,7 @@ export default function LeaveAdmin(){
             </div>
           ):(
             <div style={{display:'grid',gap:14}}>
-              {[...(constraintRequests||[])].sort((a,b)=>{const o={pending:0,approved:1,refused:2};return (o[a.status]||0)-(o[b.status]||0)||new Date(b.createdAt||0)-new Date(a.createdAt||0);}).map(r=>{
+              {[...scopedConstraints].sort((a,b)=>{const o={pending:0,approved:1,refused:2};return (o[a.status]||0)-(o[b.status]||0)||new Date(b.createdAt||0)-new Date(a.createdAt||0);}).map(r=>{
                 const emp=employees.find(e=>e.id===r.employeeId);
                 const store=emp?stores.find(s=>s.id===emp.storeId):null;
                 const dateStr=r.date?new Date(r.date+'T12:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'}):'—';

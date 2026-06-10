@@ -580,8 +580,10 @@ function WeekNav({cw,setCw}){
 
 /* ── MAIN ─────────────────────────────────────────────────── */
 export default function PlanningEditor(){
-  const{stores,employees,shiftTypes,getSchedule,setShift,setBulkSchedule,currentWeek,setCurrentWeek,currentYear,selectedStore,setSelectedStore,getWeekDatesForCurrentWeek,leaveRequests,overtimeRecords,getEmpOvertimeBalance,resolveOvertime,deleteOvertimeEntry,updateOvertimeHours,authRole,schedules}=useApp();
-  const[activeStore,setAS]=useState(selectedStore||stores[0]?.id||'');
+  const{stores,employees,shiftTypes,getSchedule,setShift,setBulkSchedule,currentWeek,setCurrentWeek,currentYear,selectedStore,setSelectedStore,getWeekDatesForCurrentWeek,leaveRequests,overtimeRecords,getEmpOvertimeBalance,resolveOvertime,deleteOvertimeEntry,updateOvertimeHours,authRole,schedules,currentEmp}=useApp();
+  // Manager defaults to their own store; otherwise last selected or first store
+  const defaultStore = selectedStore || (currentEmp&&['manager','dirigeant','admin'].includes(authRole)&&currentEmp.storeId) || stores[0]?.id || '';
+  const[activeStore,setAS]=useState(defaultStore);
   const[viewMode,setViewMode]=useState('week');
   const[activeDay,setActiveDay]=useState(0);
   const[editCell,setEditCell]=useState(null);

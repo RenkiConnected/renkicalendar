@@ -143,10 +143,11 @@ export function AppProvider({ children }) {
   // ── AUTH ─────────────────────────────────────────────
   const login=(selectedName, password, isManager)=>{
     if(isManager){
-      // Manager/Dirigeant: need password
-      if(password!=='Raphael2232') return {success:false,error:'Mot de passe incorrect'};
       const emp=employees.find(e=>e.name===selectedName&&MANAGER_ROLES.includes(e.role));
       if(!emp) return {success:false,error:'Utilisateur introuvable'};
+      // Per-user password (falls back to default if not set)
+      const expected = emp.password || 'Raphael2232';
+      if(password!==expected) return {success:false,error:'Mot de passe incorrect'};
       _doLogin(emp);
       return {success:true,role:emp.role};
     } else {
@@ -156,6 +157,14 @@ export function AppProvider({ children }) {
       _doLogin(emp);
       return {success:true,role:'vendeur'};
     }
+  };
+
+  // Change own password (manager/dirigeant)
+  const changeOwnPassword = async (empId, newPassword) => {
+    const emp = employees.find(e=>e.id===empId);
+    if(!emp) return {success:false,error:'Introuvable'};
+    await saveEmployee({...emp, password:newPassword});
+    return {success:true};
   };
 
   const _doLogin=(emp)=>{
@@ -449,9 +458,24 @@ export function AppProvider({ children }) {
     });
   };
 
+  // ── PERMISSIONS ───────────────────────────────────────
+  const currentEmp = employees.find(e=>e.id===currentEmpId);
+  const isDirigeant = authRole==='dirigeant' || authRole==='admin';
+  const canValidateLeave = isDirigeant;
+  const getVisibleStoreIds = () => {
+    if (isDirigeant) return stores.map(s=>s.id);
+    if (authRole==='manager' && currentEmp) {
+      const ids = new Set([...(currentEmp.managedStores||[])]);
+      if (currentEmp.storeId) ids.add(currentEmp.storeId);
+      return [...ids];
+    }
+    return stores.map(s=>s.id);
+  };
+
   return (
     <AppContext.Provider value={{
-      isAuthenticated,authRole,currentUser,currentEmpId,login,logout,loading,
+      isAuthenticated,authRole,currentUser,currentEmpId,currentEmp,login,logout,loading,
+      changeOwnPassword,isDirigeant,canValidateLeave,getVisibleStoreIds,
       stores,addStore,updateStore,deleteStore,
       employees,addEmployee,updateEmployee,deleteEmployee,
       getStoreEmployees:sid=>employees.filter(e=>e.storeId===sid),

@@ -2,7 +2,12 @@ import React, { useState, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 
 export default function Settings() {
-  const { shiftTypes, updateShiftType, appSettings, updateSettings, doResetEmployees } = useApp();
+  const { shiftTypes, updateShiftType, appSettings, updateSettings, doResetEmployees, currentEmp, changeOwnPassword, authRole, isDirigeant } = useApp();
+  const [pwNew, setPwNew] = useState('');
+  const [pwConfirm, setPwConfirm] = useState('');
+  const [pwMsg, setPwMsg] = useState('');
+  const [pwSaving, setPwSaving] = useState(false);
+  const isManagerOrDirigeant = ['manager','dirigeant','admin'].includes(authRole);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({});
   const [logoMode, setLogoMode] = useState('url'); // 'url' | 'upload'
@@ -237,6 +242,42 @@ export default function Settings() {
           {savingNotif ? '⏳ Sauvegarde...' : '💾 Sauvegarder les emails'}
         </button>
       </div>
+
+      {isManagerOrDirigeant && currentEmp && (
+        <div className="card" style={{ padding:'28px', marginBottom:24 }}>
+          <h2 className="section-title" style={{ marginBottom:6 }}>🔑 Mon mot de passe</h2>
+          <p style={{ color:'var(--muted)', fontSize:15, marginBottom:20 }}>
+            Changez votre mot de passe personnel ({currentEmp.name}). Votre session devient indépendante des autres managers.
+          </p>
+          <div className="store-form-grid" style={{ marginBottom:16 }}>
+            <div>
+              <label className="lbl">Nouveau mot de passe</label>
+              <input className="inp" type="password" value={pwNew} onChange={e=>setPwNew(e.target.value)} placeholder="••••••••"/>
+            </div>
+            <div>
+              <label className="lbl">Confirmer le mot de passe</label>
+              <input className="inp" type="password" value={pwConfirm} onChange={e=>setPwConfirm(e.target.value)} placeholder="••••••••"/>
+            </div>
+          </div>
+          {pwMsg && (
+            <div style={{ background:pwMsg.startsWith('✅')?'#E8FAF0':'#FFF0F2', border:`1.5px solid ${pwMsg.startsWith('✅')?'var(--teal-mid)':'#FFAAB6'}`, borderRadius:10, padding:'10px 16px', marginBottom:14, color:pwMsg.startsWith('✅')?'#1A8A42':'#C8002B', fontWeight:600, fontSize:14 }}>
+              {pwMsg}
+            </div>
+          )}
+          <button className="btn btn-primary" disabled={pwSaving}
+            onClick={async()=>{
+              if(pwNew.length<4){ setPwMsg('❌ Le mot de passe doit faire au moins 4 caractères'); return; }
+              if(pwNew!==pwConfirm){ setPwMsg('❌ Les deux mots de passe ne correspondent pas'); return; }
+              setPwSaving(true);
+              await changeOwnPassword(currentEmp.id, pwNew);
+              setPwSaving(false); setPwNew(''); setPwConfirm('');
+              setPwMsg('✅ Mot de passe modifié ! Utilisez-le à votre prochaine connexion.');
+              setTimeout(()=>setPwMsg(''),5000);
+            }}>
+            {pwSaving?'⏳ ...':'🔑 Changer mon mot de passe'}
+          </button>
+        </div>
+      )}
 
     </div>
   );

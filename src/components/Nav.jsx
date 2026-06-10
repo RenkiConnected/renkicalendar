@@ -16,11 +16,14 @@ const ITEMS_VENDEUR = [
 ];
 
 export default function Nav({ page, setPage, logoUrl }) {
-  const { logout, authRole, stores, selectedStore, setSelectedStore, currentWeek, leaveRequests } = useApp();
+  const { logout, authRole, stores, selectedStore, setSelectedStore, currentWeek, leaveRequests, constraintRequests, getVisibleStoreIds } = useApp();
   const [mobOpen, setMobOpen] = useState(false);
   const isManager = MANAGER_ROLES.includes(authRole);
   const items = isManager ? ITEMS_MANAGER : ITEMS_VENDEUR;
-  const pending = leaveRequests?.filter(r => r.status === 'pending').length || 0;
+  const _vis = getVisibleStoreIds ? getVisibleStoreIds() : stores.map(s=>s.id);
+  const pendingLeaves = leaveRequests?.filter(r => r.status === 'pending' && _vis.includes(r.storeId)).length || 0;
+  const pendingConstraints = constraintRequests?.filter(r => r.status === 'pending' && _vis.includes(r.storeId)).length || 0;
+  const pending = pendingLeaves + pendingConstraints;
 
   const NavItem = ({ it, onClick }) => (
     <button onClick={() => { setPage(it.id); onClick?.(); }} style={{
