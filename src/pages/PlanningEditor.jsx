@@ -78,7 +78,8 @@ function ShiftDetailPopup({emp,day,shift,onClose,types,onEdit}){
   }:{
     position:'fixed',inset:0,background:'rgba(27,42,59,.45)',
     backdropFilter:'blur(8px)',zIndex:400,
-    display:'block',overflowY:'auto',
+    display:'flex',alignItems:'center',justifyContent:'center',
+    padding:'16px',
   };
 
   const cardStyle=isMob?{
@@ -90,8 +91,9 @@ function ShiftDetailPopup({emp,day,shift,onClose,types,onEdit}){
     animation:'slideUp .28s cubic-bezier(.32,0,.67,0) forwards',
   }:{
     background:'#fff',borderRadius:22,
-    width:'calc(100% - 40px)',maxWidth:520,margin:'40px auto',
+    width:'100%',maxWidth:520,
     padding:'28px 34px',
+    maxHeight:'90vh',overflowY:'auto',
     boxShadow:'0 24px 80px rgba(0,0,0,.22)',
     animation:'popIn .25s cubic-bezier(.34,1.56,.64,1) forwards',
   };
@@ -422,23 +424,23 @@ function AutoModal({store,emps,weekDates,currentWeek,currentYear,leaveRequests,o
   return(
     <div className="overlay" onClick={onClose}>
       <div className="modal" style={{maxWidth:740}} onClick={ev=>ev.stopPropagation()}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:18}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
           <div>
-            <h3 style={{fontFamily:'var(--font-h)',fontWeight:800,fontSize:22}}>⚡ Génération automatique</h3>
+            <h3 style={{fontFamily:'var(--font-h)',fontWeight:800,fontSize:20}}>⚡ Génération automatique</h3>
             <p style={{color:'var(--muted)',fontSize:14,marginTop:3}}>{store.name} · S{currentWeek}</p>
           </div>
           <button className="btn btn-ghost btn-xs" onClick={onClose}>✕</button>
         </div>
 
         {/* Info */}
-        <div style={{background:'var(--teal-light)',border:'1.5px solid var(--teal-mid)',borderRadius:12,padding:'16px 18px',marginBottom:22,fontSize:14,color:'var(--teal-dark)',lineHeight:1.8}}>
+        <div style={{background:'var(--teal-light)',border:'1.5px solid var(--teal-mid)',borderRadius:10,padding:'10px 14px',marginBottom:10,fontSize:13,color:'var(--teal-dark)',lineHeight:1.5}}>
           ✅ Les <strong>congés approuvés</strong> sont intégrés automatiquement<br/>
           ✅ Les heures hebdomadaires de <strong>chaque contrat</strong> sont respectées<br/>
           ✅ Les employés alternent <strong>ouverture / fermeture</strong>
         </div>
 
         {/* Horaires magasin */}
-        <div style={{marginBottom:16}}>
+        <div style={{marginBottom:10}}>
           <div className="lbl">Horaires d'ouverture du magasin</div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
             <div>
@@ -450,16 +452,16 @@ function AutoModal({store,emps,weekDates,currentWeek,currentYear,leaveRequests,o
               <input className="inp" type="time" value={openEnd} onChange={e=>setOpenEnd(e.target.value)}/>
             </div>
           </div>
-          {openH>0&&<div style={{marginTop:10,fontSize:15,color:'var(--teal-dark)',fontWeight:700,padding:'10px 14px',background:'white',borderRadius:9,border:'1px solid var(--teal-mid)'}}>📏 Amplitude : {openH}h ({openStart} → {openEnd})</div>}
+          {openH>0&&<div style={{marginTop:6,fontSize:14,color:'var(--teal-dark)',fontWeight:700,padding:'8px 12px',background:'white',borderRadius:9,border:'1px solid var(--teal-mid)'}}>📏 Amplitude : {openH}h ({openStart} → {openEnd})</div>}
         </div>
 
         {/* Pause */}
-        <div style={{marginBottom:20}}>
+        <div style={{marginBottom:10}}>
           <div className="lbl">Pause déjeuner</div>
           <div style={{display:'flex',gap:8}}>
             {BREAKS.map(b=>(
               <button key={b.v} onClick={()=>setBrk(b.v)} style={{
-                flex:1,padding:'13px 8px',borderRadius:10,cursor:'pointer',
+                flex:1,padding:'10px 8px',borderRadius:10,cursor:'pointer',
                 border:`2px solid ${brk===b.v?'var(--teal)':'var(--border)'}`,
                 background:brk===b.v?'var(--teal-light)':'#fff',
                 color:brk===b.v?'var(--teal-dark)':'var(--muted)',
@@ -470,8 +472,8 @@ function AutoModal({store,emps,weekDates,currentWeek,currentYear,leaveRequests,o
         </div>
 
         {/* Aperçu congés */}
-        <div style={{background:'var(--card2)',borderRadius:12,padding:'16px 18px',marginBottom:22,border:'1.5px solid var(--border)'}}>
-          <div style={{fontFamily:'var(--font-h)',fontWeight:700,fontSize:15,color:'var(--text)',marginBottom:12}}>👥 Aperçu congés approuvés cette semaine</div>
+        <div style={{background:'var(--card2)',borderRadius:10,padding:'10px 14px',marginBottom:10,border:'1.5px solid var(--border)'}}>
+          <div style={{fontFamily:'var(--font-h)',fontWeight:700,fontSize:14,color:'var(--text)',marginBottom:6}}>👥 Aperçu congés approuvés cette semaine</div>
           {emps.map(emp=>{
             const leaves=getEmpLeaves(emp.id);
             // Count work days = not Sunday AND not leave day
@@ -484,7 +486,7 @@ function AutoModal({store,emps,weekDates,currentWeek,currentYear,leaveRequests,o
             const dailyH=parseFloat((emp.contractHours/5).toFixed(2));
             const expectedWeekH=parseFloat((workDaysCount*dailyH).toFixed(2));
             return(
-              <div key={emp.id} style={{display:'flex',alignItems:'center',gap:10,marginBottom:8,padding:'8px 10px',background:'white',borderRadius:8,border:'1px solid var(--border)'}}>
+              <div key={emp.id} style={{display:'flex',alignItems:'center',gap:10,marginBottom:5,padding:'5px 10px',background:'white',borderRadius:8,border:'1px solid var(--border)'}}>
                 <div style={{width:28,height:28,borderRadius:'50%',background:emp.color||'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,color:'#fff',flexShrink:0}}>{emp.name[0]}</div>
                 <div style={{flex:1}}>
                   <div style={{fontWeight:700,fontSize:16}}>{emp.name}</div>
@@ -508,8 +510,8 @@ function AutoModal({store,emps,weekDates,currentWeek,currentYear,leaveRequests,o
           })}
         </div>
 
-        <button className="btn btn-primary" style={{width:'100%',justifyContent:'center',padding:'14px',fontSize:15,borderRadius:12}}
-          onClick={()=>onGenerate({openStart,openEnd,brk})} disabled={openH<=0} style={{fontSize:16,padding:'16px',borderRadius:13}}>
+        <button className="btn btn-primary"
+          onClick={()=>onGenerate({openStart,openEnd,brk})} disabled={openH<=0} style={{width:'100%',justifyContent:'center',fontSize:15,padding:'13px',borderRadius:12}}>
           ⚡ Générer le planning
         </button>
       </div>
