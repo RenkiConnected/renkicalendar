@@ -112,29 +112,31 @@ export default function Nav({ page, setPage, logoUrl }) {
         {items.slice(0,5).map(it=>(
           <button key={it.id} onClick={()=>setPage(it.id)} style={{
             flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
-            gap:3, background:'transparent', border:'none', cursor:'pointer',
+            gap:4, background:'transparent', border:'none', cursor:'pointer', position:'relative',
             color: page===it.id?'var(--teal-dark)':'var(--dim)',
-            padding:'6px 2px',
-            borderTop: page===it.id?'2px solid var(--teal)':'2px solid transparent',
+            padding:'10px 2px 8px',
             transition:'all .15s',
           }}>
-            <span style={{fontSize:21}}>{it.icon}</span>
-            <span style={{fontSize:9,fontWeight:page===it.id?700:500,fontFamily:'var(--font-b)',letterSpacing:'.02em'}}>
+            <span style={{position:'relative',fontSize:25,lineHeight:1,filter:page===it.id?'none':'grayscale(.3)',opacity:page===it.id?1:.7}}>
+              {it.icon}
+              {it.badge&&pending>0&&(
+                <span style={{position:'absolute',top:-6,right:-12,background:'#C8002B',color:'#fff',borderRadius:9,minWidth:18,height:18,padding:'0 5px',fontSize:11,fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 1px 4px rgba(0,0,0,.2)'}}>{pending}</span>
+              )}
+            </span>
+            <span style={{fontSize:11,fontWeight:page===it.id?700:500,fontFamily:'var(--font-b)',letterSpacing:'.01em'}}>
               {it.label.split(' ')[0]}
             </span>
-            {it.badge&&pending>0&&(
-              <span style={{position:'absolute',top:8,background:'#C8002B',color:'#fff',borderRadius:8,padding:'1px 5px',fontSize:8,fontWeight:700}}>{pending}</span>
-            )}
+            {page===it.id&&<span style={{position:'absolute',top:0,left:'50%',transform:'translateX(-50%)',width:32,height:3,background:'var(--teal)',borderRadius:'0 0 4px 4px'}}/>}
           </button>
         ))}
         {items.length>5&&(
           <button onClick={()=>setMobOpen(true)} style={{
             flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
-            gap:3,background:'transparent',border:'none',cursor:'pointer',
-            color:'var(--dim)',padding:'6px 2px',borderTop:'2px solid transparent',
+            gap:4,background:'transparent',border:'none',cursor:'pointer',
+            color:'var(--dim)',padding:'10px 2px 8px',
           }}>
-            <span style={{fontSize:21}}>⋯</span>
-            <span style={{fontSize:9,fontFamily:'var(--font-b)'}}>Plus</span>
+            <span style={{fontSize:25,lineHeight:1,opacity:.7}}>☰</span>
+            <span style={{fontSize:11,fontWeight:500,fontFamily:'var(--font-b)'}}>Plus</span>
           </button>
         )}
       </div>

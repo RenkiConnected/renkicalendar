@@ -357,24 +357,6 @@ export default function PublicPlanning({ onLogin }) {
         </div>
 
         {/* Employee cards - WEEK */}
-        {viewMode==='week'&&isMobile&&(()=>{
-          const wd = weekDates[dayIdx];
-          const DAY_FULL=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
-          const isToday = wd && new Date().toDateString()===wd.date.toDateString();
-          return (
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', background:'white', borderRadius:14, padding:'10px 12px', marginBottom:12, border:'1.5px solid #E2EBF0', boxShadow:'0 2px 8px rgba(0,0,0,.06)' }}>
-              <button onClick={()=>goDay(-1)} disabled={dayIdx===0} style={{ width:44, height:44, borderRadius:11, border:'1.5px solid #E2EBF0', background:dayIdx===0?'#F4F7F9':'white', color:dayIdx===0?'#CBD5DD':'var(--teal-dark)', fontSize:20, cursor:dayIdx===0?'default':'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>‹</button>
-              <div style={{ textAlign:'center' }}>
-                <div style={{ fontFamily:'var(--font-h)', fontWeight:800, fontSize:19, color:dayIdx===6?'#C8002B':'var(--text)' }}>{DAY_FULL[dayIdx]}</div>
-                <div style={{ fontSize:13, color:'var(--muted)' }}>
-                  {wd?.date.toLocaleDateString('fr-FR',{day:'numeric',month:'long'})}
-                  {isToday && <span style={{ marginLeft:7, background:'var(--teal)', color:'#fff', borderRadius:20, padding:'1px 9px', fontSize:11, fontWeight:700 }}>Aujourd'hui</span>}
-                </div>
-              </div>
-              <button onClick={()=>goDay(1)} disabled={dayIdx===6} style={{ width:44, height:44, borderRadius:11, border:'1.5px solid #E2EBF0', background:dayIdx===6?'#F4F7F9':'white', color:dayIdx===6?'#CBD5DD':'var(--teal-dark)', fontSize:20, cursor:dayIdx===6?'default':'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>›</button>
-            </div>
-          );
-        })()}
         {viewMode==='week'&&<div style={{ display:'grid', gap:10 }}>
           {storeEmps.map(emp => {
             const workTypes=['work','communication','meeting','school'];
@@ -407,86 +389,60 @@ export default function PublicPlanning({ onLogin }) {
                   </div>
                 </div>
 
-                {/* Days grid - DESKTOP: 7 days / MOBILE: single day with swipe */}
-                {!isMobile ? (
-                <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:8, padding:'12px 14px' }}>
+                {/* Days - DESKTOP: 7 fit in width / MOBILE: horizontal scroll, large tiles */}
+                <div style={{
+                  display:'grid',
+                  gridTemplateColumns: isMobile ? 'repeat(7, 150px)' : 'repeat(7,1fr)',
+                  gap: isMobile ? 12 : 8,
+                  padding: isMobile ? '14px 16px' : '12px 14px',
+                  overflowX: isMobile ? 'auto' : 'visible',
+                  WebkitOverflowScrolling:'touch',
+                  scrollSnapType: isMobile ? 'x mandatory' : 'none',
+                }}>
                   {weekDates.map((wd, di) => {
                     const sh = sched[`${emp.id}_${di}`];
                     const st = sh ? getMeta(sh.type) : null;
                     const isSun = wd.date.getDay() === 0;
+                    const isToday = new Date().toDateString()===wd.date.toDateString();
                     return (
                       <div key={di}
                         onClick={() => handleCellClick(emp, di)}
-                        style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:2, cursor: sh?'pointer':'default' }}
+                        style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4, cursor: sh?'pointer':'default', scrollSnapAlign: isMobile?'center':'none' }}
                       >
-                        <div style={{ fontSize:11, fontWeight:700, color:isSun?'#C8002B':'var(--dim)', textTransform:'uppercase' }}>
+                        <div style={{ fontSize: isMobile?14:11, fontWeight:700, color:isSun?'#C8002B':isToday?'var(--teal-dark)':'var(--dim)', textTransform:'uppercase' }}>
                           {DAY_SHORT[di]}
                         </div>
-                        <div style={{ fontSize:12, color:'var(--dim)' }}>{wd.date.getDate()}</div>
+                        <div style={{ fontSize: isMobile?14:12, color:isToday?'var(--teal-dark)':'var(--dim)', fontWeight:isToday?800:400 }}>
+                          {wd.date.getDate()}{isToday&&isMobile?' • Auj.':''}
+                        </div>
                         <div
                           style={{
-                            width:'100%', minHeight:72, borderRadius:9,
+                            width:'100%', minHeight: isMobile?130:72, borderRadius: isMobile?16:9,
                             background: sh ? st.bgColor : isSun?'#FFF5F5':'#F8FAFB',
-                            border: `1.5px solid ${sh ? st.color+'40' : isSun?'#FFCDD2':'#E8EDF0'}`,
+                            border: `${isToday?3:1.5}px solid ${sh ? st.color+(isToday?'':'40') : isSun?'#FFCDD2':'#E8EDF0'}`,
                             display:'flex', flexDirection:'column', alignItems:'center',
-                            justifyContent:'center', gap:2, padding:'5px 3px',
+                            justifyContent:'center', gap: isMobile?5:2, padding: isMobile?'12px 8px':'5px 3px',
                             transition: sh ? 'all .15s' : 'none',
                           }}
-                          onMouseEnter={e=>{ if(sh){ e.currentTarget.style.transform='scale(1.06)'; e.currentTarget.style.boxShadow=`0 4px 14px ${st.color}40`; e.currentTarget.style.zIndex='2'; } }}
-                          onMouseLeave={e=>{ e.currentTarget.style.transform='scale(1)'; e.currentTarget.style.boxShadow='none'; e.currentTarget.style.zIndex='1'; }}
+                          onMouseEnter={e=>{ if(sh&&!isMobile){ e.currentTarget.style.transform='scale(1.06)'; e.currentTarget.style.boxShadow=`0 4px 14px ${st.color}40`; e.currentTarget.style.zIndex='2'; } }}
+                          onMouseLeave={e=>{ if(!isMobile){ e.currentTarget.style.transform='scale(1)'; e.currentTarget.style.boxShadow='none'; e.currentTarget.style.zIndex='1'; } }}
                         >
                           {sh ? (
                             <>
-                              {sh._away && <span style={{ fontSize:10, fontWeight:800, color:'#fff', background:st.color, borderRadius:5, padding:'1px 6px', marginBottom:1 }}>✈ {sh._awayStore}</span>}
-                              <span style={{ fontSize:13, fontWeight:700, color:st.color, textAlign:'center', lineHeight:1.2 }}>{st.label.slice(0,5)}</span>
-                              {sh.startTime && <span style={{ fontSize:13, color:st.color, opacity:.85, fontWeight:600 }}>{sh.startTime}</span>}
-                              {(sh.hours||0) > 0 && <span style={{ fontSize:12, color:st.color, opacity:.7 }}>{fmtH(mainHours(sh))}</span>}
+                              {sh._away && <span style={{ fontSize: isMobile?12:10, fontWeight:800, color:'#fff', background:st.color, borderRadius:7, padding:'2px 9px', marginBottom:2 }}>✈ {sh._awayStore}</span>}
+                              <span style={{ fontSize: isMobile?18:13, fontWeight:800, color:st.color, textAlign:'center', lineHeight:1.2 }}>{isMobile?st.label:st.label.slice(0,5)}</span>
+                              {sh.startTime && <span style={{ fontSize: isMobile?19:13, color:st.color, opacity:.95, fontWeight:800, fontVariantNumeric:'tabular-nums' }}>{sh.startTime}</span>}
+                              {sh.startTime && sh.endTime && isMobile && <span style={{ fontSize:16, color:st.color, opacity:.75, fontWeight:600, fontVariantNumeric:'tabular-nums' }}>{sh.endTime}</span>}
+                              {(sh.hours||0) > 0 && <span style={{ fontSize: isMobile?15:12, color:st.color, opacity:.75, fontWeight:700 }}>{fmtH(mainHours(sh))}</span>}
                             </>
                           ) : (
-                            <span style={{ color:'#DDE3E8', fontSize:12 }}>—</span>
+                            <span style={{ color:'#C5CDD4', fontSize: isMobile?15:12, fontWeight:600 }}>{isMobile?'—':'—'}</span>
                           )}
                         </div>
                       </div>
                     );
                   })}
                 </div>
-                ) : (
-                  /* MOBILE: single big day, swipeable */
-                  (()=>{
-                    const wd = weekDates[dayIdx];
-                    const sh = sched[`${emp.id}_${dayIdx}`];
-                    const st = sh ? getMeta(sh.type) : null;
-                    const isSun = wd?.date.getDay() === 0;
-                    return (
-                      <div style={{ padding:'14px 16px' }}
-                        onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-                        <div key={dayIdx+'_'+slideDir}
-                          style={{ animation: slideDir>=0?'slideInRight .25s ease':'slideInLeft .25s ease' }}>
-                          <div
-                            onClick={() => sh && handleCellClick(emp, dayIdx)}
-                            style={{
-                              width:'100%', minHeight:120, borderRadius:16,
-                              background: sh ? st.bgColor : isSun?'#FFF5F5':'#F8FAFB',
-                              border: `2px solid ${sh ? st.color+'55' : isSun?'#FFCDD2':'#E8EDF0'}`,
-                              display:'flex', flexDirection:'column', alignItems:'center',
-                              justifyContent:'center', gap:6, padding:'18px', cursor: sh?'pointer':'default',
-                            }}>
-                            {sh ? (
-                              <>
-                                {sh._away && <span style={{ fontSize:13, fontWeight:800, color:'#fff', background:st.color, borderRadius:8, padding:'3px 12px', marginBottom:2 }}>✈ {sh._awayStore}</span>}
-                                <span style={{ fontSize:22, fontWeight:800, color:st.color, textAlign:'center', lineHeight:1.2 }}>{st.label}</span>
-                                {sh.startTime && <span style={{ fontSize:26, color:st.color, fontWeight:800, fontVariantNumeric:'tabular-nums' }}>{sh.startTime}{sh.endTime?` – ${sh.endTime}`:''}</span>}
-                                {(sh.hours||0) > 0 && <span style={{ fontSize:17, color:st.color, opacity:.8, fontWeight:700 }}>{fmtH(mainHours(sh))}</span>}
-                              </>
-                            ) : (
-                              <span style={{ color:'#B0BAC2', fontSize:18, fontWeight:600 }}>Aucun créneau</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })()
-                )}
               </div>
             );
           })}

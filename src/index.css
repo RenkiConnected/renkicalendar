@@ -203,7 +203,7 @@ body {
    RESPONSIVE — TABLET 600–860px
 ═══════════════════════════════════════════════════ */
 @media (max-width: 860px) and (min-width: 600px) {
-  :root { --sidebar-w: 0px; --topbar-h: 56px; --bottom-h: 60px; }
+  :root { --sidebar-w: 0px; --topbar-h: 60px; --bottom-h: 76px; }
   html { font-size: 15px; }
 
   .sidebar { display: none !important; }
@@ -222,8 +222,8 @@ body {
    RESPONSIVE — MOBILE ≤ 599px
 ═══════════════════════════════════════════════════ */
 @media (max-width: 599px) {
-  :root { --sidebar-w: 0px; --topbar-h: 54px; --bottom-h: 60px; }
-  html { font-size: 15px; }
+  :root { --sidebar-w: 0px; --topbar-h: 58px; --bottom-h: 74px; }
+  html { font-size: 16px; }
 
   .sidebar { display: none !important; }
   .main-area { margin-left: 0; padding-top: var(--topbar-h); }
@@ -266,7 +266,9 @@ body {
 ═══════════════════════════════════════════════════ */
 .mob-bottom {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 60;
-  height: var(--bottom-h);
+  min-height: var(--bottom-h);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   background: var(--card); border-top: 1.5px solid var(--border);
-  box-shadow: 0 -4px 20px rgba(0,0,0,.08);
+  box-shadow: 0 -4px 24px rgba(0,0,0,.10);
+  display: flex; align-items: stretch;
 }
