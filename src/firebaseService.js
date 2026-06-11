@@ -189,3 +189,18 @@ export function listenConstraints(cb){
 export async function deleteConstraintRequest(id){
   await deleteDoc(doc(db,'constraints',id));
 }
+
+// ── PASSWORD RESET REQUESTS ──────────────────────────────
+export async function savePwResetRequest(data) {
+  const id = data.id || `pwr_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+  await setDoc(doc(db,'pwResets',id),{...data,id,updatedAt:new Date().toISOString()});
+  return id;
+}
+export function listenPwResets(cb){
+  return onSnapshot(collection(db,'pwResets'),snap=>{
+    const items=[];snap.forEach(d=>items.push(d.data()));cb(items);
+  });
+}
+export async function deletePwResetRequest(id){
+  await deleteDoc(doc(db,'pwResets',id));
+}

@@ -10,6 +10,7 @@ import {
   fetchSchedule,
   saveOvertimeRecord, deleteOvertimeRecord, listenOvertime,
   saveConstraintRequest, listenConstraints, deleteConstraintRequest,
+  savePwResetRequest, listenPwResets, deletePwResetRequest,
   seedIfEmpty, forceResetAll, ALL_EMPLOYEES,
 } from '../firebaseService';
 
@@ -88,6 +89,7 @@ export function AppProvider({ children }) {
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [overtimeRecords, setOvertimeRecords] = useState({});
   const [constraintRequests, setConstraintRequests] = useState([]); // key: empId_year_Mmonth
+  const [pwResetRequests, setPwResetRequests] = useState([]);
   const [appSettings, setAppSettings] = useState({});
   const [loading, setLoading] = useState(true);
 
@@ -109,7 +111,8 @@ export function AppProvider({ children }) {
   // Listen to constraint/exceptional requests
   useEffect(()=>{
     const unsub = listenConstraints(data => setConstraintRequests(data));
-    return () => unsub();
+    const unsubPw = listenPwResets(data => setPwResetRequests(data));
+    return () => { unsub(); unsubPw(); };
   },[]);
 
   // Listen to overtime records
@@ -184,6 +187,46 @@ export function AppProvider({ children }) {
     await saveEmployee({...emp, password:newPassword});
     return {success:true};
   };
+
+  // Employee requests a password reset (from login screen, by name)
+  const requestPasswordReset = async (empName) => {
+    const emp = employees.find(e=>e.name===empName);
+    if(!emp) return {success:false,error:'Utilisateur introuvable'};
+    // Avoid duplicates
+    const existing = pwResetRequests.find(r=>r.employeeId===emp.id);
+    if(existing) return {success:true,already:true};
+    await savePwResetRequest({
+      employeeId: emp.id,
+      employeeName: emp.name,
+      storeId: emp.storeId,
+      role: emp.role,
+      createdAt: new Date().toISOString(),
+    });
+    return {success:true};
+  };
+
+  // Admin/manager resets a password: clears it so the user recreates one at next login
+  const resetEmployeePassword = async (empId) => {
+    const emp = employees.find(e=>e.id===empId);
+    if(!emp) return {success:false};
+    await saveEmployee({...emp, password:''});
+    // Remove any pending reset request for this employee
+    const req = pwResetRequests.find(r=>r.employeeId===empId);
+    if(req) await deletePwResetRequest(req.id);
+    return {success:true};
+  };
+
+  // Admin/manager sets a specific password for an employee
+  const setEmployeePassword = async (empId, newPassword) => {
+    const emp = employees.find(e=>e.id===empId);
+    if(!emp) return {success:false};
+    await saveEmployee({...emp, password:newPassword});
+    const req = pwResetRequests.find(r=>r.employeeId===empId);
+    if(req) await deletePwResetRequest(req.id);
+    return {success:true};
+  };
+
+  const dismissPwResetRequest = async (reqId) => { await deletePwResetRequest(reqId); };
 
   const _doLogin=(emp)=>{
     setIsAuthenticated(true);
@@ -494,6 +537,7 @@ export function AppProvider({ children }) {
     <AppContext.Provider value={{
       isAuthenticated,authRole,currentUser,currentEmpId,currentEmp,login,logout,loading,
       changeOwnPassword,isDirigeant,canValidateLeave,getVisibleStoreIds,setupVendeurPassword,vendeurNeedsPassword,
+      pwResetRequests,requestPasswordReset,resetEmployeePassword,setEmployeePassword,dismissPwResetRequest,
       stores,addStore,updateStore,deleteStore,
       employees,addEmployee,updateEmployee,deleteEmployee,
       getStoreEmployees:sid=>employees.filter(e=>e.storeId===sid),

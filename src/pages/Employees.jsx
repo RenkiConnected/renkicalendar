@@ -4,7 +4,7 @@ import { useApp } from '../context/AppContext';
 const ROLE_MAP = { admin:'Admin', dirigeant:'Dirigeant', manager:'Manager', vendeur:'Vendeur' };
 const ROLE_COLOR = { admin:'#6366F1', dirigeant:'#0EA5E9', manager:'#F59E0B', vendeur:'#10B981' };
 
-function EmpModal({ emp, stores, allEmps, onSave, onClose }) {
+function EmpModal({ emp, stores, allEmps, onSave, onClose, onResetPw, onSetPw }) {
   const [form, setForm] = useState(emp || { name:'', role:'vendeur', storeId:stores[0]?.id||'', contractHours:35, color:'#00C9B1' });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -92,6 +92,26 @@ function EmpModal({ emp, stores, allEmps, onSave, onClose }) {
             </div>
           </div>
         </div>
+
+        {emp && onResetPw && (
+          <div style={{ marginTop:18, padding:'14px 16px', background:'#FFF7E0', border:'1.5px solid #F5D06A', borderRadius:12 }}>
+            <div style={{ fontWeight:700, color:'#B07D00', fontSize:15, marginBottom:4 }}>🔑 Mot de passe</div>
+            <div style={{ fontSize:13, color:'var(--muted)', marginBottom:12 }}>
+              {emp.password ? 'Un mot de passe est défini.' : 'Aucun mot de passe — sera créé à la première connexion.'}
+            </div>
+            <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+              <button type="button" className="btn btn-sm" style={{ background:'#fff', border:'1.5px solid #F5D06A', color:'#B07D00', fontWeight:700 }}
+                onClick={async()=>{ if(window.confirm(`Réinitialiser le mot de passe de ${emp.name} ? La personne devra en créer un nouveau à sa prochaine connexion.`)){ await onResetPw(emp.id); alert('✅ Mot de passe réinitialisé. La personne en créera un à sa prochaine connexion.'); } }}>
+                ♻️ Réinitialiser (nouvelle création)
+              </button>
+              <button type="button" className="btn btn-sm" style={{ background:'#fff', border:'1.5px solid #F5D06A', color:'#B07D00', fontWeight:700 }}
+                onClick={async()=>{ const np=window.prompt('Définir un nouveau mot de passe pour '+emp.name+' :'); if(np&&np.length>=4){ await onSetPw(emp.id, np); alert('✅ Nouveau mot de passe défini.'); } else if(np){ alert('Le mot de passe doit faire au moins 4 caractères.'); } }}>
+                ✏️ Définir un mot de passe
+              </button>
+            </div>
+          </div>
+        )}
+
         <div style={{ display:'flex', gap:10, marginTop:24 }}>
           <button className="btn btn-primary" style={{ flex:1, justifyContent:'center', padding:'13px' }} onClick={()=>form.name&&onSave(form)}>✓ Enregistrer</button>
           <button className="btn btn-ghost" onClick={onClose}>Annuler</button>
@@ -153,7 +173,7 @@ function DepannageModal({ emp, stores, currentStoreId, onAssign, onClose }) {
 }
 
 export default function Employees() {
-  const { employees, stores, addEmployee, updateEmployee, deleteEmployee } = useApp();
+  const { employees, stores, addEmployee, updateEmployee, deleteEmployee, pwResetRequests, resetEmployeePassword, setEmployeePassword, dismissPwResetRequest, getVisibleStoreIds } = useApp();
   const [editing, setEditing] = useState(null);
   const [depannage, setDepannage] = useState(null);
   const [filterStore, setFilterStore] = useState('all');
@@ -204,6 +224,48 @@ export default function Employees() {
         </div>
         <button className="btn btn-primary" onClick={() => setEditing('new')}>+ Nouvel employé</button>
       </div>
+
+      {/* Password reset requests */}
+      {(()=>{
+        const vis = getVisibleStoreIds ? getVisibleStoreIds() : stores.map(s=>s.id);
+        const reqs = (pwResetRequests||[]).filter(r=>vis.includes(r.storeId));
+        if(reqs.length===0) return null;
+        return (
+          <div style={{ background:'#FFF7E0', border:'1.5px solid #F5D06A', borderRadius:14, padding:'16px 20px', marginBottom:24 }}>
+            <div style={{ fontWeight:800, color:'#B07D00', fontSize:16, marginBottom:10, display:'flex', alignItems:'center', gap:8 }}>
+              🔑 Demandes de réinitialisation de mot de passe ({reqs.length})
+            </div>
+            <div style={{ display:'grid', gap:10 }}>
+              {reqs.map(r=>{
+                const e = employees.find(x=>x.id===r.employeeId);
+                const st = stores.find(s=>s.id===r.storeId);
+                return (
+                  <div key={r.id} style={{ background:'#fff', borderRadius:10, padding:'12px 14px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap', border:'1px solid #F0E0A8' }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                      <div style={{ width:38, height:38, borderRadius:'50%', background:e?.color||'var(--teal)', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:800, color:'#fff', fontSize:16 }}>{(e?.name||r.employeeName||'?')[0]}</div>
+                      <div>
+                        <div style={{ fontWeight:700, fontSize:15 }}>{e?.name||r.employeeName}</div>
+                        <div style={{ fontSize:13, color:'var(--muted)' }}>{st?.name||'—'} · a oublié son mot de passe</div>
+                      </div>
+                    </div>
+                    <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                      <button className="btn btn-sm" style={{ background:'#1A8A42', color:'#fff', border:'none', fontWeight:700 }}
+                        onClick={async()=>{ await resetEmployeePassword(r.employeeId); alert(`✅ Mot de passe réinitialisé. ${e?.name||r.employeeName} en créera un nouveau à sa prochaine connexion.`); }}>
+                        ♻️ Réinitialiser
+                      </button>
+                      <button className="btn btn-sm" style={{ background:'#fff', border:'1.5px solid #F5D06A', color:'#B07D00', fontWeight:700 }}
+                        onClick={async()=>{ const np=window.prompt('Définir un nouveau mot de passe pour '+(e?.name||r.employeeName)+' :'); if(np&&np.length>=4){ await setEmployeePassword(r.employeeId, np); alert('✅ Nouveau mot de passe défini.'); } else if(np){ alert('Min. 4 caractères.'); } }}>
+                        ✏️ Définir
+                      </button>
+                      <button className="btn btn-ghost btn-sm" onClick={()=>dismissPwResetRequest(r.id)}>Ignorer</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Filters */}
       <div style={{ display:'flex', gap:12, marginBottom:24, flexWrap:'wrap' }}>
@@ -287,6 +349,8 @@ export default function Employees() {
           allEmps={employees}
           onSave={handleSave}
           onClose={() => setEditing(null)}
+          onResetPw={resetEmployeePassword}
+          onSetPw={setEmployeePassword}
         />
       )}
       {depannage && (

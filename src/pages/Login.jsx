@@ -2,13 +2,14 @@ import React, { useState, useMemo } from 'react';
 import { useApp, MANAGER_ROLES } from '../context/AppContext';
 
 export default function Login({ logoUrl, onBack }) {
-  const { login, employees, loading, setupVendeurPassword, vendeurNeedsPassword } = useApp();
+  const { login, employees, loading, setupVendeurPassword, vendeurNeedsPassword, requestPasswordReset } = useApp();
   const [mode, setMode] = useState('manager');
   const [selected, setSelected] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [showPass, setShowPass] = useState(false);
+  const [pwResetSent, setPwResetSent] = useState(false);
   // First-connection vendeur password creation
   const [setupMode, setSetupMode] = useState(false);
   const [setupEmpId, setSetupEmpId] = useState(null);
@@ -134,7 +135,7 @@ export default function Login({ logoUrl, onBack }) {
             <div style={{ marginBottom:18 }}>
               <div className="lbl">{mode==='manager'?'Sélectionner le manager':'Sélectionner le vendeur'}</div>
               <div style={{ position:'relative' }}>
-                <select className="inp" value={selected} onChange={e=>{ setSelected(e.target.value); setError(''); setPassword(''); }}
+                <select className="inp" value={selected} onChange={e=>{ setSelected(e.target.value); setError(''); setPassword(''); setPwResetSent(false); }}
                   style={{ fontSize:16,padding:'14px 44px 14px 16px',cursor:'pointer',appearance:'none' }}>
                   <option value="">— Choisissez votre nom —</option>
                   {list.map(emp=>(
@@ -202,6 +203,23 @@ export default function Login({ logoUrl, onBack }) {
                 </span>
               ):mode==='vendeur'?(selectedNeedsPw?'Créer mon mot de passe →':'Accéder au planning →'):'Se connecter →'}
             </button>
+
+            {selected && (mode==='manager' || (mode==='vendeur' && !selectedNeedsPw)) && (
+              <div style={{ textAlign:'center', marginTop:14 }}>
+                {pwResetSent ? (
+                  <div style={{ fontSize:14, color:'#1A8A42', fontWeight:600 }}>
+                    ✅ Demande envoyée ! Un responsable va réinitialiser votre mot de passe.
+                  </div>
+                ) : (
+                  <button type="button" onClick={async()=>{
+                    const r = await requestPasswordReset(selected);
+                    if(r.success) setPwResetSent(true);
+                  }} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--teal-dark)', fontSize:14, fontWeight:600, textDecoration:'underline', fontFamily:'var(--font-b)' }}>
+                    🔑 Mot de passe oublié ?
+                  </button>
+                )}
+              </div>
+            )}
           </form>
           )}
         </div>
