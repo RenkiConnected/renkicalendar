@@ -289,7 +289,7 @@ export default function PublicPlanning({ onLogin }) {
               <h1 style={{ fontFamily:'var(--font-h)', fontWeight:800, fontSize:30, color:'var(--text)', marginBottom:8 }}>📅 Plannings des magasins</h1>
               <p style={{ fontSize:16, color:'var(--muted)' }}>Sélectionnez un magasin pour consulter son planning</p>
             </div>
-            <div style={{ display:'grid', gap:14 }}>
+            <div style={{ display:'grid', gap:14, gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', maxWidth: isMobile?'100%':920, margin:'0 auto' }}>
               {stores.map(s=>{
                 const team = employees.filter(e=>e.storeId===s.id);
                 return (

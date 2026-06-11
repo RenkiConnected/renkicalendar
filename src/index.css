@@ -187,6 +187,8 @@ body {
   :root { --sidebar-w: 260px; }
   html { font-size: 17px; }
   .main-content { padding: 36px 52px; }
+  .mob-topbar, .mob-bottom { display: none !important; }
+  .sidebar { display: flex !important; }
 }
 
 /* ═══════════════════════════════════════════════════
@@ -197,6 +199,8 @@ body {
   html { font-size: 15px; }
   .main-content { padding: 24px 32px; }
   .modal { padding: 30px 38px; }
+  .mob-topbar, .mob-bottom { display: none !important; }
+  .sidebar { display: flex !important; }
 }
 
 /* ═══════════════════════════════════════════════════
