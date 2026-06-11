@@ -70,11 +70,12 @@ function ShiftDetailPopup({emp,day,shift,onClose,types,onEdit}){
   const st2=shift.split?getMeta(types,shift.split.type):null;
   const isMob=window.innerWidth<=860;
 
-  // Desktop: centered card with fadeUp. Mobile: bottom sheet with slideUp
+  // Centered card, capped to viewport, fully scrollable on both mobile and desktop
   const overlayStyle=isMob?{
     position:'fixed',inset:0,background:'rgba(27,42,59,.55)',
     backdropFilter:'blur(8px)',zIndex:400,
-    display:'flex',alignItems:'flex-end',justifyContent:'center',
+    display:'flex',alignItems:'center',justifyContent:'center',
+    padding:'10px',overflowY:'auto',
   }:{
     position:'fixed',inset:0,background:'rgba(27,42,59,.45)',
     backdropFilter:'blur(8px)',zIndex:400,
@@ -83,12 +84,12 @@ function ShiftDetailPopup({emp,day,shift,onClose,types,onEdit}){
   };
 
   const cardStyle=isMob?{
-    background:'#fff',borderRadius:'24px 24px 0 0',
-    width:'100%',maxWidth:520,
-    padding:'8px 22px 40px',
-    maxHeight:'90vh',overflowY:'auto',
-    boxShadow:'0 -12px 60px rgba(0,0,0,.25)',
-    animation:'slideUp .28s cubic-bezier(.32,0,.67,0) forwards',
+    background:'#fff',borderRadius:18,
+    width:'100%',maxWidth:520,margin:'auto',
+    padding:'22px 20px 28px',
+    maxHeight:'88dvh',overflowY:'auto',WebkitOverflowScrolling:'touch',
+    boxShadow:'0 24px 80px rgba(0,0,0,.25)',
+    animation:'popIn .25s cubic-bezier(.34,1.56,.64,1) forwards',
   }:{
     background:'#fff',borderRadius:22,
     width:'100%',maxWidth:520,

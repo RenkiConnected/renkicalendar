@@ -89,8 +89,8 @@ export default function ViewPlanning() {
     const st2 = sh.split ? getShiftMeta(sh.split.type) : null;
     const isMob = window.innerWidth <= 860;
     return (
-      <div onClick={()=>setPopup(null)} style={{position:'fixed',inset:0,background:'rgba(27,42,59,.55)',backdropFilter:'blur(8px)',zIndex:400,display:'flex',alignItems:isMob?'flex-end':'center',justifyContent:'center',padding:isMob?0:'20px'}}>
-        <div onClick={e=>e.stopPropagation()} style={{background:'#fff',borderRadius:isMob?'24px 24px 0 0':20,width:'100%',maxWidth:460,padding:isMob?'8px 22px 44px':'28px 32px',maxHeight:isMob?'90vh':'calc(100vh - 40px)',overflowY:'auto',boxShadow:'0 -12px 60px rgba(0,0,0,.25)'}}>
+      <div onClick={()=>setPopup(null)} style={{position:'fixed',inset:0,background:'rgba(27,42,59,.55)',backdropFilter:'blur(8px)',zIndex:400,display:'flex',alignItems:'center',justifyContent:'center',padding:isMob?'10px':'20px',overflowY:'auto'}}>
+        <div onClick={e=>e.stopPropagation()} style={{background:'#fff',borderRadius:isMob?18:20,width:'100%',maxWidth:460,margin:'auto',padding:isMob?'20px 18px 28px':'28px 32px',maxHeight:isMob?'88dvh':'calc(100vh - 40px)',overflowY:'auto',WebkitOverflowScrolling:'touch',boxShadow:'0 24px 80px rgba(0,0,0,.25)'}}>
           {isMob&&<div style={{width:38,height:4,background:'#E2EBF0',borderRadius:2,margin:'12px auto 18px'}}/>}
           <div style={{background:`linear-gradient(135deg,${st.bgColor},${st.bgColor}bb)`,border:`1.5px solid ${st.color}30`,borderRadius:14,padding:'12px 16px',marginBottom:14,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
             <div><div style={{fontSize:13,fontWeight:700,color:st.color}}>{day.day}</div><div style={{fontSize:18,fontWeight:800,color:'var(--text)'}}>{day.date.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}</div></div>
