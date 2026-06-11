@@ -164,9 +164,34 @@ function ShiftBlock({ sh, st, style }) {
 
 export default function PublicPlanning({ onLogin }) {
   const { stores, employees, shiftTypes, schedules, currentWeek, setCurrentWeek, currentYear, getWeekDatesForCurrentWeek } = useApp();
-  const [activeStore, setActiveStore] = useState(stores[0]?.id || '');
+  const [activeStore, setActiveStore] = useState(null); // null = show store-selection menu first
   const [popup, setPopup] = useState(null);
   const [viewMode, setViewMode] = useState('week');
+
+  // Mobile day-by-day view
+  const [isMobile, setIsMobile] = useState(typeof window!=='undefined' && window.innerWidth <= 760);
+  React.useEffect(()=>{
+    const onResize = ()=>setIsMobile(window.innerWidth <= 760);
+    window.addEventListener('resize', onResize);
+    return ()=>window.removeEventListener('resize', onResize);
+  },[]);
+  // Default to today's day index (0=Mon..6=Sun), else Monday
+  const todayIdx = (()=>{ const d=new Date().getDay(); return d===0?6:d-1; })();
+  const [dayIdx, setDayIdx] = useState(todayIdx);
+  const [slideDir, setSlideDir] = useState(0); // -1 left, 1 right (for animation)
+  const touchStartX = React.useRef(null);
+
+  const goDay = (dir) => {
+    setSlideDir(dir);
+    setDayIdx(prev => Math.max(0, Math.min(6, prev + dir)));
+  };
+  const onTouchStart = e => { touchStartX.current = e.touches[0].clientX; };
+  const onTouchEnd = e => {
+    if(touchStartX.current==null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    if(Math.abs(dx) > 45){ if(dx<0 && dayIdx<6) goDay(1); else if(dx>0 && dayIdx>0) goDay(-1); }
+    touchStartX.current = null;
+  };
 
   const weekDates = getWeekDatesForCurrentWeek(currentWeek);
   const store = stores.find(s => s.id === activeStore);
@@ -257,7 +282,49 @@ export default function PublicPlanning({ onLogin }) {
       {/* CONTENT */}
       <div style={{ flex:1, maxWidth:1400, margin:'0 auto', width:'100%', padding:'20px 24px 100px' }}>
 
-        {/* Week nav */}
+        {!activeStore ? (
+          /* ── STORE SELECTION MENU ── */
+          <div style={{ maxWidth:680, margin:'0 auto', animation:'fadeUp .4s ease' }}>
+            <div style={{ textAlign:'center', marginBottom:28, marginTop:12 }}>
+              <h1 style={{ fontFamily:'var(--font-h)', fontWeight:800, fontSize:30, color:'var(--text)', marginBottom:8 }}>📅 Plannings des magasins</h1>
+              <p style={{ fontSize:16, color:'var(--muted)' }}>Sélectionnez un magasin pour consulter son planning</p>
+            </div>
+            <div style={{ display:'grid', gap:14 }}>
+              {stores.map(s=>{
+                const team = employees.filter(e=>e.storeId===s.id);
+                return (
+                  <button key={s.id} onClick={()=>setActiveStore(s.id)}
+                    style={{
+                      display:'flex', alignItems:'center', gap:18, width:'100%', textAlign:'left',
+                      background:'white', border:`2px solid ${s.color}30`, borderLeft:`6px solid ${s.color}`,
+                      borderRadius:16, padding:'20px 22px', cursor:'pointer',
+                      boxShadow:'0 2px 12px rgba(0,0,0,.06)', transition:'all .18s', fontFamily:'var(--font-b)',
+                    }}
+                    onMouseEnter={e=>{ e.currentTarget.style.transform='translateY(-2px)'; e.currentTarget.style.boxShadow=`0 8px 24px ${s.color}33`; e.currentTarget.style.borderColor=s.color; }}
+                    onMouseLeave={e=>{ e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.boxShadow='0 2px 12px rgba(0,0,0,.06)'; e.currentTarget.style.borderColor=s.color+'30'; }}>
+                    <div style={{ width:54, height:54, borderRadius:'50%', background:s.color, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, boxShadow:`0 4px 12px ${s.color}55` }}>
+                      <span style={{ fontSize:24 }}>🏪</span>
+                    </div>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontFamily:'var(--font-h)', fontWeight:800, fontSize:20, color:'var(--text)' }}>{s.name}</div>
+                      <div style={{ fontSize:14, color:'var(--muted)', marginTop:3 }}>
+                        {team.length} employé{team.length>1?'s':''} · {s.openTime||'09:00'} → {s.closeTime||'19:30'}
+                      </div>
+                    </div>
+                    <span style={{ fontSize:26, color:s.color, fontWeight:700 }}>›</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+        <>
+        {/* Back to store list */}
+        <button onClick={()=>setActiveStore(null)} style={{ display:'flex', alignItems:'center', gap:7, background:'white', border:'1.5px solid #E2EBF0', borderRadius:10, padding:'9px 16px', marginBottom:14, cursor:'pointer', fontSize:15, fontWeight:600, color:'var(--teal-dark)', fontFamily:'var(--font-b)' }}>
+          ‹ Tous les magasins
+        </button>
+
+
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16, background:'white', borderRadius:14, padding:'12px 16px', boxShadow:'0 2px 10px rgba(0,0,0,.06)', border:'1.5px solid #E2EBF0' }}>
           <button onClick={()=>setCurrentWeek(w=>Math.max(1,w-1))} style={{ background:'none', border:'1.5px solid #E2EBF0', borderRadius:8, width:38, height:38, cursor:'pointer', fontSize:18, color:'var(--muted)', display:'flex', alignItems:'center', justifyContent:'center' }}>‹</button>
           <div style={{ textAlign:'center' }}>
@@ -290,6 +357,24 @@ export default function PublicPlanning({ onLogin }) {
         </div>
 
         {/* Employee cards - WEEK */}
+        {viewMode==='week'&&isMobile&&(()=>{
+          const wd = weekDates[dayIdx];
+          const DAY_FULL=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+          const isToday = wd && new Date().toDateString()===wd.date.toDateString();
+          return (
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', background:'white', borderRadius:14, padding:'10px 12px', marginBottom:12, border:'1.5px solid #E2EBF0', boxShadow:'0 2px 8px rgba(0,0,0,.06)' }}>
+              <button onClick={()=>goDay(-1)} disabled={dayIdx===0} style={{ width:44, height:44, borderRadius:11, border:'1.5px solid #E2EBF0', background:dayIdx===0?'#F4F7F9':'white', color:dayIdx===0?'#CBD5DD':'var(--teal-dark)', fontSize:20, cursor:dayIdx===0?'default':'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>‹</button>
+              <div style={{ textAlign:'center' }}>
+                <div style={{ fontFamily:'var(--font-h)', fontWeight:800, fontSize:19, color:dayIdx===6?'#C8002B':'var(--text)' }}>{DAY_FULL[dayIdx]}</div>
+                <div style={{ fontSize:13, color:'var(--muted)' }}>
+                  {wd?.date.toLocaleDateString('fr-FR',{day:'numeric',month:'long'})}
+                  {isToday && <span style={{ marginLeft:7, background:'var(--teal)', color:'#fff', borderRadius:20, padding:'1px 9px', fontSize:11, fontWeight:700 }}>Aujourd'hui</span>}
+                </div>
+              </div>
+              <button onClick={()=>goDay(1)} disabled={dayIdx===6} style={{ width:44, height:44, borderRadius:11, border:'1.5px solid #E2EBF0', background:dayIdx===6?'#F4F7F9':'white', color:dayIdx===6?'#CBD5DD':'var(--teal-dark)', fontSize:20, cursor:dayIdx===6?'default':'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>›</button>
+            </div>
+          );
+        })()}
         {viewMode==='week'&&<div style={{ display:'grid', gap:10 }}>
           {storeEmps.map(emp => {
             const workTypes=['work','communication','meeting','school'];
@@ -322,7 +407,8 @@ export default function PublicPlanning({ onLogin }) {
                   </div>
                 </div>
 
-                {/* Days grid */}
+                {/* Days grid - DESKTOP: 7 days / MOBILE: single day with swipe */}
+                {!isMobile ? (
                 <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:8, padding:'12px 14px' }}>
                   {weekDates.map((wd, di) => {
                     const sh = sched[`${emp.id}_${di}`];
@@ -364,6 +450,43 @@ export default function PublicPlanning({ onLogin }) {
                     );
                   })}
                 </div>
+                ) : (
+                  /* MOBILE: single big day, swipeable */
+                  (()=>{
+                    const wd = weekDates[dayIdx];
+                    const sh = sched[`${emp.id}_${dayIdx}`];
+                    const st = sh ? getMeta(sh.type) : null;
+                    const isSun = wd?.date.getDay() === 0;
+                    return (
+                      <div style={{ padding:'14px 16px' }}
+                        onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+                        <div key={dayIdx+'_'+slideDir}
+                          style={{ animation: slideDir>=0?'slideInRight .25s ease':'slideInLeft .25s ease' }}>
+                          <div
+                            onClick={() => sh && handleCellClick(emp, dayIdx)}
+                            style={{
+                              width:'100%', minHeight:120, borderRadius:16,
+                              background: sh ? st.bgColor : isSun?'#FFF5F5':'#F8FAFB',
+                              border: `2px solid ${sh ? st.color+'55' : isSun?'#FFCDD2':'#E8EDF0'}`,
+                              display:'flex', flexDirection:'column', alignItems:'center',
+                              justifyContent:'center', gap:6, padding:'18px', cursor: sh?'pointer':'default',
+                            }}>
+                            {sh ? (
+                              <>
+                                {sh._away && <span style={{ fontSize:13, fontWeight:800, color:'#fff', background:st.color, borderRadius:8, padding:'3px 12px', marginBottom:2 }}>✈ {sh._awayStore}</span>}
+                                <span style={{ fontSize:22, fontWeight:800, color:st.color, textAlign:'center', lineHeight:1.2 }}>{st.label}</span>
+                                {sh.startTime && <span style={{ fontSize:26, color:st.color, fontWeight:800, fontVariantNumeric:'tabular-nums' }}>{sh.startTime}{sh.endTime?` – ${sh.endTime}`:''}</span>}
+                                {(sh.hours||0) > 0 && <span style={{ fontSize:17, color:st.color, opacity:.8, fontWeight:700 }}>{fmtH(mainHours(sh))}</span>}
+                              </>
+                            ) : (
+                              <span style={{ color:'#B0BAC2', fontSize:18, fontWeight:600 }}>Aucun créneau</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()
+                )}
               </div>
             );
           })}
@@ -422,6 +545,8 @@ export default function PublicPlanning({ onLogin }) {
         <div style={{ textAlign:'center', marginTop:10, fontSize:14, color:'var(--dim)' }}>
           👆 Cliquez sur une tuile pour voir les horaires en détail
         </div>
+        </>
+        )}
       </div>
 
       {/* BOTTOM CTA */}
