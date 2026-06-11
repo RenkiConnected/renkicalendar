@@ -232,16 +232,18 @@ body {
   .mob-topbar { display: flex !important; }
   .mob-bottom { display: flex !important; }
 
-  /* Modal: full-width bottom sheet on tiny screens */
-  .overlay { display: flex; align-items: flex-end; padding: 0; overflow-y: auto; }
+  /* Modal: full-width bottom sheet on tiny screens, fully scrollable */
+  .overlay { display: flex; align-items: flex-end; justify-content: center; padding: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
   .modal {
     border-radius: 20px 20px 0 0;
-    padding: 20px 18px 32px;
+    padding: 22px 18px calc(40px + env(safe-area-inset-bottom, 0px));
     max-width: 100%;
     width: 100%;
     margin: 0;
-    max-height: 92vh;
+    max-height: 90vh;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
   }
   .page-title { font-size: 20px; }
   .page-sub { font-size: 14px; }
