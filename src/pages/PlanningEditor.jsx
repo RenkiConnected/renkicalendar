@@ -236,8 +236,11 @@ function ShiftDetailPopup({emp,day,shift,onClose,types,onEdit}){
 
 
 /* ── SHIFT MODAL WITH SPLIT-DAY ────────────────────────────── */
-function ShiftModal({emp,dayIdx,day,shift,onSave,onDelete,onClose,types}){
+function ShiftModal({emp,dayIdx,day,shift,onSave,onDelete,onClose,types,allStores,activeStoreId}){
   const[splitMode,setSplitMode]=useState(!!(shift?.split));
+  // Target store (déplacement): default to where the shift currently lives
+  const initialTarget = (shift && shift._away && shift._awayStoreId) ? shift._awayStoreId : activeStoreId;
+  const[targetStore,setTargetStore]=useState(initialTarget);
   // Main/AM slot
   const[type,setType]=useState(shift?.type||'work');
   const[s,setS]=useState(shift?.startTime||'09:00');
@@ -276,7 +279,7 @@ function ShiftModal({emp,dayIdx,day,shift,onSave,onDelete,onClose,types}){
         note:note2,
       }:null,
     };
-    onSave(data);
+    onSave(data, targetStore);
   };
 
   return(
@@ -290,7 +293,24 @@ function ShiftModal({emp,dayIdx,day,shift,onSave,onDelete,onClose,types}){
           <button className="btn btn-ghost btn-xs" onClick={onClose}>✕</button>
         </div>
 
-        {/* Split toggle */}
+        {/* Affectation magasin (déplacement) */}
+        {allStores && allStores.length>1 && (
+          <div style={{background: targetStore!==activeStoreId?'#FFF3E0':'var(--card2)', border:`1.5px solid ${targetStore!==activeStoreId?'#F5B764':'var(--border)'}`, borderRadius:12, padding:'12px 14px', marginBottom:18}}>
+            <div style={{fontSize:13,fontWeight:700,color:targetStore!==activeStoreId?'#B05A00':'var(--muted)',marginBottom:7,display:'flex',alignItems:'center',gap:6}}>
+              ✈ Affecter ce créneau à un magasin
+            </div>
+            <select className="inp" value={targetStore} onChange={ev=>setTargetStore(ev.target.value)} style={{fontSize:15,padding:'10px 12px',cursor:'pointer'}}>
+              {allStores.map(st=>(
+                <option key={st.id} value={st.id}>{st.id===activeStoreId?`${st.name} (magasin actuel)`:`Déplacement → ${st.name}`}</option>
+              ))}
+            </select>
+            {targetStore!==activeStoreId && (
+              <div style={{fontSize:12.5,color:'#B05A00',marginTop:7,lineHeight:1.4}}>
+                {emp.name} sera affiché en déplacement sur ce créneau. Il apparaîtra dans le planning de <strong>{allStores.find(s=>s.id===targetStore)?.name}</strong> et marqué « ✈ » sur sa boutique d'origine.
+              </div>
+            )}
+          </div>
+        )}
         <div style={{display:'flex',background:'var(--card2)',borderRadius:10,padding:3,marginBottom:18,border:'1px solid var(--border)'}}>
           <button onClick={()=>setSplitMode(false)} style={{
             flex:1,padding:'9px',borderRadius:8,border:'none',cursor:'pointer',
@@ -722,7 +742,22 @@ export default function PlanningEditor(){
     return {storeId:activeStore, isAway:false};
   };
 
-  const handleSave=data=>{ if(!editCell) return; const tgt=resolveSaveTarget(editCell.empId,editCell.dayIdx); setShift(tgt.storeId,currentWeek,currentYear,editCell.empId,editCell.dayIdx,data); setEditCell(null); };
+  const handleSave=(data, targetStoreId)=>{
+    if(!editCell) return;
+    const tgt = targetStoreId || resolveSaveTarget(editCell.empId,editCell.dayIdx).storeId;
+    const prevTgt = resolveSaveTarget(editCell.empId,editCell.dayIdx).storeId;
+    // If the shift moved to a different store, clear it from the previous location
+    if(prevTgt && prevTgt!==tgt){
+      setShift(prevTgt,currentWeek,currentYear,editCell.empId,editCell.dayIdx,null);
+    }
+    // Mark displacement metadata when target differs from the employee's home store
+    const emp=employees.find(e=>e.id===editCell.empId);
+    const isAway = emp && tgt!==emp.storeId;
+    const payload = isAway ? {...data, _away:true, _awayStoreId:tgt} : {...data};
+    if(payload._away===undefined && data._away){ delete payload._away; delete payload._awayStoreId; }
+    setShift(tgt,currentWeek,currentYear,editCell.empId,editCell.dayIdx,payload);
+    setEditCell(null);
+  };
   const handleDelete=()=>{ if(!editCell) return; const tgt=resolveSaveTarget(editCell.empId,editCell.dayIdx); setShift(tgt.storeId,currentWeek,currentYear,editCell.empId,editCell.dayIdx,null); setEditCell(null); };
 
   /* ── AUTO GENERATE — SMART ALGORITHM ───────────────────────── */
@@ -1145,7 +1180,7 @@ export default function PlanningEditor(){
       {editCell&&(()=>{
         const emp=employees.find(e=>e.id===editCell.empId);
         const sh=schedule[`${editCell.empId}_${editCell.dayIdx}`];
-        return <ShiftModal emp={emp} dayIdx={editCell.dayIdx} day={weekDates[editCell.dayIdx]} shift={sh} onSave={handleSave} onDelete={handleDelete} onClose={()=>setEditCell(null)} types={shiftTypes}/>;
+        return <ShiftModal emp={emp} dayIdx={editCell.dayIdx} day={weekDates[editCell.dayIdx]} shift={sh} onSave={handleSave} onDelete={handleDelete} onClose={()=>setEditCell(null)} types={shiftTypes} allStores={stores} activeStoreId={activeStore}/>;
       })()}
       {confirmWknd&&(
         <div className="overlay" onClick={()=>setConfirmWknd(null)}>
