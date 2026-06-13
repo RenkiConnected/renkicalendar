@@ -78,10 +78,17 @@ export default function Nav({ page, setPage, logoUrl }) {
         {items.map(it=><NavItem key={it.id} it={it} onClick={onItemClick}/>)}
       </nav>
       <div style={{ padding:'13px 14px', borderTop:'1.5px solid var(--border)' }}>
-        <div style={{ background:'var(--teal-light)', borderRadius:9, padding:'9px 12px', marginBottom:9, border:'1px solid var(--teal-mid)' }}>
-          <div style={{ fontSize:13,color:'var(--dim)',marginBottom:2 }}>Connecté</div>
-          <div style={{ fontSize:15,color:'var(--teal-dark)',fontWeight:700,textTransform:'capitalize' }}>
-            {authRole==='dirigeant'?'👑 Dirigeant':authRole==='manager'?'👔 Manager':'🛍️ Vendeur'}
+        <div style={{ background:'var(--teal-light)', borderRadius:9, padding:'10px 12px', marginBottom:9, border:'1px solid var(--teal-mid)', display:'flex', alignItems:'center', gap:10 }}>
+          <div style={{ width:38, height:38, borderRadius:'50%', background:currentEmp?.color||'var(--teal)', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:800, color:'#fff', fontSize:16, flexShrink:0 }}>
+            {(currentEmp?.name||currentUser||'?')[0]}
+          </div>
+          <div style={{ minWidth:0 }}>
+            <div style={{ fontSize:15,color:'var(--teal-dark)',fontWeight:800,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis' }}>
+              {currentEmp?.name||currentUser||'Utilisateur'}
+            </div>
+            <div style={{ fontSize:12,color:'var(--muted)',fontWeight:600 }}>
+              {authRole==='dirigeant'?'👑 Dirigeant':authRole==='manager'?'👔 Manager':'🛍️ Vendeur'}
+            </div>
           </div>
         </div>
         <button className="btn btn-ghost btn-sm" style={{width:'100%',justifyContent:'flex-start'}} onClick={logout}>
