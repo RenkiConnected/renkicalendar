@@ -1,4 +1,25 @@
 import html2canvas from 'html2canvas';
+// Build a schedule for `store` that also includes home employees' shifts done in OTHER stores (déplacements)
+function buildMergedSched(store, employees, schedules, currentYear, currentWeek, allStores) {
+  const base = { ...(schedules[`${store.id}_${currentYear}_W${currentWeek}`] || {}) };
+  const wt = ['work','communication','meeting','school'];
+  const homeEmps = employees.filter(e => e.storeId === store.id);
+  const stores = allStores || [];
+  homeEmps.forEach(emp => {
+    for (let di=0; di<7; di++) {
+      const key = `${emp.id}_${di}`;
+      const here = base[key];
+      if (here && wt.includes(here.type)) continue; // already working here
+      for (const s of stores) {
+        if (s.id === store.id) continue;
+        const other = schedules[`${s.id}_${currentYear}_W${currentWeek}`] || {};
+        const sh = other[key];
+        if (sh && wt.includes(sh.type)) { base[key] = { ...sh, _away:true, _awayStore:s.name, _awayColor:s.color }; break; }
+      }
+    }
+  });
+  return base;
+}
 function calcH(s,e,b){
   try{const[sh,sm]=s.split(':').map(Number),[eh,em]=e.split(':').map(Number);
   const d=(eh*60+em)-(sh*60+sm);if(d<=0)return 0;
@@ -15,8 +36,7 @@ function fmtH(decimalHours){
 
 export async function exportToPDF({ store, employees, schedules, weekDates, shiftTypes, currentWeek, currentYear, logoDataUrl, allStores }) {
 
-  const schedKey = `${store.id}_${currentYear}_W${currentWeek}`;
-  const sched = schedules[schedKey] || {};
+  const sched = buildMergedSched(store, employees, schedules, currentYear, currentWeek, allStores);
   const storeColor = store.color || '#00C9B1';
   const startDate = weekDates[0].date.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
   const endDate   = weekDates[6].date.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
@@ -47,6 +67,7 @@ export async function exportToPDF({ store, employees, schedules, weekDates, shif
     const { sh, st, st2, isSun } = cell;
     return `<td class="sc${isSun?' sun':''}">
       <div class="pill" style="background:${st.bgColor};border-color:${st.color}44">
+        ${sh._away ? `<span style="display:inline-block;font-size:9px;font-weight:800;color:#fff;background:${sh._awayColor||st.color};border-radius:5px;padding:1px 6px;margin-bottom:2px;">✈ ${sh._awayStore}</span>` : ''}
         <span class="lbl" style="color:${st.color}">${st.label}</span>
         ${sh.startTime ? `<span class="tm" style="color:${st.color}">${sh.startTime}–${sh.endTime}</span>` : ''}
         ${(sh.hours||0) > 0 ? `<span class="hr" style="color:${st.color}">${fmtH(mainHours(sh))}</span>` : ''}
@@ -289,8 +310,7 @@ tbody tr:nth-child(even) td{background:#FAFCFC}
 }
 
 export async function exportToNotion({ store, employees, schedules, weekDates, shiftTypes, currentWeek, currentYear, logoDataUrl, allStores }) {
-  const schedKey = `${store.id}_${currentYear}_W${currentWeek}`;
-  const sched = schedules[schedKey] || {};
+  const sched = buildMergedSched(store, employees, schedules, currentYear, currentWeek, allStores);
   const storeColor = store.color || '#00C9B1';
   const workTypes = ['work','communication','meeting','school'];
   const stMap = {};
@@ -325,6 +345,7 @@ export async function exportToNotion({ store, employees, schedules, weekDates, s
     if (cell.empty) return `<div style="min-height:54px;border-radius:9px;border:1.5px dashed #E2EBF0;display:flex;align-items:center;justify-content:center;color:#D0DDE5;font-size:18px;background:${cell.isSun?'#FFF7F7':'#FAFCFC'}">—</div>`;
     const { sh, st, st2 } = cell;
     return `<div style="border-radius:9px;border:1.5px solid ${st.color}40;background:${st.bgColor};padding:8px 6px;min-height:54px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;">
+      ${sh._away?`<span style="font-size:9px;font-weight:800;color:#fff;background:${sh._awayColor||st.color};border-radius:5px;padding:1px 6px;margin-bottom:1px;">✈ ${sh._awayStore}</span>`:''}
       <span style="font-weight:700;font-size:12px;color:${st.color}">${st.label}</span>
       ${sh.startTime?`<span style="font-size:11px;color:${st.color};opacity:.9">${sh.startTime}–${sh.endTime}</span>`:''}
       ${mainHours(sh)>0?`<span style="font-size:11px;color:${st.color};opacity:.7">${fmtH(mainHours(sh))}</span>`:''}
