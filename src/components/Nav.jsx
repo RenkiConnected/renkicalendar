@@ -14,15 +14,14 @@ const ITEMS_MANAGER = [
 const ITEMS_VENDEUR = [
   { id:'view',     label:'Mon Planning', icon:'📅' },
   { id:'myleaves', label:'Mes congés',   icon:'🌴' },
+  { id:'myprimes', label:'Mes primes',   icon:'💰' },
 ];
 
 export default function Nav({ page, setPage, logoUrl }) {
   const { logout, authRole, stores, selectedStore, setSelectedStore, currentWeek, leaveRequests, constraintRequests, getVisibleStoreIds, currentEmp, currentUser } = useApp();
   const [mobOpen, setMobOpen] = useState(false);
   const isManager = MANAGER_ROLES.includes(authRole);
-  // Primes restricted to Michael only for now (testing phase)
-  const canSeePrimes = (currentEmp?.name === 'Michael') || (currentUser === 'Michael');
-  const items = (isManager ? ITEMS_MANAGER : ITEMS_VENDEUR).filter(it => it.id !== 'primes' || canSeePrimes);
+  const items = isManager ? ITEMS_MANAGER : ITEMS_VENDEUR;
   const _vis = getVisibleStoreIds ? getVisibleStoreIds() : stores.map(s=>s.id);
   const pendingLeaves = leaveRequests?.filter(r => r.status === 'pending' && _vis.includes(r.storeId)).length || 0;
   const pendingConstraints = constraintRequests?.filter(r => r.status === 'pending' && _vis.includes(r.storeId)).length || 0;

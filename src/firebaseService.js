@@ -215,3 +215,18 @@ export function listenPrimes(cb){
     const map={};snap.forEach(d=>{map[d.id]=d.data();});cb(map);
   });
 }
+
+// ── PRIME CHANGE REQUESTS (vendeur suggestions) ──────────
+export async function savePrimeChangeRequest(data) {
+  const id = data.id || `pcr_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+  await setDoc(doc(db,'primeRequests',id),{...data,id,updatedAt:new Date().toISOString()});
+  return id;
+}
+export function listenPrimeRequests(cb){
+  return onSnapshot(collection(db,'primeRequests'),snap=>{
+    const items=[];snap.forEach(d=>items.push(d.data()));cb(items);
+  });
+}
+export async function deletePrimeChangeRequest(id){
+  await deleteDoc(doc(db,'primeRequests',id));
+}

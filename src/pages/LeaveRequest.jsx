@@ -19,23 +19,12 @@ const STATUS_MAP = {
 };
 
 function getWeekNumber(d) {
-  // ISO week: week 1 = week containing Jan 4, Monday first
-  // MUST match AppContext.getWeekDates exactly
+  // Correct ISO 8601 week (Thursday determines the year), matches AppContext
   const date = new Date(d); date.setHours(0,0,0,0);
-  const dow = date.getDay();
-  const daysToMon = dow === 0 ? -6 : 1 - dow;
-  const monday = new Date(date);
-  monday.setDate(date.getDate() + daysToMon);
-  const yr = monday.getFullYear();
-  const jan4 = new Date(yr, 0, 4);
-  const jan4dow = jan4.getDay();
-  const j4dtm = jan4dow === 0 ? -6 : 1 - jan4dow;
-  const startW1 = new Date(jan4);
-  startW1.setDate(jan4.getDate() + j4dtm);
-  const diff = monday - startW1;
-  const wn = Math.round(diff / (7 * 86400000)) + 1;
-  if (wn < 1) { return getWeekNumber(new Date(yr - 1, 11, 28)); }
-  return wn;
+  const dow = date.getDay() || 7;
+  date.setDate(date.getDate() + 4 - dow);
+  const yearStart = new Date(date.getFullYear(), 0, 1);
+  return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
 }
 function getWeekDates(wn, year) {
   // Same ISO calculation as AppContext.getWeekDates
@@ -53,13 +42,18 @@ function getFirstDayOfMonth(y,m){ const d=new Date(y,m,1).getDay(); return d===0
 function datesToWeekGroups(dates) {
   const groups={};
   dates.forEach(d=>{
-    const wn=getWeekNumber(d), yr=d.getFullYear(), key=`${yr}_W${wn}`;
+    const wn=getWeekNumber(d), yr=getISOYearLR(d), key=`${yr}_W${wn}`;
     if(!groups[key]) groups[key]={week:wn,year:yr,days:[]};
     const wd=getWeekDates(wn,yr);
     const idx=wd.findIndex(w=>w.toDateString()===d.toDateString());
     if(idx>=0 && !groups[key].days.includes(idx)) groups[key].days.push(idx);
   });
   return Object.values(groups);
+}
+function getISOYearLR(d){
+  const date=new Date(d); date.setHours(0,0,0,0);
+  date.setDate(date.getDate() + 4 - (date.getDay()||7));
+  return date.getFullYear();
 }
 
 function StatusBadge({status}) {

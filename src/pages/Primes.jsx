@@ -174,12 +174,12 @@ function VendeurCard({ emp, data, onChange, storeBonusPool }) {
 }
 
 export default function Primes() {
-  const { stores, employees, getVisibleStoreIds, primes, savePrimeData, currentEmp, currentUser, isDirigeant } = useApp();
+  const { stores, employees, getVisibleStoreIds, primes, savePrimeData, currentEmp, currentUser, isDirigeant, authRole, primeRequests, approvePrimeChangeRequest, rejectPrimeChangeRequest } = useApp();
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth());
   const [year, setYear] = useState(now.getFullYear());
 
-  const allowed = (currentEmp && currentEmp.name === 'Michael') || (currentUser === 'Michael');
+  const allowed = ['manager', 'dirigeant', 'admin'].includes(authRole);
   if (!allowed) {
     return (
       <div className="anim-up">
@@ -223,7 +223,7 @@ export default function Primes() {
         <button className="btn btn-ghost btn-sm" onClick={() => {
           const sdata = visibleStores.map(s => ({ store: s, data: buildStorePrime(s, employees, primes[keyFor(s.id)] || {}) }));
           exportPrimesPDF({ storesData: sdata, month, year, scope: 'manager' });
-        }}>📄 Export PDF</button>
+        }}>📄 Télécharger PDF</button>
         <button className="btn btn-ghost btn-sm" onClick={() => {
           const sdata = visibleStores.map(s => ({ store: s, data: buildStorePrime(s, employees, primes[keyFor(s.id)] || {}) }));
           exportPrimesNotion({ storesData: sdata, month, year, scope: 'manager' });
@@ -232,9 +232,48 @@ export default function Primes() {
           <button className="btn btn-primary btn-sm" onClick={() => {
             const sdata = stores.map(s => ({ store: s, data: buildStorePrime(s, employees, primes[keyFor(s.id)] || {}) }));
             exportPrimesPDF({ storesData: sdata, month, year, scope: 'direction' });
-          }}>👑 Export Direction (toutes boutiques)</button>
+          }}>👑 Télécharger PDF Direction (toutes boutiques)</button>
         )}
       </div>
+      {/* Vendeur change suggestions */}
+      {(()=>{
+        const vis = getVisibleStoreIds ? getVisibleStoreIds() : stores.map(s=>s.id);
+        const reqs = (primeRequests||[]).filter(r => r.status==='pending' && vis.includes(r.storeId) && r.year===year && r.month===month);
+        if(reqs.length===0) return null;
+        return (
+          <div style={{ background:'#FFF7E0', border:'1.5px solid #F5D06A', borderRadius:14, padding:'16px 20px', marginBottom:26 }}>
+            <div style={{ fontWeight:800, color:'#B07D00', fontSize:16, marginBottom:12 }}>✏️ Demandes de modification des vendeurs ({reqs.length})</div>
+            <div style={{ display:'grid', gap:10 }}>
+              {reqs.map(r=>{
+                const st = stores.find(s=>s.id===r.storeId);
+                const labels = { smartphone:'Smartphones', box:'Box', forfait999:'Forfaits 9,99', forfait699:'Forfaits 6,99', forfaitEngage:'Forfaits engagement', accessoire:'Accessoires', extLow:'Ext. <500€', extMid:'Ext. 500-1000€', extHigh:'Ext. >1000€', ass0:'Assurance 16,90€', ass1:'Assurance 15,90€', ass2:'Assurance 10,90€', ass3:'Assurance 6,90€', ass4:'Assurance 3,90€' };
+                return (
+                  <div key={r.id} style={{ background:'#fff', borderRadius:10, padding:'14px 16px', border:'1px solid #F0E0A8' }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:12, flexWrap:'wrap' }}>
+                      <div>
+                        <div style={{ fontWeight:700, fontSize:15 }}>{r.empName} <span style={{ fontSize:12, color:'var(--muted)', fontWeight:500 }}>· {st?.name}</span></div>
+                        <div style={{ fontSize:14, color:'#7A5C00', marginTop:4 }}>
+                          {Object.entries(r.changes||{}).map(([k,val])=>(
+                            <div key={k}>{labels[k]||k} → <strong>{val}</strong></div>
+                          ))}
+                          {r.note && <div style={{ fontStyle:'italic', color:'var(--muted)', marginTop:3 }}>"{r.note}"</div>}
+                        </div>
+                      </div>
+                      <div style={{ display:'flex', gap:8, flexShrink:0 }}>
+                        <button className="btn btn-sm" style={{ background:'#1A8A42', color:'#fff', border:'none', fontWeight:700 }}
+                          onClick={async()=>{ await approvePrimeChangeRequest(r); }}>✅ Valider</button>
+                        <button className="btn btn-sm" style={{ background:'#fff', border:'1.5px solid #FFAAB6', color:'#C8002B', fontWeight:700 }}
+                          onClick={async()=>{ await rejectPrimeChangeRequest(r.id); }}>❌ Refuser</button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
       {visibleStores.map(store => {
         const k = keyFor(store.id);
         const sd = primes[k] || {};

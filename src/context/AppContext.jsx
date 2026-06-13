@@ -12,20 +12,24 @@ import {
   saveConstraintRequest, listenConstraints, deleteConstraintRequest,
   savePwResetRequest, listenPwResets, deletePwResetRequest,
   savePrimeData, listenPrimes,
+  savePrimeChangeRequest, listenPrimeRequests, deletePrimeChangeRequest,
   seedIfEmpty, forceResetAll, ALL_EMPLOYEES,
 } from '../firebaseService';
 
 const AppContext = createContext(null);
 // Compute current ISO week number dynamically
 function getISOWeek(date) {
+  // Correct ISO 8601 week number (handles year boundaries)
   const d = new Date(date);
   d.setHours(0,0,0,0);
-  d.setDate(d.getDate() + 4 - (d.getDay()||7)); // Thursday of this week
+  // Thursday of the current week decides the year
+  d.setDate(d.getDate() + 4 - (d.getDay()||7));
   const yearStart = new Date(d.getFullYear(), 0, 1);
   return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
 }
 function getISOYear(date) {
   const d = new Date(date);
+  d.setHours(0,0,0,0);
   d.setDate(d.getDate() + 4 - (d.getDay()||7));
   return d.getFullYear();
 }
@@ -57,23 +61,12 @@ function getWeekDates(wn, year=new Date().getFullYear()) {
 // Get ISO week number for a date (matches getWeekDates)
 function getISOWeekNumber(d) {
   const date = new Date(d); date.setHours(0, 0, 0, 0);
-  const dow = date.getDay();
-  const daysToMonday = dow === 0 ? -6 : 1 - dow;
-  const monday = new Date(date);
-  monday.setDate(date.getDate() + daysToMonday);
-  // Find start of week 1 for this year
-  const year = monday.getFullYear();
-  const jan4 = new Date(year, 0, 4);
-  const jan4dow = jan4.getDay();
-  const jan4daysToMonday = jan4dow === 0 ? -6 : 1 - jan4dow;
-  const startOfW1 = new Date(jan4);
-  startOfW1.setDate(jan4.getDate() + jan4daysToMonday);
-  const diff = monday - startOfW1;
-  const wn = Math.round(diff / (7 * 86400000)) + 1;
-  if (wn < 1) {
-    // Previous year's last week
-    return getISOWeekNumber(new Date(year - 1, 11, 28));
-  }
+  // Move to Thursday of this ISO week — Thursday determines the ISO year/week
+  const dow = date.getDay() || 7; // 1=Mon..7=Sun
+  date.setDate(date.getDate() + 4 - dow);
+  const isoYear = date.getFullYear();
+  const yearStart = new Date(isoYear, 0, 1);
+  const wn = Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
   return wn;
 }
 
@@ -92,6 +85,7 @@ export function AppProvider({ children }) {
   const [constraintRequests, setConstraintRequests] = useState([]); // key: empId_year_Mmonth
   const [pwResetRequests, setPwResetRequests] = useState([]);
   const [primes, setPrimes] = useState({});
+  const [primeRequests, setPrimeRequests] = useState([]);
   const [appSettings, setAppSettings] = useState({});
   const [loading, setLoading] = useState(true);
 
@@ -115,7 +109,8 @@ export function AppProvider({ children }) {
     const unsub = listenConstraints(data => setConstraintRequests(data));
     const unsubPw = listenPwResets(data => setPwResetRequests(data));
     const unsubPr = listenPrimes(data => setPrimes(data));
-    return () => { unsub(); unsubPw(); unsubPr(); };
+    const unsubPcr = listenPrimeRequests(data => setPrimeRequests(data));
+    return () => { unsub(); unsubPw(); unsubPr(); unsubPcr(); };
   },[]);
 
   // Listen to overtime records
@@ -230,6 +225,25 @@ export function AppProvider({ children }) {
   };
 
   const dismissPwResetRequest = async (reqId) => { await deletePwResetRequest(reqId); };
+
+  // Vendeur submits a suggestion to modify their prime entries
+  const submitPrimeChangeRequest = async ({ empId, empName, storeId, year, month, changes, note }) => {
+    await savePrimeChangeRequest({ empId, empName, storeId, year, month, changes, note, status:'pending', createdAt:new Date().toISOString() });
+    return { success:true };
+  };
+  // Manager approves: apply the suggested changes to the prime doc, then remove the request
+  const approvePrimeChangeRequest = async (req) => {
+    const key = `${req.storeId}_${req.year}_M${req.month}`;
+    const cur = primes[key] || {};
+    const vendeurs = { ...(cur.vendeurs || {}) };
+    const v = { ...(vendeurs[req.empId] || {}) };
+    Object.entries(req.changes || {}).forEach(([k, val]) => { v[k] = val; });
+    vendeurs[req.empId] = v;
+    await savePrimeData(key, { ...cur, storeId:req.storeId, year:req.year, month:req.month, vendeurs });
+    await deletePrimeChangeRequest(req.id);
+    return { success:true };
+  };
+  const rejectPrimeChangeRequest = async (reqId) => { await deletePrimeChangeRequest(reqId); };
 
   const _doLogin=(emp)=>{
     setIsAuthenticated(true);
@@ -366,11 +380,11 @@ export function AppProvider({ children }) {
         try {
           const d = new Date(isoStr);
           if(isNaN(d.getTime())) return;
-          const yr = d.getFullYear();
-          // ISO week number
-          // Use getISOWeekNumber (same as app's getWeekDates)
+          // ISO week number + ISO year (Thursday-based, handles year boundaries)
           const wn = getISOWeekNumber(d);
-          const yr2 = d.getFullYear();
+          const thu = new Date(d); thu.setHours(0,0,0,0);
+          thu.setDate(thu.getDate() + 4 - (thu.getDay()||7));
+          const yr2 = thu.getFullYear();
           // Get week start using same ISO calculation as getWeekDates
           const jan4b = new Date(yr2, 0, 4);
           const dow2 = jan4b.getDay();
@@ -541,7 +555,7 @@ export function AppProvider({ children }) {
       isAuthenticated,authRole,currentUser,currentEmpId,currentEmp,login,logout,loading,
       changeOwnPassword,isDirigeant,canValidateLeave,getVisibleStoreIds,setupVendeurPassword,vendeurNeedsPassword,
       pwResetRequests,requestPasswordReset,resetEmployeePassword,setEmployeePassword,dismissPwResetRequest,
-      primes,savePrimeData,
+      primes,savePrimeData,primeRequests,submitPrimeChangeRequest,approvePrimeChangeRequest,rejectPrimeChangeRequest,
       stores,addStore,updateStore,deleteStore,
       employees,addEmployee,updateEmployee,deleteEmployee,
       getStoreEmployees:sid=>employees.filter(e=>e.storeId===sid),

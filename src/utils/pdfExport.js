@@ -444,7 +444,13 @@ function _buildStorePrime(store, employees, sd) {
     const v = vendeurs[emp.id]||{};
     const base = _vBase(v);
     const share = pool*(Number(v.storeBonusPct)||0)/100;
-    return { name:emp.name, role:emp.role, base, share, total:base+share, travel:Number(v.travel)||0 };
+    // Build detailed breakdown lines
+    const detail = [];
+    const itemLabels = { smartphone:'Smartphones', box:'Box', forfait999:'Forfaits 9,99', forfait699:'Forfaits 6,99', forfaitEngage:'Forfaits engagement', accessoire:'Accessoires', extLow:'Ext. < 500 €', extMid:'Ext. 500-1000 €', extHigh:'Ext. > 1000 €' };
+    _ITEMK.forEach(k=>{ const q=Number(v[k])||0; if(q>0) detail.push({ label:itemLabels[k], qty:q, unit:_UNIT[k], sub:q*_UNIT[k] }); });
+    _ASS.forEach((a,i)=>{ const q=Number(v['ass'+i])||0; if(q>0) detail.push({ label:'Assurance '+_eur(a), qty:q, unit:a, sub:q*a }); });
+    const am=_sum(v.addEntries); if(am>0) detail.push({ label:'Ventes add. ('+(_addRate(am)*100)+'%)', qty:null, unit:null, sub:am*_addRate(am), note:_eur(am)+' de marge' });
+    return { name:emp.name, role:emp.role, base, share, total:base+share, travel:Number(v.travel)||0, detail, sharePct:Number(v.storeBonusPct)||0 };
   });
   const totalPrimes = rows.reduce((t,r)=>t+r.total,0);
   const totalTravel = rows.reduce((t,r)=>t+r.travel,0);
@@ -454,72 +460,90 @@ function _buildStorePrime(store, employees, sd) {
 function _storeTableHTML(store, data) {
   const color = store.color || '#00C9B1';
   return `
-  <div style="margin-bottom:28px;border-radius:16px;overflow:hidden;border:1.5px solid #E2EBF0;">
-    <div style="background:${color};padding:16px 24px;display:flex;align-items:center;justify-content:space-between;">
-      <div style="font-size:20px;font-weight:800;color:#fff;">${store.name}</div>
-      <div style="font-size:13px;color:#fff;opacity:.95;">${data.palier} · Enveloppe ${_eur(data.pool)} · Marge ${_eur(data.storeMargin)}</div>
+  <div style="margin-bottom:26px;border-radius:16px;overflow:hidden;border:1.5px solid #E2EBF0;page-break-inside:avoid;">
+    <div style="background:${color};padding:15px 22px;display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-size:19px;font-weight:800;color:#fff;">${store.name}</div>
+      <div style="font-size:12px;color:#fff;opacity:.95;">${data.palier} · Enveloppe ${_eur(data.pool)} · Marge ${_eur(data.storeMargin)}</div>
     </div>
-    <table style="width:100%;border-collapse:collapse;background:#fff;">
-      <thead>
-        <tr style="background:#F6FAFB;">
-          <th style="text-align:left;padding:10px 24px;font-size:12px;color:#5A6B78;text-transform:uppercase;">Collaborateur</th>
-          <th style="text-align:right;padding:10px 12px;font-size:12px;color:#5A6B78;">Prime ventes</th>
-          <th style="text-align:right;padding:10px 12px;font-size:12px;color:#5A6B78;">Part magasin</th>
-          <th style="text-align:right;padding:10px 24px;font-size:12px;color:#5A6B78;">Total prime</th>
-          <th style="text-align:right;padding:10px 24px;font-size:12px;color:#5A6B78;">Frais dépl.</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${data.rows.map(r=>`
-          <tr style="border-top:1px solid #EEF3F5;">
-            <td style="padding:11px 24px;font-size:14px;font-weight:600;">${r.name} <span style="font-size:11px;color:#9EBBCA;font-weight:500;">${r.role==='manager'?'· Manager':''}</span></td>
-            <td style="padding:11px 12px;text-align:right;font-size:14px;">${_eur(r.base)}</td>
-            <td style="padding:11px 12px;text-align:right;font-size:14px;">${_eur(r.share)}</td>
-            <td style="padding:11px 24px;text-align:right;font-size:15px;font-weight:800;color:${color};">${_eur(r.total)}</td>
-            <td style="padding:11px 24px;text-align:right;font-size:14px;color:#5A6B78;">${_eur(r.travel)}</td>
-          </tr>`).join('')}
-      </tbody>
-      <tfoot>
-        <tr style="background:#F6FAFB;border-top:2px solid ${color}40;">
-          <td style="padding:12px 24px;font-size:14px;font-weight:800;">TOTAL ${store.name}</td>
-          <td></td><td></td>
-          <td style="padding:12px 24px;text-align:right;font-size:16px;font-weight:800;color:${color};">${_eur(data.totalPrimes)}</td>
-          <td style="padding:12px 24px;text-align:right;font-size:14px;font-weight:700;color:#5A6B78;">${_eur(data.totalTravel)}</td>
-        </tr>
-      </tfoot>
-    </table>
+    <div style="padding:6px 0;background:#fff;">
+      ${data.rows.length===0 ? `<div style="padding:16px 22px;color:#9EBBCA;font-style:italic;">Aucun collaborateur</div>` : data.rows.map(r=>`
+        <div style="padding:12px 22px;border-bottom:1px solid #EEF3F5;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${r.detail.length?'8px':'0'};">
+            <div style="font-size:15px;font-weight:700;">${r.name} <span style="font-size:11px;color:#9EBBCA;font-weight:500;">${r.role==='manager'?'· Manager':'· Vendeur'}</span></div>
+            <div style="font-size:16px;font-weight:800;color:${color};">${_eur(r.total)}</div>
+          </div>
+          ${r.detail.length ? `<table style="width:100%;border-collapse:collapse;margin-bottom:4px;">
+            ${r.detail.map(d=>`<tr>
+              <td style="padding:3px 0;font-size:12px;color:#5A6B78;">${d.label}${d.note?` <span style="color:#9EBBCA;">(${d.note})</span>`:''}</td>
+              <td style="padding:3px 8px;font-size:12px;color:#5A6B78;text-align:center;">${d.qty!=null?`${d.qty} × ${_eur(d.unit)}`:''}</td>
+              <td style="padding:3px 0;font-size:12px;font-weight:600;text-align:right;">${_eur(d.sub)}</td>
+            </tr>`).join('')}
+          </table>` : ''}
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:#5A6B78;border-top:1px dashed #E2EBF0;padding-top:5px;">
+            <span>Prime ventes ${_eur(r.base)} · Part magasin ${_eur(r.share)} (${r.sharePct}%)</span>
+            <span>Frais dépl. : ${_eur(r.travel)}</span>
+          </div>
+        </div>`).join('')}
+      <div style="padding:13px 22px;background:#F6FAFB;border-top:2px solid ${color}40;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:14px;font-weight:800;">TOTAL ${store.name}</span>
+        <span style="font-size:13px;color:#5A6B78;">Frais : ${_eur(data.totalTravel)} · <strong style="font-size:17px;color:${color};">Primes ${_eur(data.totalPrimes)}</strong></span>
+      </div>
+    </div>
   </div>`;
 }
 
-// Export primes to PDF (print-ready HTML). stores = array of {store, data}
 export async function exportPrimesPDF({ storesData, month, year, scope }) {
+  const { default: jsPDF } = await import('jspdf');
   const title = scope === 'direction' ? 'Primes — Toutes les boutiques (Direction)' : `Primes — ${storesData[0]?.store.name||''}`;
   const grandTotal = storesData.reduce((t,sd)=>t+sd.data.totalPrimes,0);
   const grandTravel = storesData.reduce((t,sd)=>t+sd.data.totalTravel,0);
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title>
-  <style>@media print{@page{size:A4;margin:14mm;}} body{font-family:'Segoe UI',Arial,sans-serif;color:#1B2A3B;padding:24px;max-width:1000px;margin:0 auto;}</style>
-  </head><body>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+
+  const node = document.createElement('div');
+  node.style.cssText = `position:fixed;left:-99999px;top:0;width:900px;background:#fff;font-family:'Segoe UI',Arial,sans-serif;padding:32px;color:#1B2A3B;`;
+  node.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
       <div>
-        <div style="font-size:26px;font-weight:800;">${title}</div>
+        <div style="font-size:25px;font-weight:800;">${title}</div>
         <div style="font-size:15px;color:#5A6B78;">${MONTHS_FR[month]} ${year}</div>
       </div>
       <div style="text-align:right;">
-        <div style="font-size:13px;color:#5A6B78;text-transform:uppercase;font-weight:700;">Total général primes</div>
-        <div style="font-size:28px;font-weight:800;color:#00A896;">${_eur(grandTotal)}</div>
+        <div style="font-size:12px;color:#5A6B78;text-transform:uppercase;font-weight:700;">Total général primes</div>
+        <div style="font-size:27px;font-weight:800;color:#00A896;">${_eur(grandTotal)}</div>
         <div style="font-size:13px;color:#5A6B78;">Frais déplacement : ${_eur(grandTravel)}</div>
       </div>
     </div>
     ${storesData.map(sd=>_storeTableHTML(sd.store, sd.data)).join('')}
-    <div style="margin-top:18px;text-align:right;font-size:11px;color:#9EBBCA;">Généré par Care Planning · ${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</div>
-  </body></html>`;
-  const blob = new Blob([html], { type:'text/html;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  window.open(url, '_blank');
-  setTimeout(()=>URL.revokeObjectURL(url), 120000);
+    <div style="margin-top:16px;text-align:right;font-size:11px;color:#9EBBCA;">Généré par Care Planning · ${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</div>`;
+  document.body.appendChild(node);
+
+  try {
+    const canvas = await html2canvas(node, { scale: 2, backgroundColor:'#ffffff', logging:false, useCORS:true });
+    document.body.removeChild(node);
+    const img = canvas.toDataURL('image/png');
+    const pdf = new jsPDF('p','mm','a4');
+    const pw = pdf.internal.pageSize.getWidth();
+    const ph = pdf.internal.pageSize.getHeight();
+    const margin = 8;
+    const imgW = pw - margin*2;
+    const imgH = canvas.height * imgW / canvas.width;
+    let heightLeft = imgH;
+    let position = margin;
+    pdf.addImage(img, 'PNG', margin, position, imgW, imgH);
+    heightLeft -= (ph - margin*2);
+    while (heightLeft > 0) {
+      position = margin - (imgH - heightLeft);
+      pdf.addPage();
+      pdf.addImage(img, 'PNG', margin, position, imgW, imgH);
+      heightLeft -= (ph - margin*2);
+    }
+    const fname = (scope==='direction'?'primes-direction':'primes-'+(storesData[0]?.store.name||'')).replace(/\s+/g,'-').toLowerCase();
+    pdf.save(`${fname}-${MONTHS_FR[month]}-${year}.pdf`);
+  } catch(err) {
+    if(node.parentNode) document.body.removeChild(node);
+    alert('Erreur génération PDF : '+err.message);
+  }
 }
 
-// Export primes to Notion (PNG to clipboard)
 export async function exportPrimesNotion({ storesData, month, year, scope }) {
   const title = scope === 'direction' ? 'Primes — Toutes les boutiques' : `Primes — ${storesData[0]?.store.name||''}`;
   const grandTotal = storesData.reduce((t,sd)=>t+sd.data.totalPrimes,0);
