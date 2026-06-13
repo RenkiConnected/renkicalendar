@@ -204,3 +204,14 @@ export function listenPwResets(cb){
 export async function deletePwResetRequest(id){
   await deleteDoc(doc(db,'pwResets',id));
 }
+
+// ── PRIMES (weekly bonus data per store/week) ────────────
+// Doc id = `${storeId}_${year}_W${week}` ; holds { storeMargin, palier1, palier2, palierReached, vendeurs:{empId:{...fields}} }
+export async function savePrimeData(key, data) {
+  await setDoc(doc(db,'primes',key),{...data,key,updatedAt:new Date().toISOString()});
+}
+export function listenPrimes(cb){
+  return onSnapshot(collection(db,'primes'),snap=>{
+    const map={};snap.forEach(d=>{map[d.id]=d.data();});cb(map);
+  });
+}

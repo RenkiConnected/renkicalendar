@@ -5,6 +5,7 @@ import PublicPlanning from './pages/PublicPlanning';
 import Dashboard from './pages/Dashboard';
 import PlanningEditor from './pages/PlanningEditor';
 import Employees from './pages/Employees';
+import Primes from './pages/Primes';
 import Stores from './pages/Stores';
 import Settings from './pages/Settings';
 import ViewPlanning from './pages/ViewPlanning';
@@ -101,6 +102,7 @@ function AppContent() {
       case 'leaves':     return <LeaveAdmin />;
       case 'myleaves':   return <LeaveRequestPage />;
       case 'employees':  return <Employees />;
+      case 'primes':     return <Primes />;
       case 'stores':     return <Stores />;
       case 'settings':   return <Settings />;
       default:           return <Dashboard setPage={setPage} />;

@@ -11,6 +11,7 @@ import {
   saveOvertimeRecord, deleteOvertimeRecord, listenOvertime,
   saveConstraintRequest, listenConstraints, deleteConstraintRequest,
   savePwResetRequest, listenPwResets, deletePwResetRequest,
+  savePrimeData, listenPrimes,
   seedIfEmpty, forceResetAll, ALL_EMPLOYEES,
 } from '../firebaseService';
 
@@ -90,6 +91,7 @@ export function AppProvider({ children }) {
   const [overtimeRecords, setOvertimeRecords] = useState({});
   const [constraintRequests, setConstraintRequests] = useState([]); // key: empId_year_Mmonth
   const [pwResetRequests, setPwResetRequests] = useState([]);
+  const [primes, setPrimes] = useState({});
   const [appSettings, setAppSettings] = useState({});
   const [loading, setLoading] = useState(true);
 
@@ -112,7 +114,8 @@ export function AppProvider({ children }) {
   useEffect(()=>{
     const unsub = listenConstraints(data => setConstraintRequests(data));
     const unsubPw = listenPwResets(data => setPwResetRequests(data));
-    return () => { unsub(); unsubPw(); };
+    const unsubPr = listenPrimes(data => setPrimes(data));
+    return () => { unsub(); unsubPw(); unsubPr(); };
   },[]);
 
   // Listen to overtime records
@@ -538,6 +541,7 @@ export function AppProvider({ children }) {
       isAuthenticated,authRole,currentUser,currentEmpId,currentEmp,login,logout,loading,
       changeOwnPassword,isDirigeant,canValidateLeave,getVisibleStoreIds,setupVendeurPassword,vendeurNeedsPassword,
       pwResetRequests,requestPasswordReset,resetEmployeePassword,setEmployeePassword,dismissPwResetRequest,
+      primes,savePrimeData,
       stores,addStore,updateStore,deleteStore,
       employees,addEmployee,updateEmployee,deleteEmployee,
       getStoreEmployees:sid=>employees.filter(e=>e.storeId===sid),
