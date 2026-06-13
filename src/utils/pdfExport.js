@@ -418,3 +418,140 @@ export async function exportToNotion({ store, employees, schedules, weekDates, s
     alert('Erreur génération image : ' + err.message);
   }
 }
+
+// ════════════════════════════════════════════════════════
+//  PRIMES EXPORT
+// ════════════════════════════════════════════════════════
+const MONTHS_FR = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+const _eur = n => (Math.round((n+Number.EPSILON)*100)/100).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
+const _sum = arr => Array.isArray(arr) ? arr.reduce((t,x)=>t+(Number(x)||0),0) : (Number(arr)||0);
+const _UNIT = { smartphone:5, box:5, forfait999:10, forfait699:5, forfaitEngage:10, accessoire:1, extLow:3, extMid:4, extHigh:5 };
+const _ASS = [16.90,15.90,10.90,6.90,3.90];
+const _ITEMK = ['smartphone','box','forfait999','forfait699','forfaitEngage','accessoire','extLow','extMid','extHigh'];
+function _addRate(m){ if(m<=0)return 0; if(m<=500)return .10; if(m<=1500)return .15; return .20; }
+function _vBase(v){ let t=0; _ITEMK.forEach(k=>t+=(Number(v[k])||0)*_UNIT[k]); _ASS.forEach((a,i)=>t+=(Number(v['ass'+i])||0)*a); const am=_sum(v.addEntries); t+=am*_addRate(am); return t; }
+
+// Build the prime data per store for a given month
+function _buildStorePrime(store, employees, sd) {
+  const storeMargin = _sum(sd.marginEntries);
+  const p1 = Number(sd.palier1)||0, p2 = Number(sd.palier2)||0;
+  let pool=0, palier='Aucun palier';
+  if(p2>0 && storeMargin>=p2){ pool=storeMargin*0.03; palier='Palier 2 (3 %)'; }
+  else if(p1>0 && storeMargin>=p1){ pool=storeMargin*0.015; palier='Palier 1 (1,5 %)'; }
+  const vendeurs = sd.vendeurs || {};
+  const emps = employees.filter(e=>e.storeId===store.id && (e.role==='vendeur'||e.role==='manager'));
+  const rows = emps.map(emp=>{
+    const v = vendeurs[emp.id]||{};
+    const base = _vBase(v);
+    const share = pool*(Number(v.storeBonusPct)||0)/100;
+    return { name:emp.name, role:emp.role, base, share, total:base+share, travel:Number(v.travel)||0 };
+  });
+  const totalPrimes = rows.reduce((t,r)=>t+r.total,0);
+  const totalTravel = rows.reduce((t,r)=>t+r.travel,0);
+  return { storeMargin, pool, palier, rows, totalPrimes, totalTravel };
+}
+
+function _storeTableHTML(store, data) {
+  const color = store.color || '#00C9B1';
+  return `
+  <div style="margin-bottom:28px;border-radius:16px;overflow:hidden;border:1.5px solid #E2EBF0;">
+    <div style="background:${color};padding:16px 24px;display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-size:20px;font-weight:800;color:#fff;">${store.name}</div>
+      <div style="font-size:13px;color:#fff;opacity:.95;">${data.palier} · Enveloppe ${_eur(data.pool)} · Marge ${_eur(data.storeMargin)}</div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;background:#fff;">
+      <thead>
+        <tr style="background:#F6FAFB;">
+          <th style="text-align:left;padding:10px 24px;font-size:12px;color:#5A6B78;text-transform:uppercase;">Collaborateur</th>
+          <th style="text-align:right;padding:10px 12px;font-size:12px;color:#5A6B78;">Prime ventes</th>
+          <th style="text-align:right;padding:10px 12px;font-size:12px;color:#5A6B78;">Part magasin</th>
+          <th style="text-align:right;padding:10px 24px;font-size:12px;color:#5A6B78;">Total prime</th>
+          <th style="text-align:right;padding:10px 24px;font-size:12px;color:#5A6B78;">Frais dépl.</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${data.rows.map(r=>`
+          <tr style="border-top:1px solid #EEF3F5;">
+            <td style="padding:11px 24px;font-size:14px;font-weight:600;">${r.name} <span style="font-size:11px;color:#9EBBCA;font-weight:500;">${r.role==='manager'?'· Manager':''}</span></td>
+            <td style="padding:11px 12px;text-align:right;font-size:14px;">${_eur(r.base)}</td>
+            <td style="padding:11px 12px;text-align:right;font-size:14px;">${_eur(r.share)}</td>
+            <td style="padding:11px 24px;text-align:right;font-size:15px;font-weight:800;color:${color};">${_eur(r.total)}</td>
+            <td style="padding:11px 24px;text-align:right;font-size:14px;color:#5A6B78;">${_eur(r.travel)}</td>
+          </tr>`).join('')}
+      </tbody>
+      <tfoot>
+        <tr style="background:#F6FAFB;border-top:2px solid ${color}40;">
+          <td style="padding:12px 24px;font-size:14px;font-weight:800;">TOTAL ${store.name}</td>
+          <td></td><td></td>
+          <td style="padding:12px 24px;text-align:right;font-size:16px;font-weight:800;color:${color};">${_eur(data.totalPrimes)}</td>
+          <td style="padding:12px 24px;text-align:right;font-size:14px;font-weight:700;color:#5A6B78;">${_eur(data.totalTravel)}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>`;
+}
+
+// Export primes to PDF (print-ready HTML). stores = array of {store, data}
+export async function exportPrimesPDF({ storesData, month, year, scope }) {
+  const title = scope === 'direction' ? 'Primes — Toutes les boutiques (Direction)' : `Primes — ${storesData[0]?.store.name||''}`;
+  const grandTotal = storesData.reduce((t,sd)=>t+sd.data.totalPrimes,0);
+  const grandTravel = storesData.reduce((t,sd)=>t+sd.data.totalTravel,0);
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title>
+  <style>@media print{@page{size:A4;margin:14mm;}} body{font-family:'Segoe UI',Arial,sans-serif;color:#1B2A3B;padding:24px;max-width:1000px;margin:0 auto;}</style>
+  </head><body>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+      <div>
+        <div style="font-size:26px;font-weight:800;">${title}</div>
+        <div style="font-size:15px;color:#5A6B78;">${MONTHS_FR[month]} ${year}</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:13px;color:#5A6B78;text-transform:uppercase;font-weight:700;">Total général primes</div>
+        <div style="font-size:28px;font-weight:800;color:#00A896;">${_eur(grandTotal)}</div>
+        <div style="font-size:13px;color:#5A6B78;">Frais déplacement : ${_eur(grandTravel)}</div>
+      </div>
+    </div>
+    ${storesData.map(sd=>_storeTableHTML(sd.store, sd.data)).join('')}
+    <div style="margin-top:18px;text-align:right;font-size:11px;color:#9EBBCA;">Généré par Care Planning · ${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</div>
+  </body></html>`;
+  const blob = new Blob([html], { type:'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank');
+  setTimeout(()=>URL.revokeObjectURL(url), 120000);
+}
+
+// Export primes to Notion (PNG to clipboard)
+export async function exportPrimesNotion({ storesData, month, year, scope }) {
+  const title = scope === 'direction' ? 'Primes — Toutes les boutiques' : `Primes — ${storesData[0]?.store.name||''}`;
+  const grandTotal = storesData.reduce((t,sd)=>t+sd.data.totalPrimes,0);
+  const node = document.createElement('div');
+  node.style.cssText = `position:fixed;left:-99999px;top:0;width:1100px;background:#fff;font-family:'Segoe UI',Arial,sans-serif;padding:32px;`;
+  node.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+      <div><div style="font-size:24px;font-weight:800;color:#1B2A3B;">${title}</div>
+      <div style="font-size:14px;color:#5A6B78;">${MONTHS_FR[month]} ${year}</div></div>
+      <div style="text-align:right;"><div style="font-size:12px;color:#5A6B78;text-transform:uppercase;font-weight:700;">Total général</div>
+      <div style="font-size:26px;font-weight:800;color:#00A896;">${_eur(grandTotal)}</div></div>
+    </div>
+    ${storesData.map(sd=>_storeTableHTML(sd.store, sd.data)).join('')}
+    <div style="margin-top:14px;text-align:right;font-size:11px;color:#9EBBCA;">Care Planning · ${new Date().toLocaleDateString('fr-FR')}</div>`;
+  document.body.appendChild(node);
+  try {
+    const canvas = await html2canvas(node, { scale:2, backgroundColor:'#ffffff', logging:false, useCORS:true });
+    document.body.removeChild(node);
+    canvas.toBlob(async (blob)=>{
+      try {
+        if(navigator.clipboard && window.ClipboardItem){
+          await navigator.clipboard.write([ new ClipboardItem({ 'image/png': blob }) ]);
+          alert('✅ Image des primes copiée ! Collez-la dans Notion (Ctrl+V / Cmd+V)');
+        } else throw new Error('no clipboard');
+      } catch {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href=url; a.download=`primes-${MONTHS_FR[month]}-${year}.png`; a.click();
+        setTimeout(()=>URL.revokeObjectURL(url),5000);
+        alert('📥 Image téléchargée — glissez-la dans Notion.');
+      }
+    }, 'image/png');
+  } catch(err){ if(node.parentNode) document.body.removeChild(node); alert('Erreur génération image : '+err.message); }
+}
+
+export { _buildStorePrime as buildStorePrime };

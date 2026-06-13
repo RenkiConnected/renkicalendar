@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { exportPrimesPDF, exportPrimesNotion, buildStorePrime } from '../utils/pdfExport';
 
 const UNIT = {
   smartphone: 5, box: 5, forfait999: 10, forfait699: 5, forfaitEngage: 10, accessoire: 1,
@@ -117,7 +118,7 @@ function VendeurCard({ emp, data, onChange, storeBonusPool }) {
         <div style={{ width: 46, height: 46, borderRadius: '50%', background: emp.color || 'var(--teal)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#fff', fontSize: 18, flexShrink: 0 }}>{emp.name[0]}</div>
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 800, fontSize: 17 }}>{emp.name}</div>
-          <div style={{ fontSize: 13, color: 'var(--muted)' }}>Vendeur · {emp.contractHours || 35}h/sem</div>
+          <div style={{ fontSize: 13, color: 'var(--muted)' }}>{emp.role === 'manager' ? 'Manager' : 'Vendeur'} · {emp.contractHours || 35}h/sem</div>
         </div>
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontFamily: 'var(--font-h)', fontWeight: 800, fontSize: 22, color: 'var(--teal-dark)' }}>{eur(total)}</div>
@@ -173,7 +174,7 @@ function VendeurCard({ emp, data, onChange, storeBonusPool }) {
 }
 
 export default function Primes() {
-  const { stores, employees, getVisibleStoreIds, primes, savePrimeData, currentEmp, currentUser } = useApp();
+  const { stores, employees, getVisibleStoreIds, primes, savePrimeData, currentEmp, currentUser, isDirigeant } = useApp();
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth());
   const [year, setYear] = useState(now.getFullYear());
@@ -216,6 +217,24 @@ export default function Primes() {
         </div>
         <button onClick={nextMonth} style={{ width: 40, height: 40, borderRadius: 11, border: '1.5px solid var(--border)', background: 'var(--card2)', fontSize: 20, cursor: 'pointer', color: 'var(--teal-dark)' }}>›</button>
       </div>
+
+      {/* Export buttons */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 28 }}>
+        <button className="btn btn-ghost btn-sm" onClick={() => {
+          const sdata = visibleStores.map(s => ({ store: s, data: buildStorePrime(s, employees, primes[keyFor(s.id)] || {}) }));
+          exportPrimesPDF({ storesData: sdata, month, year, scope: 'manager' });
+        }}>📄 Export PDF</button>
+        <button className="btn btn-ghost btn-sm" onClick={() => {
+          const sdata = visibleStores.map(s => ({ store: s, data: buildStorePrime(s, employees, primes[keyFor(s.id)] || {}) }));
+          exportPrimesNotion({ storesData: sdata, month, year, scope: 'manager' });
+        }}>🗒️ Export Notion</button>
+        {isDirigeant && (
+          <button className="btn btn-primary btn-sm" onClick={() => {
+            const sdata = stores.map(s => ({ store: s, data: buildStorePrime(s, employees, primes[keyFor(s.id)] || {}) }));
+            exportPrimesPDF({ storesData: sdata, month, year, scope: 'direction' });
+          }}>👑 Export Direction (toutes boutiques)</button>
+        )}
+      </div>
       {visibleStores.map(store => {
         const k = keyFor(store.id);
         const sd = primes[k] || {};
@@ -225,7 +244,7 @@ export default function Primes() {
         let storeBonusPool = 0, palierLabel = 'Aucun palier atteint', palierColor = 'var(--muted)';
         if (palier2 > 0 && storeMargin >= palier2) { storeBonusPool = storeMargin * 0.03; palierLabel = 'Palier 2 atteint · 3 %'; palierColor = '#1A8A42'; }
         else if (palier1 > 0 && storeMargin >= palier1) { storeBonusPool = storeMargin * 0.015; palierLabel = 'Palier 1 atteint · 1,5 %'; palierColor = '#1A8A42'; }
-        const storeEmps = employees.filter(e => e.storeId === store.id && e.role === 'vendeur');
+        const storeEmps = employees.filter(e => e.storeId === store.id && (e.role === 'vendeur' || e.role === 'manager'));
         const vendeurs = sd.vendeurs || {};
         const totalShare = storeEmps.reduce((t, e) => t + (storeBonusPool * (Number(vendeurs[e.id] ? vendeurs[e.id].storeBonusPct : 0) || 0) / 100), 0);
         const totalPrimes = storeEmps.reduce((t, e) => { const v = vendeurs[e.id] || {}; return t + vendeurBase(v) + (storeBonusPool * (Number(v.storeBonusPct) || 0) / 100); }, 0);
