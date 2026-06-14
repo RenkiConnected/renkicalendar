@@ -71,10 +71,10 @@ function getISOWeekNumber(d) {
 }
 
 export function AppProvider({ children }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(()=>localStorage.getItem('care_auth')==='true');
-  const [authRole, setAuthRole] = useState(()=>localStorage.getItem('care_role')||null);
-  const [currentUser, setCurrentUser] = useState(()=>localStorage.getItem('care_user')||null);
-  const [currentEmpId, setCurrentEmpId] = useState(()=>localStorage.getItem('care_empid')||null);
+  const [isAuthenticated, setIsAuthenticated] = useState(()=>sessionStorage.getItem('care_auth')==='true');
+  const [authRole, setAuthRole] = useState(()=>sessionStorage.getItem('care_role')||null);
+  const [currentUser, setCurrentUser] = useState(()=>sessionStorage.getItem('care_user')||null);
+  const [currentEmpId, setCurrentEmpId] = useState(()=>sessionStorage.getItem('care_empid')||null);
 
   const [stores, setStores] = useState([]);
   const [employees, setEmployees] = useState([]);
@@ -250,17 +250,29 @@ export function AppProvider({ children }) {
     setAuthRole(emp.role);
     setCurrentUser(emp.name);
     setCurrentEmpId(emp.id);
-    localStorage.setItem('care_auth','true');
-    localStorage.setItem('care_role',emp.role);
-    localStorage.setItem('care_user',emp.name);
-    localStorage.setItem('care_empid',emp.id);
+    sessionStorage.setItem('care_auth','true');
+    sessionStorage.setItem('care_role',emp.role);
+    sessionStorage.setItem('care_user',emp.name);
+    sessionStorage.setItem('care_empid',emp.id);
   };
 
   const logout=()=>{
     setIsAuthenticated(false); setAuthRole(null); setCurrentUser(null); setCurrentEmpId(null);
-    localStorage.removeItem('care_auth'); localStorage.removeItem('care_role');
-    localStorage.removeItem('care_user'); localStorage.removeItem('care_empid');
+    sessionStorage.removeItem('care_auth'); sessionStorage.removeItem('care_role');
+    sessionStorage.removeItem('care_user'); sessionStorage.removeItem('care_empid');
   };
+
+  // ── AUTO-LOGOUT on inactivity (30 min) ───────────────────
+  useEffect(()=>{
+    if(!isAuthenticated) return;
+    const TIMEOUT = 30*60*1000;
+    let timer;
+    const reset = ()=>{ clearTimeout(timer); timer = setTimeout(()=>{ logout(); }, TIMEOUT); };
+    const events = ['mousedown','keydown','touchstart','scroll','mousemove'];
+    events.forEach(ev=>window.addEventListener(ev, reset, { passive:true }));
+    reset();
+    return ()=>{ clearTimeout(timer); events.forEach(ev=>window.removeEventListener(ev, reset)); };
+  },[isAuthenticated]);
 
   // ── SCHEDULES ─────────────────────────────────────────
   const schedKey=(storeId,week,year)=>`${storeId}_${year}_W${week}`;

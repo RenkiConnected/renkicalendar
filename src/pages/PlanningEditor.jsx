@@ -421,11 +421,27 @@ function ShiftModal({emp,dayIdx,day,shift,onSave,onDelete,onClose,types,allStore
 }
 
 /* ── AUTO-GENERATE MODAL ──────────────────────────────────── */
-function AutoModal({store,emps,weekDates,currentWeek,currentYear,leaveRequests,onGenerate,onClose}){
+function AutoModal({store,emps,allEmployees,manageableStores,weekDates,currentWeek,currentYear,leaveRequests,onGenerate,onClose}){
   const[openStart,setOpenStart]=useState(store.openTime||'09:00');
   const[openEnd,setOpenEnd]=useState(store.closeTime||'19:30');
   const hasLunch=!!(store.lunchBreak&&store.lunchStart&&store.lunchEnd);
   const[brk,setBrk]=useState(1);
+
+  // Présence: which employees are present this week (home emps checked by default)
+  const[present,setPresent]=useState(()=>{ const s={}; emps.forEach(e=>{s[e.id]=true;}); return s; });
+  // Renforts: vendeurs from OTHER managed stores added this week
+  const[renforts,setRenforts]=useState([]); // array of emp ids
+  const[showRenfortPicker,setShowRenfortPicker]=useState(false);
+
+  // Candidate renforts: vendeurs/managers from other managed stores not already in emps
+  const renfortCandidates=(allEmployees||[]).filter(e=>
+    e.storeId!==store.id &&
+    (manageableStores||[]).some(s=>s.id===e.storeId) &&
+    !emps.find(x=>x.id===e.id)
+  );
+  const renfortEmps=renfortCandidates.filter(e=>renforts.includes(e.id));
+  // Full list shown = home emps + chosen renforts
+  const displayEmps=[...emps, ...renfortEmps];
 
   const openH=parseFloat(calcH(openStart,openEnd,brk).toFixed(2)); // full day span
   
@@ -492,47 +508,72 @@ function AutoModal({store,emps,weekDates,currentWeek,currentYear,leaveRequests,o
           </div>
         </div>
 
-        {/* Aperçu congés */}
+        {/* Présence + congés */}
         <div style={{background:'var(--card2)',borderRadius:10,padding:'10px 14px',marginBottom:10,border:'1.5px solid var(--border)'}}>
-          <div style={{fontFamily:'var(--font-h)',fontWeight:700,fontSize:14,color:'var(--text)',marginBottom:6}}>👥 Aperçu congés approuvés cette semaine</div>
-          {emps.map(emp=>{
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
+            <div style={{fontFamily:'var(--font-h)',fontWeight:700,fontSize:14,color:'var(--text)'}}>👥 Qui travaille cette semaine ?</div>
+            <div style={{fontSize:12,color:'var(--muted)'}}>Décochez les absents</div>
+          </div>
+          {displayEmps.map(emp=>{
             const leaves=getEmpLeaves(emp.id);
-            // Count work days = not Sunday AND not leave day
-            const workDaysCount=weekDates.filter((wd,di)=>{
-              const dow=wd.date.getDay();
-              return dow!==0&&!leaves.includes(di);
-            }).length;
-            // Daily hours = contract hours spread over 5 work days (standard)
-            // but if has leaves this week, daily hours stay the same (contract is weekly)
+            const isPresent=present[emp.id]!==false;
+            const isRenfort=renforts.includes(emp.id);
+            const workDaysCount=weekDates.filter((wd,di)=>{ const dow=wd.date.getDay(); return dow!==0&&!leaves.includes(di); }).length;
             const dailyH=parseFloat((emp.contractHours/5).toFixed(2));
             const expectedWeekH=parseFloat((workDaysCount*dailyH).toFixed(2));
             return(
-              <div key={emp.id} style={{display:'flex',alignItems:'center',gap:10,marginBottom:5,padding:'5px 10px',background:'white',borderRadius:8,border:'1px solid var(--border)'}}>
+              <div key={emp.id} style={{display:'flex',alignItems:'center',gap:10,marginBottom:5,padding:'7px 10px',background:isPresent?'white':'#F4F4F6',borderRadius:8,border:`1px solid ${isRenfort?'#F5B764':'var(--border)'}`,opacity:isPresent?1:.55}}>
+                <input type="checkbox" checked={isPresent} onChange={e=>setPresent(p=>({...p,[emp.id]:e.target.checked}))} style={{width:20,height:20,cursor:'pointer',accentColor:'var(--teal)',flexShrink:0}}/>
                 <div style={{width:28,height:28,borderRadius:'50%',background:emp.color||'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,color:'#fff',flexShrink:0}}>{emp.name[0]}</div>
                 <div style={{flex:1}}>
-                  <div style={{fontWeight:700,fontSize:16}}>{emp.name}</div>
-                  <div style={{fontSize:12,color:'var(--muted)',marginTop:1}}>
-                    Contrat <strong>{emp.contractHours}h</strong>/sem · {workDaysCount} jours · {dailyH}h/j → <strong style={{color:'var(--teal-dark)'}}>{expectedWeekH}h prévues</strong>
-                  </div>
+                  <div style={{fontWeight:700,fontSize:16,display:'flex',alignItems:'center',gap:6}}>{emp.name}{isRenfort&&<span style={{fontSize:10,fontWeight:800,color:'#fff',background:'#F5B764',borderRadius:5,padding:'1px 7px'}}>✈ Renfort</span>}</div>
+                  <div style={{fontSize:12,color:'var(--muted)',marginTop:1}}>Contrat <strong>{emp.contractHours}h</strong>/sem · {workDaysCount} jours · {dailyH}h/j → <strong style={{color:'var(--teal-dark)'}}>{expectedWeekH}h prévues</strong></div>
                 </div>
-                {leaves.length>0?(
+                {isRenfort&&<button onClick={()=>setRenforts(r=>r.filter(id=>id!==emp.id))} className="btn btn-ghost btn-xs" style={{flexShrink:0}}>Retirer</button>}
+                {leaves.length>0&&(
                   <div style={{display:'flex',gap:4,flexWrap:'wrap',justifyContent:'flex-end'}}>
-                    {leaves.map(di=>(
-                      <span key={di} style={{background:'#EDE9FE',color:'#7C3AED',borderRadius:7,padding:'4px 10px',fontSize:12,fontWeight:700}}>
-                        🌴 {['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'][di]}
-                      </span>
-                    ))}
+                    {leaves.map(di=>(<span key={di} style={{background:'#EDE9FE',color:'#7C3AED',borderRadius:7,padding:'3px 8px',fontSize:11,fontWeight:700}}>🌴 {['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'][di]}</span>))}
                   </div>
-                ):(
-                  <span style={{fontSize:12,color:'var(--dim)'}}>Aucun congé</span>
                 )}
               </div>
             );
           })}
+
+          {/* Renfort picker */}
+          {renfortCandidates.length>0&&(
+            <div style={{marginTop:8}}>
+              {!showRenfortPicker?(
+                <button onClick={()=>setShowRenfortPicker(true)} className="btn btn-ghost btn-sm" style={{width:'100%',justifyContent:'center',border:'1.5px dashed var(--border)'}}>
+                  ✈ Ajouter un renfort d'une autre boutique
+                </button>
+              ):(
+                <div style={{background:'#FFF8EE',border:'1.5px solid #F5D6A0',borderRadius:10,padding:'10px 12px'}}>
+                  <div style={{fontSize:13,fontWeight:700,color:'#B05A00',marginBottom:8}}>Choisir un renfort (autres boutiques gérées)</div>
+                  <div style={{display:'grid',gap:6,maxHeight:200,overflowY:'auto'}}>
+                    {renfortCandidates.map(emp=>{
+                      const st=(manageableStores||[]).find(s=>s.id===emp.storeId);
+                      return(
+                        <button key={emp.id} onClick={()=>{ setRenforts(r=>[...r,emp.id]); setPresent(p=>({...p,[emp.id]:true})); setShowRenfortPicker(false); }}
+                          style={{display:'flex',alignItems:'center',gap:10,padding:'8px 10px',background:'#fff',border:'1px solid var(--border)',borderRadius:8,cursor:'pointer',textAlign:'left'}}>
+                          <div style={{width:26,height:26,borderRadius:'50%',background:emp.color||'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:'#fff'}}>{emp.name[0]}</div>
+                          <div style={{flex:1}}><div style={{fontWeight:700,fontSize:14}}>{emp.name}</div><div style={{fontSize:11,color:'var(--muted)'}}>{st?.name||'—'} · {emp.contractHours}h</div></div>
+                          <span style={{fontSize:18,color:'var(--teal-dark)'}}>+</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button onClick={()=>setShowRenfortPicker(false)} className="btn btn-ghost btn-xs" style={{marginTop:8}}>Fermer</button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <button className="btn btn-primary"
-          onClick={()=>onGenerate({openStart,openEnd,brk})} disabled={openH<=0} style={{width:'100%',justifyContent:'center',fontSize:15,padding:'13px',borderRadius:12}}>
+          onClick={()=>{
+            const selectedEmps=displayEmps.filter(e=>present[e.id]!==false);
+            onGenerate({openStart,openEnd,brk,selectedEmps,renfortIds:renforts});
+          }} disabled={openH<=0} style={{width:'100%',justifyContent:'center',fontSize:15,padding:'13px',borderRadius:12}}>
           ⚡ Générer le planning
         </button>
       </div>
@@ -601,7 +642,12 @@ function WeekNav({cw,setCw}){
 
 /* ── MAIN ─────────────────────────────────────────────────── */
 export default function PlanningEditor(){
-  const{stores,employees,shiftTypes,getSchedule,setShift,setBulkSchedule,currentWeek,setCurrentWeek,currentYear,selectedStore,setSelectedStore,getWeekDatesForCurrentWeek,leaveRequests,overtimeRecords,getEmpOvertimeBalance,resolveOvertime,deleteOvertimeEntry,updateOvertimeHours,authRole,schedules,currentEmp}=useApp();
+  const{stores,employees,shiftTypes,getSchedule,setShift,setBulkSchedule,currentWeek,setCurrentWeek,currentYear,selectedStore,setSelectedStore,getWeekDatesForCurrentWeek,leaveRequests,overtimeRecords,getEmpOvertimeBalance,resolveOvertime,deleteOvertimeEntry,updateOvertimeHours,authRole,schedules,currentEmp,getVisibleStoreIds}=useApp();
+  // Stores this user can assign shifts to (managed stores for managers, all for dirigeants)
+  const manageableStores = React.useMemo(()=>{
+    const ids = getVisibleStoreIds ? getVisibleStoreIds() : stores.map(s=>s.id);
+    return stores.filter(s=>ids.includes(s.id));
+  },[stores, getVisibleStoreIds]);
   // Manager defaults to their own store; otherwise last selected or first store
   const defaultStore = selectedStore || (currentEmp&&['manager','dirigeant','admin'].includes(authRole)&&currentEmp.storeId) || stores[0]?.id || '';
   const[activeStore,setAS]=useState(defaultStore);
@@ -761,9 +807,12 @@ export default function PlanningEditor(){
   const handleDelete=()=>{ if(!editCell) return; const tgt=resolveSaveTarget(editCell.empId,editCell.dayIdx); setShift(tgt.storeId,currentWeek,currentYear,editCell.empId,editCell.dayIdx,null); setEditCell(null); };
 
   /* ── AUTO GENERATE — SMART ALGORITHM ───────────────────────── */
-  const handleAutoGen=async({openStart,openEnd,brk})=>{
+  const handleAutoGen=async({openStart,openEnd,brk,selectedEmps,renfortIds})=>{
     const storeHasLunch = !!(store.lunchBreak && store.lunchStart && store.lunchEnd);
     setGenerating(true); setShowAuto(false);
+    // Employees to schedule this week = selected (present) employees, fallback to storeEmps
+    const genEmps = (selectedEmps && selectedEmps.length) ? selectedEmps : storeEmps;
+    const renfortSet = new Set(renfortIds||[]);
 
     // ── Helpers ──
     const toMins = t => { const [h,m]=t.split(':').map(Number); return h*60+m; };
@@ -780,7 +829,7 @@ export default function PlanningEditor(){
     const breakMins = Math.round((brk||0)*60);
     const bulk = {};
     const empHours = {};
-    storeEmps.forEach(e=>{ empHours[e.id]=0; });
+    genEmps.forEach(e=>{ empHours[e.id]=0; });
 
     // ── PRE-ASSIGN REST DAYS (1 per employee, spread so no same-day clashes) ──
     // Working days = Mon(0)..Sat(5), not Sunday(6)
@@ -789,7 +838,7 @@ export default function PlanningEditor(){
     const dayRestCount = {}; // dayIdx -> how many resting that day
     workingDays.forEach(d=>{ dayRestCount[d]=0; });
 
-    storeEmps.forEach((emp, i) => {
+    genEmps.forEach((emp, i) => {
       const leaveDays = getEmpLeaveDays(emp.id);
       // Candidate days: working days where employee isn't on leave
       const candidates = workingDays.filter(d => !leaveDays.has(d));
@@ -807,10 +856,10 @@ export default function PlanningEditor(){
       const isSunday = dow === 0;
 
       // Who is available today (not on leave, not Sunday, not on their rest day)
-      const available = storeEmps.filter(e => !isSunday && !getEmpLeaveDays(e.id).has(di) && empRestDay[e.id] !== di);
+      const available = genEmps.filter(e => !isSunday && !getEmpLeaveDays(e.id).has(di) && empRestDay[e.id] !== di);
 
       // Mark Sunday rest + leaves + assigned rest days first
-      storeEmps.forEach(emp => {
+      genEmps.forEach(emp => {
         const key = `${emp.id}_${di}`;
         if (isSunday) {
           bulk[key] = {type:'rest',startTime:null,endTime:null,breakH:0,hours:null,note:'',depannage:false};
@@ -1180,7 +1229,7 @@ export default function PlanningEditor(){
       {editCell&&(()=>{
         const emp=employees.find(e=>e.id===editCell.empId);
         const sh=schedule[`${editCell.empId}_${editCell.dayIdx}`];
-        return <ShiftModal emp={emp} dayIdx={editCell.dayIdx} day={weekDates[editCell.dayIdx]} shift={sh} onSave={handleSave} onDelete={handleDelete} onClose={()=>setEditCell(null)} types={shiftTypes} allStores={stores} activeStoreId={activeStore}/>;
+        return <ShiftModal emp={emp} dayIdx={editCell.dayIdx} day={weekDates[editCell.dayIdx]} shift={sh} onSave={handleSave} onDelete={handleDelete} onClose={()=>setEditCell(null)} types={shiftTypes} allStores={manageableStores} activeStoreId={activeStore}/>;
       })()}
       {confirmWknd&&(
         <div className="overlay" onClick={()=>setConfirmWknd(null)}>
@@ -1238,7 +1287,7 @@ export default function PlanningEditor(){
           </div>
         </div>
       )}
-      {showAuto&&store&&<AutoModal store={store} emps={storeEmps} weekDates={weekDates} currentWeek={currentWeek} currentYear={currentYear} leaveRequests={leaveRequests} onGenerate={handleAutoGen} onClose={()=>setShowAuto(false)}/>}
+      {showAuto&&store&&<AutoModal store={store} emps={storeEmps} allEmployees={employees} manageableStores={manageableStores} weekDates={weekDates} currentWeek={currentWeek} currentYear={currentYear} leaveRequests={leaveRequests} onGenerate={handleAutoGen} onClose={()=>setShowAuto(false)}/>}
       {showBorrow&&store&&<BorrowModal store={store} allEmployees={employees} allStores={stores} currentEmps={allDisplayEmps} onBorrow={handleBorrow} onClose={()=>setShowBorrow(false)}/>}
     </div>
   );
