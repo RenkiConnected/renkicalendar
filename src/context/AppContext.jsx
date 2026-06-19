@@ -537,12 +537,17 @@ export function AppProvider({ children }) {
     const key = `${empId}_${year}_M${month}`;
     const existing = overtimeRecords[key] || { extraHours:0, weeks:[], status:'pending' };
     const emp = employees.find(e => e.id === empId);
+    // Replace any previous entry for the SAME week (avoid double-counting on re-save)
+    const priorWeeks = (existing.weeks||[]).filter(w => w.week !== week);
+    const newWeeks = [...priorWeeks, {week, extraH, action, resolvedAt: new Date().toISOString()}];
+    // Recompute total from the week entries (paid/deduct contribute 0 to pending balance)
+    const recomputed = newWeeks.reduce((t,w)=> t + (w.action==='deduct' ? 0 : (Number(w.extraH)||0)), 0);
     await saveOvertimeRecord(empId, year, month, {
       ...existing, empId, year, month,
       employeeName: emp?.name || empId,
       storeId: emp?.storeId,
-      extraHours: parseFloat(((existing.extraHours||0) + (action==='deduct'?0:extraH)).toFixed(2)),
-      weeks: [...(existing.weeks||[]), {week, extraH, action, resolvedAt: new Date().toISOString()}],
+      extraHours: parseFloat(recomputed.toFixed(2)),
+      weeks: newWeeks,
       status: action==='pay'?'paid':'pending',
       lastAction: action,
     });

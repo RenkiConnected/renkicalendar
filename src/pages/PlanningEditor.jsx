@@ -660,6 +660,9 @@ export default function PlanningEditor(){
   const[confirmWknd,setConfirmWknd]=useState(null);
   const[generating,setGenerating]=useState(false);
   const[borrowedEmps,setBorrowedEmps]=useState([]);
+  // Manual additions are PONCTUAL: clear them when the week changes so an added
+  // person only appears on the week where the manager added them.
+  React.useEffect(()=>{ setBorrowedEmps([]); },[currentWeek,currentYear]);
   const[detailPopup,setDetailPopup]=useState(null); // {empId, dayIdx}
   const[overtimeModal,setOvertimeModal]=useState(null); // {empId}
   const[showClearConfirm,setShowClearConfirm]=useState(false);
