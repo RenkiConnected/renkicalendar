@@ -31,6 +31,17 @@ function EmpModal({ emp, stores, allEmps, onSave, onClose, onResetPw, onSetPw })
               {stores.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>
+          {form.role==='vendeur' && (
+            <div>
+              <label style={{display:'flex',alignItems:'center',gap:11,cursor:'pointer',background:form.isFloating?'#FFF3E0':'var(--card2)',border:`1.5px solid ${form.isFloating?'#F5B764':'var(--border)'}`,borderRadius:12,padding:'13px 15px'}}>
+                <input type="checkbox" checked={!!form.isFloating} onChange={e=>set('isFloating',e.target.checked)} style={{width:20,height:20,cursor:'pointer',accentColor:'#F5A623',flexShrink:0}}/>
+                <div>
+                  <div style={{fontWeight:700,fontSize:15,color:form.isFloating?'#B05A00':'var(--text)'}}>✈ Vendeur volant</div>
+                  <div style={{fontSize:12.5,color:'var(--muted)',marginTop:2}}>Peut être placé sur n'importe quelle boutique (déplacement + auto-génération), visible par tous les managers et dirigeants.</div>
+                </div>
+              </label>
+            </div>
+          )}
           {(form.role==='manager'||form.role==='dirigeant'||form.role==='admin')&&(
             <div>
               <div className="lbl">📧 Email du responsable</div>
@@ -313,6 +324,11 @@ export default function Employees() {
                         <span style={{ background:(ROLE_COLOR[emp.role]||'#6366F1')+'18', color:ROLE_COLOR[emp.role]||'#6366F1', borderRadius:20, padding:'3px 10px', fontSize:12, fontWeight:700 }}>
                           {ROLE_MAP[emp.role]||emp.role}
                         </span>
+                        {emp.isFloating && (
+                          <span style={{ background:'#FFF3E0', color:'#B05A00', border:'1px solid #F5B764', borderRadius:20, padding:'3px 10px', fontSize:12, fontWeight:700 }}>
+                            ✈ Volant
+                          </span>
+                        )}
                         <span style={{ background:'var(--card2)', color:'var(--muted)', borderRadius:20, padding:'3px 10px', fontSize:12 }}>
                           {emp.contractHours}h/sem
                         </span>

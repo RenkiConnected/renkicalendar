@@ -436,8 +436,12 @@ function AutoModal({store,emps,allEmployees,manageableStores,weekDates,currentWe
   // Candidate renforts: vendeurs/managers from other managed stores not already in emps
   const renfortCandidates=(allEmployees||[]).filter(e=>
     e.storeId!==store.id &&
-    (manageableStores||[]).some(s=>s.id===e.storeId) &&
-    !emps.find(x=>x.id===e.id)
+    !emps.find(x=>x.id===e.id) &&
+    (
+      // From a store this manager manages, OR a floating vendeur (usable anywhere)
+      (manageableStores||[]).some(s=>s.id===e.storeId) ||
+      (e.isFloating && e.role==='vendeur')
+    )
   );
   const renfortEmps=renfortCandidates.filter(e=>renforts.includes(e.id));
   // Full list shown = home emps + chosen renforts
@@ -584,7 +588,8 @@ function AutoModal({store,emps,allEmployees,manageableStores,weekDates,currentWe
 /* ── BORROW MODAL ─────────────────────────────────────────── */
 function BorrowModal({store,allEmployees,allStores,currentEmps,onBorrow,onClose}){
   const[selected,setSelected]=useState('');
-  const available=allEmployees.filter(e=>!currentEmps.find(c=>c.id===e.id));
+  const available=allEmployees.filter(e=>!currentEmps.find(c=>c.id===e.id))
+    .sort((a,b)=>(b.isFloating?1:0)-(a.isFloating?1:0)); // floating vendeurs first
   return(
     <div className="overlay" onClick={onClose}>
       <div className="modal" style={{maxWidth:700}} onClick={ev=>ev.stopPropagation()}>
@@ -610,8 +615,8 @@ function BorrowModal({store,allEmployees,allStores,currentEmps,onBorrow,onClose}
               }}>
                 <div style={{width:36,height:36,borderRadius:'50%',background:emp.color||'var(--teal)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:15,fontWeight:700,color:'#fff',flexShrink:0}}>{emp.name[0]}</div>
                 <div style={{flex:1}}>
-                  <div style={{fontWeight:700,fontSize:16}}>{emp.name}</div>
-                  <div style={{fontSize:12,color:'var(--dim)',marginTop:1}}>{homeStore?.name} · {emp.contractHours}h/sem</div>
+                  <div style={{fontWeight:700,fontSize:16,display:'flex',alignItems:'center',gap:7}}>{emp.name}{emp.isFloating&&<span style={{fontSize:10,fontWeight:800,color:'#fff',background:'#F5A623',borderRadius:5,padding:'1px 7px'}}>✈ VOLANT</span>}</div>
+                  <div style={{fontSize:12,color:'var(--dim)',marginTop:1}}>{emp.isFloating?'Vendeur volant':homeStore?.name} · {emp.contractHours}h/sem</div>
                 </div>
                 {homeStore&&<div style={{width:8,height:8,borderRadius:'50%',background:homeStore.color,flexShrink:0}}/>}
               </button>
