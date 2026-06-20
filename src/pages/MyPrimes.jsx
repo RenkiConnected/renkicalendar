@@ -37,9 +37,19 @@ export default function MyPrimes() {
   if (!me) return <div className="anim-up"><h1 className="page-title">Mes primes</h1><p className="page-sub" style={{marginTop:12}}>Profil introuvable.</p></div>;
 
   const store = stores.find(s => s.id === me.storeId);
-  const key = `${me.storeId}_${year}_M${month}`;
-  const sd = primes[key] || {};
-  const v = (sd.vendeurs && sd.vendeurs[me.id]) || {};
+  // Find this vendeur's prime data for the month — search their home store first,
+  // then any store doc that contains their entry (covers floating/displaced cases)
+  let key = `${me.storeId}_${year}_M${month}`;
+  let sd = primes[key] || {};
+  let v = (sd.vendeurs && sd.vendeurs[me.id]) || null;
+  if (!v) {
+    for (const [k, doc] of Object.entries(primes)) {
+      if (k.endsWith(`_${year}_M${month}`) && doc.vendeurs && doc.vendeurs[me.id]) {
+        key = k; sd = doc; v = doc.vendeurs[me.id]; break;
+      }
+    }
+  }
+  if (!v) v = {};
 
   // Store bonus pool + my share
   const storeMargin = sumList(sd.marginEntries);

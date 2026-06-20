@@ -23,8 +23,44 @@ const EXT_ROWS = [
 ];
 const MONTHS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
 
+// Remaining worked days (Mon–Sat) in a month from today, excluding given holiday dates (YYYY-MM-DD)
+function remainingWorkDays(year, month, holidays) {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const last = new Date(year, month + 1, 0).getDate();
+  // Start from today if we're in the same month/year, else from day 1 (future month) or none (past)
+  let startDay = 1;
+  if (today.getFullYear() === year && today.getMonth() === month) startDay = today.getDate();
+  else if (today.getFullYear() > year || (today.getFullYear() === year && today.getMonth() > month)) return 0;
+  const hset = new Set((holidays || []));
+  let count = 0;
+  for (let d = startDay; d <= last; d++) {
+    const date = new Date(year, month, d);
+    const dow = date.getDay();
+    if (dow === 0) continue; // Sunday off
+    const iso = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    if (hset.has(iso)) continue; // holiday excluded
+    count++;
+  }
+  return count;
+}
+
 const eur = n => (Math.round((n + Number.EPSILON) * 100) / 100).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
 const sumList = arr => (Array.isArray(arr) ? arr.reduce((t, x) => t + (Number(x) || 0), 0) : (Number(arr) || 0));
+
+// Safely evaluate a basic arithmetic expression (+ - * / and parentheses, decimals with . or ,)
+function evalExpr(raw) {
+  if (raw == null) return NaN;
+  let s = String(raw).trim().replace(/,/g, '.').replace(/\s+/g, '');
+  if (s === '') return NaN;
+  // Only allow digits, operators, parentheses and dots
+  if (!/^[0-9+\-*/().]+$/.test(s)) return NaN;
+  // Disallow weird sequences
+  try {
+    // eslint-disable-next-line no-new-func
+    const val = Function('"use strict";return (' + s + ')')();
+    return (typeof val === 'number' && isFinite(val)) ? val : NaN;
+  } catch { return NaN; }
+}
 
 function addRate(margin) {
   if (margin <= 0) return 0;
@@ -74,16 +110,26 @@ function EntryList({ title, hint, entries, onChange, accent }) {
   const list = Array.isArray(entries) ? entries : [];
   const total = sumList(list);
   const [draft, setDraft] = useState('');
-  const add = () => { const n = Number(draft); if (!isNaN(n) && n !== 0) { onChange([...list, n]); setDraft(''); } };
+  const preview = evalExpr(draft);
+  const hasCalc = /[+\-*/]/.test(String(draft).trim().replace(/^-/, '')); // operator beyond a leading minus
+  const add = () => {
+    const n = evalExpr(draft);
+    if (!isNaN(n) && n !== 0) { onChange([...list, parseFloat(n.toFixed(2))]); setDraft(''); }
+  };
   const remove = i => onChange(list.filter((_, idx) => idx !== i));
   return (
     <div style={{ background: 'var(--card)', border: `1.5px solid ${accent}55`, borderRadius: 14, padding: '16px' }}>
       <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 2 }}>{title}</div>
       {hint && <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 10 }}>{hint}</div>}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-        <input className="inp" type="number" step="0.01" value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add(); } }} style={{ flex: 1, fontSize: 15, padding: '9px 12px' }} placeholder="Ajouter un montant (€)" />
+      <div style={{ display: 'flex', gap: 6, marginBottom: hasCalc && !isNaN(preview) ? 4 : 10 }}>
+        <input className="inp" type="text" inputMode="text" value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add(); } }} style={{ flex: 1, fontSize: 15, padding: '9px 12px' }} placeholder="Montant ou calcul ex: 120+50*2-30" />
         <button type="button" onClick={add} className="btn btn-primary btn-sm" style={{ flexShrink: 0 }}>+ Ajouter</button>
       </div>
+      {hasCalc && draft.trim() !== '' && (
+        <div style={{ fontSize: 12.5, marginBottom: 10, color: isNaN(preview) ? '#C8002B' : accent, fontWeight: 600 }}>
+          {isNaN(preview) ? '⚠️ Calcul invalide' : `= ${eur(preview)}`}
+        </div>
+      )}
       {list.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
           {list.map((x, i) => (
@@ -288,6 +334,14 @@ export default function Primes() {
         const totalShare = storeEmps.reduce((t, e) => t + (storeBonusPool * (Number(vendeurs[e.id] ? vendeurs[e.id].storeBonusPct : 0) || 0) / 100), 0);
         const totalPrimes = storeEmps.reduce((t, e) => { const v = vendeurs[e.id] || {}; return t + vendeurBase(v) + (storeBonusPool * (Number(v.storeBonusPct) || 0) / 100); }, 0);
         const totalTravel = storeEmps.reduce((t, e) => t + (Number(vendeurs[e.id] ? vendeurs[e.id].travel : 0) || 0), 0);
+
+        // Remaining to reach each palier + daily target (worked days Mon-Sat, minus holidays)
+        const holidays = sd.holidays || [];
+        const workDaysLeft = remainingWorkDays(year, month, holidays);
+        const rem1 = Math.max(0, palier1 - storeMargin);
+        const rem2 = Math.max(0, palier2 - storeMargin);
+        const daily1 = workDaysLeft > 0 ? rem1 / workDaysLeft : 0;
+        const daily2 = workDaysLeft > 0 ? rem2 / workDaysLeft : 0;
         return (
           <div key={store.id} style={{ marginBottom: 38 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
@@ -309,6 +363,63 @@ export default function Primes() {
                 <span style={{ fontSize: 15 }}>Marge cumulée : <strong>{eur(storeMargin)}</strong></span>
                 <span style={{ fontSize: 15 }}>Enveloppe : <strong style={{ color: 'var(--teal-dark)' }}>{eur(storeBonusPool)}</strong></span>
                 <span style={{ fontSize: 15, color: totalShare > storeBonusPool + 0.01 ? '#C8002B' : 'var(--muted)' }}>Répartie : <strong>{eur(totalShare)}</strong>{totalShare > storeBonusPool + 0.01 ? ' (dépassement !)' : ''}</span>
+              </div>
+
+              {/* Objectifs paliers : restant + journalier */}
+              <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 12 }}>
+                {[{ n: 1, p: palier1, rem: rem1, daily: daily1, pct: 1.5 }, { n: 2, p: palier2, rem: rem2, daily: daily2, pct: 3 }].map(pl => (
+                  <div key={pl.n} style={{ background: pl.p > 0 && pl.rem === 0 ? '#E8FAF0' : 'var(--card2)', border: `1.5px solid ${pl.p > 0 && pl.rem === 0 ? '#A5D6A7' : 'var(--border)'}`, borderRadius: 14, padding: '14px 16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <span style={{ fontWeight: 800, fontSize: 15 }}>Palier {pl.n} <span style={{ color: 'var(--muted)', fontWeight: 600, fontSize: 13 }}>({pl.pct} %)</span></span>
+                      <span style={{ fontSize: 14, color: 'var(--muted)' }}>{pl.p > 0 ? eur(pl.p) : '—'}</span>
+                    </div>
+                    {pl.p <= 0 ? (
+                      <div style={{ fontSize: 13, color: 'var(--muted)', fontStyle: 'italic' }}>Palier non défini</div>
+                    ) : pl.rem === 0 ? (
+                      <div style={{ fontSize: 15, color: '#1A8A42', fontWeight: 700 }}>✅ Palier atteint !</div>
+                    ) : (
+                      <>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, marginBottom: 4 }}>
+                          <span style={{ color: 'var(--muted)' }}>Restant à faire</span>
+                          <strong style={{ color: store.color }}>{eur(pl.rem)}</strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
+                          <span style={{ color: 'var(--muted)' }}>Par jour ({workDaysLeft} j restants)</span>
+                          <strong style={{ color: 'var(--teal-dark)' }}>{workDaysLeft > 0 ? eur(pl.daily) + '/j' : '—'}</strong>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Jours fériés à exclure */}
+              <div style={{ marginTop: 14, background: 'var(--card2)', border: '1.5px solid var(--border)', borderRadius: 12, padding: '12px 14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--muted)' }}>📅 Jours fériés / non travaillés ce mois ({workDaysLeft} jours ouvrés restants)</div>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <input type="date" className="inp" id={`hol-${store.id}`}
+                      min={`${year}-${String(month + 1).padStart(2, '0')}-01`}
+                      max={`${year}-${String(month + 1).padStart(2, '0')}-${String(new Date(year, month + 1, 0).getDate()).padStart(2, '0')}`}
+                      style={{ fontSize: 14, padding: '7px 10px', width: 'auto' }} />
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => {
+                      const el = document.getElementById(`hol-${store.id}`);
+                      const val = el && el.value;
+                      if (val && !holidays.includes(val)) updateStoreField(store.id, { holidays: [...holidays, val] });
+                      if (el) el.value = '';
+                    }}>+ Exclure ce jour</button>
+                  </div>
+                </div>
+                {holidays.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+                    {[...holidays].sort().map(h => (
+                      <span key={h} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#FFF0F2', color: '#C8002B', borderRadius: 20, padding: '4px 9px 4px 12px', fontSize: 13, fontWeight: 600 }}>
+                        {new Date(h + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })}
+                        <button type="button" onClick={() => updateStoreField(store.id, { holidays: holidays.filter(x => x !== h) })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#C8002B', fontSize: 15, lineHeight: 1, padding: 0 }}>×</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
             {storeEmps.length === 0 ? (
