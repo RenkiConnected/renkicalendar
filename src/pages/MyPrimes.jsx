@@ -88,7 +88,9 @@ export default function MyPrimes() {
     const changes = {};
     Object.entries(draft).forEach(([k,val])=>{ if(val!=='' && val!=null) changes[k]=Number(val); });
     if(Object.keys(changes).length===0 && !note.trim()){ alert('Indiquez au moins une modification ou une note.'); return; }
-    await submitPrimeChangeRequest({ empId:me.id, empName:me.name, storeId:me.storeId, year, month, changes, note:note.trim() });
+    // Use the store where the prime data actually lives (derived from key), fallback to home store
+    const resolvedStoreId = key.replace(`_${year}_M${month}`, '') || me.storeId;
+    await submitPrimeChangeRequest({ empId:me.id, empName:me.name, storeId:resolvedStoreId, year, month, changes, note:note.trim() });
     setSent(true); setShowForm(false); setDraft({}); setNote('');
     setTimeout(()=>setSent(false), 5000);
   };

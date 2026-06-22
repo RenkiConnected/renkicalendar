@@ -95,6 +95,7 @@ function AppContent() {
   const renderPage = () => {
     if (authRole === 'vendeur') {
       if (page === 'myleaves') return <LeaveRequestPage />;
+      if (page === 'myprimes') return <MyPrimes />;
       return <ViewPlanning />;
     }
     switch (page) {
