@@ -517,6 +517,22 @@ export function AppProvider({ children }) {
     return parseFloat(total.toFixed(2));
   };
 
+  // Overtime hours marked "to pay" for a given employee/month (status paid or lastAction pay)
+  const getEmpOvertimeToPay = (empId, year, month) => {
+    let total = 0;
+    Object.values(overtimeRecords).forEach(r => {
+      if (r.empId !== empId) return;
+      if (r.year !== year || r.month !== month) return;
+      if (r.status === 'paid' || r.lastAction === 'pay') {
+        // Sum the weeks explicitly marked as 'pay', else fall back to extraHours
+        const payWeeks = (r.weeks||[]).filter(w => w.action === 'pay');
+        if (payWeeks.length) total += payWeeks.reduce((t,w)=>t+(Number(w.extraH)||0),0);
+        else total += (r.extraHours || 0);
+      }
+    });
+    return parseFloat(total.toFixed(2));
+  };
+
   const deleteOvertimeEntry = async (empId, year, month) => {
     await deleteOvertimeRecord(empId, year, month);
   };
@@ -582,7 +598,7 @@ export function AppProvider({ children }) {
       appSettings,updateSettings,
       doResetEmployees,
       currentWeek,setCurrentWeek,currentYear,
-      overtimeRecords,getEmpOvertimeBalance,resolveOvertime,deleteOvertimeEntry,updateOvertimeHours,
+      overtimeRecords,getEmpOvertimeBalance,getEmpOvertimeToPay,resolveOvertime,deleteOvertimeEntry,updateOvertimeHours,
       constraintRequests,submitConstraintRequest,approveConstraintRequest,refuseConstraintRequest,removeConstraintRequest,
       selectedStore,setSelectedStore,
       getWeekDatesForCurrentWeek:w=>getWeekDates(w,currentYear),

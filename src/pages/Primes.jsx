@@ -45,6 +45,7 @@ function remainingWorkDays(year, month, holidays) {
 }
 
 const eur = n => (Math.round((n + Number.EPSILON) * 100) / 100).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+const fmtHrs = h => { const m = Math.round(h * 60); const H = Math.floor(m / 60); const M = m % 60; return M === 0 ? `${H}` : `${H}h${String(M).padStart(2, '0')}`; };
 const sumList = arr => (Array.isArray(arr) ? arr.reduce((t, x) => t + (Number(x) || 0), 0) : (Number(arr) || 0));
 
 // Safely evaluate a basic arithmetic expression (+ - * / and parentheses, decimals with . or ,)
@@ -148,7 +149,7 @@ function EntryList({ title, hint, entries, onChange, accent }) {
   );
 }
 
-function VendeurCard({ emp, data, onChange, storeBonusPool }) {
+function VendeurCard({ emp, data, onChange, storeBonusPool, overtimeToPay = 0 }) {
   const v = data || {};
   const base = vendeurBase(v);
   const sharePct = Number(v.storeBonusPct) || 0;
@@ -169,6 +170,7 @@ function VendeurCard({ emp, data, onChange, storeBonusPool }) {
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontFamily: 'var(--font-h)', fontWeight: 800, fontSize: 22, color: 'var(--teal-dark)' }}>{eur(total)}</div>
           {travel > 0 && <div style={{ fontSize: 12, color: 'var(--muted)' }}>+ {eur(travel)} frais</div>}
+          {overtimeToPay > 0 && <div style={{ fontSize: 12, color: '#B05A00', fontWeight: 700 }}>+ {fmtHrs(overtimeToPay)} h. supp à payer</div>}
         </div>
         <span style={{ fontSize: 20, color: 'var(--dim)', transform: open ? 'rotate(90deg)' : 'none' }}>›</span>
       </div>
@@ -212,6 +214,7 @@ function VendeurCard({ emp, data, onChange, storeBonusPool }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 15, marginBottom: 8 }}><span>Part prime magasin</span><strong>{eur(storeShare)}</strong></div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 19, fontWeight: 800, color: 'var(--teal-dark)', borderTop: '1.5px solid var(--teal-mid)', paddingTop: 8 }}><span>TOTAL PRIME</span><span>{eur(total)}</span></div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, marginTop: 6, color: 'var(--muted)' }}><span>Frais de déplacement (à part)</span><strong>{eur(travel)}</strong></div>
+            {overtimeToPay > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, marginTop: 4, color: '#B05A00' }}><span>Heures supplémentaires à payer (à part)</span><strong>{fmtHrs(overtimeToPay)} h</strong></div>}
           </div>
         </div>
       )}
@@ -220,7 +223,7 @@ function VendeurCard({ emp, data, onChange, storeBonusPool }) {
 }
 
 export default function Primes() {
-  const { stores, employees, getVisibleStoreIds, primes, savePrimeData, currentEmp, currentUser, isDirigeant, authRole, primeRequests, approvePrimeChangeRequest, rejectPrimeChangeRequest } = useApp();
+  const { stores, employees, getVisibleStoreIds, primes, savePrimeData, currentEmp, currentUser, isDirigeant, authRole, primeRequests, approvePrimeChangeRequest, rejectPrimeChangeRequest, getEmpOvertimeToPay } = useApp();
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth());
   const [year, setYear] = useState(now.getFullYear());
@@ -266,19 +269,29 @@ export default function Primes() {
 
       {/* Export buttons */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 28 }}>
+        <button className="btn btn-primary btn-sm" onClick={() => {
+          const sdata = visibleStores.map(s => ({ store: s, data: buildStorePrime(s, employees, primes[keyFor(s.id)] || {}, getEmpOvertimeToPay, year, month) }));
+          exportPrimesPDF({ storesData: sdata, month, year, scope: 'manager', mode: 'preview' });
+        }}>👁️ Aperçu PDF</button>
         <button className="btn btn-ghost btn-sm" onClick={() => {
-          const sdata = visibleStores.map(s => ({ store: s, data: buildStorePrime(s, employees, primes[keyFor(s.id)] || {}) }));
-          exportPrimesPDF({ storesData: sdata, month, year, scope: 'manager' });
+          const sdata = visibleStores.map(s => ({ store: s, data: buildStorePrime(s, employees, primes[keyFor(s.id)] || {}, getEmpOvertimeToPay, year, month) }));
+          exportPrimesPDF({ storesData: sdata, month, year, scope: 'manager', mode: 'download' });
         }}>📄 Télécharger PDF</button>
         <button className="btn btn-ghost btn-sm" onClick={() => {
-          const sdata = visibleStores.map(s => ({ store: s, data: buildStorePrime(s, employees, primes[keyFor(s.id)] || {}) }));
+          const sdata = visibleStores.map(s => ({ store: s, data: buildStorePrime(s, employees, primes[keyFor(s.id)] || {}, getEmpOvertimeToPay, year, month) }));
           exportPrimesNotion({ storesData: sdata, month, year, scope: 'manager' });
         }}>🗒️ Export Notion</button>
         {isDirigeant && (
-          <button className="btn btn-primary btn-sm" onClick={() => {
-            const sdata = stores.map(s => ({ store: s, data: buildStorePrime(s, employees, primes[keyFor(s.id)] || {}) }));
-            exportPrimesPDF({ storesData: sdata, month, year, scope: 'direction' });
-          }}>👑 Télécharger PDF Direction (toutes boutiques)</button>
+          <>
+            <button className="btn btn-ghost btn-sm" onClick={() => {
+              const sdata = stores.map(s => ({ store: s, data: buildStorePrime(s, employees, primes[keyFor(s.id)] || {}, getEmpOvertimeToPay, year, month) }));
+              exportPrimesPDF({ storesData: sdata, month, year, scope: 'direction', mode: 'preview' });
+            }}>👁️ Aperçu Direction</button>
+            <button className="btn btn-primary btn-sm" onClick={() => {
+              const sdata = stores.map(s => ({ store: s, data: buildStorePrime(s, employees, primes[keyFor(s.id)] || {}, getEmpOvertimeToPay, year, month) }));
+              exportPrimesPDF({ storesData: sdata, month, year, scope: 'direction', mode: 'download' });
+            }}>👑 Télécharger PDF Direction</button>
+          </>
         )}
       </div>
       {/* Vendeur change suggestions */}
@@ -425,7 +438,7 @@ export default function Primes() {
             {storeEmps.length === 0 ? (
               <div style={{ color: 'var(--muted)', fontStyle: 'italic', padding: '8px 0' }}>Aucun vendeur attitré à ce magasin.</div>
             ) : (
-              storeEmps.map(emp => (<VendeurCard key={emp.id} emp={emp} data={vendeurs[emp.id]} onChange={(id, vData) => updateVendeur(store.id, id, vData)} storeBonusPool={storeBonusPool} />))
+              storeEmps.map(emp => (<VendeurCard key={emp.id} emp={emp} data={vendeurs[emp.id]} onChange={(id, vData) => updateVendeur(store.id, id, vData)} storeBonusPool={storeBonusPool} overtimeToPay={getEmpOvertimeToPay ? getEmpOvertimeToPay(emp.id, year, month) : 0} />))
             )}
             <div style={{ background: 'linear-gradient(135deg,var(--teal-light),#EEF6FF)', border: '1.5px solid var(--teal-mid)', borderRadius: 16, padding: '18px 22px', marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 24, justifyContent: 'space-between' }}>
               <div>

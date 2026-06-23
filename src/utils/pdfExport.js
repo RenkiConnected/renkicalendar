@@ -453,7 +453,7 @@ function _addRate(m){ if(m<=0)return 0; if(m<=500)return .10; if(m<=1500)return 
 function _vBase(v){ let t=0; _ITEMK.forEach(k=>t+=(Number(v[k])||0)*_UNIT[k]); _ASS.forEach((a,i)=>t+=(Number(v['ass'+i])||0)*a); const am=_sum(v.addEntries); t+=am*_addRate(am); return t; }
 
 // Build the prime data per store for a given month
-function _buildStorePrime(store, employees, sd) {
+function _buildStorePrime(store, employees, sd, getOvertime, year, month) {
   const storeMargin = _sum(sd.marginEntries);
   const p1 = Number(sd.palier1)||0, p2 = Number(sd.palier2)||0;
   let pool=0, palier='Aucun palier';
@@ -471,12 +471,15 @@ function _buildStorePrime(store, employees, sd) {
     _ITEMK.forEach(k=>{ const q=Number(v[k])||0; if(q>0) detail.push({ label:itemLabels[k], qty:q, unit:_UNIT[k], sub:q*_UNIT[k] }); });
     _ASS.forEach((a,i)=>{ const q=Number(v['ass'+i])||0; if(q>0) detail.push({ label:'Assurance '+_eur(a), qty:q, unit:a, sub:q*a }); });
     const am=_sum(v.addEntries); if(am>0) detail.push({ label:'Ventes add. ('+(_addRate(am)*100)+'%)', qty:null, unit:null, sub:am*_addRate(am), note:_eur(am)+' de marge' });
-    return { name:emp.name, role:emp.role, base, share, total:base+share, travel:Number(v.travel)||0, detail, sharePct:Number(v.storeBonusPct)||0 };
+    const overtime = (getOvertime && year!=null && month!=null) ? getOvertime(emp.id, year, month) : 0;
+    return { name:emp.name, role:emp.role, base, share, total:base+share, travel:Number(v.travel)||0, overtime, detail, sharePct:Number(v.storeBonusPct)||0 };
   });
   const totalPrimes = rows.reduce((t,r)=>t+r.total,0);
   const totalTravel = rows.reduce((t,r)=>t+r.travel,0);
-  return { storeMargin, pool, palier, rows, totalPrimes, totalTravel };
+  const totalOvertime = rows.reduce((t,r)=>t+(r.overtime||0),0);
+  return { storeMargin, pool, palier, rows, totalPrimes, totalTravel, totalOvertime };
 }
+function _fmtHrs(h){ const m=Math.round(h*60); const H=Math.floor(m/60); const M=m%60; return M===0?`${H}`:`${H}h${String(M).padStart(2,'0')}`; }
 
 function _storeTableHTML(store, data) {
   const color = store.color || '#00C9B1';
@@ -502,22 +505,23 @@ function _storeTableHTML(store, data) {
           </table>` : ''}
           <div style="display:flex;justify-content:space-between;font-size:12px;color:#5A6B78;border-top:1px dashed #E2EBF0;padding-top:5px;">
             <span>Prime ventes ${_eur(r.base)} · Part magasin ${_eur(r.share)} (${r.sharePct}%)</span>
-            <span>Frais dépl. : ${_eur(r.travel)}</span>
+            <span><strong>Frais dépl. : ${_eur(r.travel)}</strong>${r.overtime>0?` · <strong>H. supp à payer : ${_fmtHrs(r.overtime)} h</strong>`:''}</span>
           </div>
         </div>`).join('')}
       <div style="padding:13px 22px;background:#F6FAFB;border-top:2px solid ${color}40;display:flex;justify-content:space-between;align-items:center;">
         <span style="font-size:14px;font-weight:800;">TOTAL ${store.name}</span>
-        <span style="font-size:13px;color:#5A6B78;">Frais : ${_eur(data.totalTravel)} · <strong style="font-size:17px;color:${color};">Primes ${_eur(data.totalPrimes)}</strong></span>
+        <span style="font-size:13px;color:#5A6B78;"><strong>Frais : ${_eur(data.totalTravel)}</strong>${data.totalOvertime>0?` · <strong>H. supp : ${_fmtHrs(data.totalOvertime)} h</strong>`:''} · <strong style="font-size:17px;color:${color};">Primes ${_eur(data.totalPrimes)}</strong></span>
       </div>
     </div>
   </div>`;
 }
 
-export async function exportPrimesPDF({ storesData, month, year, scope }) {
+export async function exportPrimesPDF({ storesData, month, year, scope, mode }) {
   const { default: jsPDF } = await import('jspdf');
   const title = scope === 'direction' ? 'Primes — Toutes les boutiques (Direction)' : `Primes — ${storesData[0]?.store.name||''}`;
   const grandTotal = storesData.reduce((t,sd)=>t+sd.data.totalPrimes,0);
   const grandTravel = storesData.reduce((t,sd)=>t+sd.data.totalTravel,0);
+  const grandOvertime = storesData.reduce((t,sd)=>t+(sd.data.totalOvertime||0),0);
 
   const node = document.createElement('div');
   node.style.cssText = `position:fixed;left:-99999px;top:0;width:900px;background:#fff;font-family:'Segoe UI',Arial,sans-serif;padding:32px;color:#1B2A3B;`;
@@ -530,7 +534,7 @@ export async function exportPrimesPDF({ storesData, month, year, scope }) {
       <div style="text-align:right;">
         <div style="font-size:12px;color:#5A6B78;text-transform:uppercase;font-weight:700;">Total général primes</div>
         <div style="font-size:27px;font-weight:800;color:#00A896;">${_eur(grandTotal)}</div>
-        <div style="font-size:13px;color:#5A6B78;">Frais déplacement : ${_eur(grandTravel)}</div>
+        <div style="font-size:13px;color:#5A6B78;"><strong>Frais déplacement : ${_eur(grandTravel)}</strong>${grandOvertime>0?` · <strong>H. supp à payer : ${_fmtHrs(grandOvertime)} h</strong>`:''}</div>
       </div>
     </div>
     ${storesData.map(sd=>_storeTableHTML(sd.store, sd.data)).join('')}
@@ -558,7 +562,17 @@ export async function exportPrimesPDF({ storesData, month, year, scope }) {
       heightLeft -= (ph - margin*2);
     }
     const fname = (scope==='direction'?'primes-direction':'primes-'+(storesData[0]?.store.name||'')).replace(/\s+/g,'-').toLowerCase();
-    pdf.save(`${fname}-${MONTHS_FR[month]}-${year}.pdf`);
+    if (mode === 'preview') {
+      // Open the PDF in a new browser tab instead of downloading
+      const blobUrl = pdf.output('bloburl');
+      const win = window.open(blobUrl, '_blank');
+      if (!win) {
+        // Popup blocked → fall back to download
+        pdf.save(`${fname}-${MONTHS_FR[month]}-${year}.pdf`);
+      }
+    } else {
+      pdf.save(`${fname}-${MONTHS_FR[month]}-${year}.pdf`);
+    }
   } catch(err) {
     if(node.parentNode) document.body.removeChild(node);
     alert('Erreur génération PDF : '+err.message);

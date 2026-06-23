@@ -28,7 +28,7 @@ function DetailRow({ label, qty, unit, sub, note }) {
 }
 
 export default function MyPrimes() {
-  const { employees, stores, currentEmp, currentUser, primes, submitPrimeChangeRequest, primeRequests } = useApp();
+  const { employees, stores, currentEmp, currentUser, primes, submitPrimeChangeRequest, primeRequests, getEmpOvertimeToPay } = useApp();
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth());
   const [year, setYear] = useState(now.getFullYear());
@@ -62,6 +62,8 @@ export default function MyPrimes() {
   const base = vendeurBase(v);
   const total = base + myShare;
   const travel = Number(v.travel)||0;
+  const myOvertime = getEmpOvertimeToPay ? getEmpOvertimeToPay(me.id, year, month) : 0;
+  const fmtHrs = h => { const m=Math.round(h*60); const H=Math.floor(m/60); const M=m%60; return M===0?`${H}`:`${H}h${String(M).padStart(2,'0')}`; };
   const addMargin = sumList(v.addEntries);
 
   // Build detail
@@ -130,6 +132,7 @@ export default function MyPrimes() {
         <div style={{ fontSize:14, color:'var(--muted)', textTransform:'uppercase', fontWeight:700, letterSpacing:'.04em' }}>Total prime du mois</div>
         <div style={{ fontFamily:'var(--font-h)', fontWeight:800, fontSize:42, color:'var(--teal-dark)', margin:'4px 0' }}>{eur(total)}</div>
         {travel>0 && <div style={{ fontSize:15, color:'var(--muted)' }}>+ {eur(travel)} de frais de déplacement (à part)</div>}
+        {myOvertime>0 && <div style={{ fontSize:15, color:'#B05A00', fontWeight:700 }}>+ {fmtHrs(myOvertime)} h supplémentaires à payer (à part)</div>}
       </div>
 
       {/* Detail */}
