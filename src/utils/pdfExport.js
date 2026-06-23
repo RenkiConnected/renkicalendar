@@ -471,7 +471,8 @@ function _buildStorePrime(store, employees, sd, getOvertime, year, month) {
     _ITEMK.forEach(k=>{ const q=Number(v[k])||0; if(q>0) detail.push({ label:itemLabels[k], qty:q, unit:_UNIT[k], sub:q*_UNIT[k] }); });
     _ASS.forEach((a,i)=>{ const q=Number(v['ass'+i])||0; if(q>0) detail.push({ label:'Assurance '+_eur(a), qty:q, unit:a, sub:q*a }); });
     const am=_sum(v.addEntries); if(am>0) detail.push({ label:'Ventes add. ('+(_addRate(am)*100)+'%)', qty:null, unit:null, sub:am*_addRate(am), note:_eur(am)+' de marge' });
-    const overtime = (getOvertime && year!=null && month!=null) ? getOvertime(emp.id, year, month) : 0;
+    const autoOt = (getOvertime && year!=null && month!=null) ? getOvertime(emp.id, year, month) : 0;
+    const overtime = parseFloat((autoOt + (Number(v.manualOvertime)||0)).toFixed(2));
     return { name:emp.name, role:emp.role, base, share, total:base+share, travel:Number(v.travel)||0, overtime, detail, sharePct:Number(v.storeBonusPct)||0 };
   });
   const totalPrimes = rows.reduce((t,r)=>t+r.total,0);
@@ -503,14 +504,14 @@ function _storeTableHTML(store, data) {
               <td style="padding:3px 0;font-size:12px;font-weight:600;text-align:right;">${_eur(d.sub)}</td>
             </tr>`).join('')}
           </table>` : ''}
-          <div style="display:flex;justify-content:space-between;font-size:12px;color:#5A6B78;border-top:1px dashed #E2EBF0;padding-top:5px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#5A6B78;border-top:1px dashed #E2EBF0;padding-top:5px;">
             <span>Prime ventes ${_eur(r.base)} · Part magasin ${_eur(r.share)} (${r.sharePct}%)</span>
-            <span><strong>Frais dépl. : ${_eur(r.travel)}</strong>${r.overtime>0?` · <strong>H. supp à payer : ${_fmtHrs(r.overtime)} h</strong>`:''}</span>
+            <span style="font-size:16px;"><strong style="color:#1B2A3B;">Frais dépl. : ${_eur(r.travel)}</strong>${r.overtime>0?` · <strong style="color:#B05A00;">H. supp à payer : ${_fmtHrs(r.overtime)} h</strong>`:''}</span>
           </div>
         </div>`).join('')}
       <div style="padding:13px 22px;background:#F6FAFB;border-top:2px solid ${color}40;display:flex;justify-content:space-between;align-items:center;">
         <span style="font-size:14px;font-weight:800;">TOTAL ${store.name}</span>
-        <span style="font-size:13px;color:#5A6B78;"><strong>Frais : ${_eur(data.totalTravel)}</strong>${data.totalOvertime>0?` · <strong>H. supp : ${_fmtHrs(data.totalOvertime)} h</strong>`:''} · <strong style="font-size:17px;color:${color};">Primes ${_eur(data.totalPrimes)}</strong></span>
+        <span style="font-size:13px;color:#5A6B78;"><strong style="font-size:16px;color:#1B2A3B;">Frais : ${_eur(data.totalTravel)}</strong>${data.totalOvertime>0?` · <strong style="font-size:16px;color:#B05A00;">H. supp : ${_fmtHrs(data.totalOvertime)} h</strong>`:''} · <strong style="font-size:17px;color:${color};">Primes ${_eur(data.totalPrimes)}</strong></span>
       </div>
     </div>
   </div>`;
@@ -534,7 +535,7 @@ export async function exportPrimesPDF({ storesData, month, year, scope, mode }) 
       <div style="text-align:right;">
         <div style="font-size:12px;color:#5A6B78;text-transform:uppercase;font-weight:700;">Total général primes</div>
         <div style="font-size:27px;font-weight:800;color:#00A896;">${_eur(grandTotal)}</div>
-        <div style="font-size:13px;color:#5A6B78;"><strong>Frais déplacement : ${_eur(grandTravel)}</strong>${grandOvertime>0?` · <strong>H. supp à payer : ${_fmtHrs(grandOvertime)} h</strong>`:''}</div>
+        <div style="font-size:13px;color:#5A6B78;"><strong style="font-size:16px;color:#1B2A3B;">Frais déplacement : ${_eur(grandTravel)}</strong>${grandOvertime>0?` · <strong style="font-size:16px;color:#B05A00;">H. supp à payer : ${_fmtHrs(grandOvertime)} h</strong>`:''}</div>
       </div>
     </div>
     ${storesData.map(sd=>_storeTableHTML(sd.store, sd.data)).join('')}

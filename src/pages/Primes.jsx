@@ -156,6 +156,9 @@ function VendeurCard({ emp, data, onChange, storeBonusPool, overtimeToPay = 0 })
   const storeShare = storeBonusPool * sharePct / 100;
   const total = base + storeShare;
   const travel = Number(v.travel) || 0;
+  const autoOvertime = Number(overtimeToPay) || 0;
+  const manualOvertime = Number(v.manualOvertime) || 0;
+  const totalOvertime = parseFloat((autoOvertime + manualOvertime).toFixed(2));
   const addMargin = sumList(v.addEntries);
   const set = (k, val) => onChange(emp.id, { ...v, [k]: val });
   const [open, setOpen] = useState(false);
@@ -170,7 +173,7 @@ function VendeurCard({ emp, data, onChange, storeBonusPool, overtimeToPay = 0 })
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontFamily: 'var(--font-h)', fontWeight: 800, fontSize: 22, color: 'var(--teal-dark)' }}>{eur(total)}</div>
           {travel > 0 && <div style={{ fontSize: 12, color: 'var(--muted)' }}>+ {eur(travel)} frais</div>}
-          {overtimeToPay > 0 && <div style={{ fontSize: 12, color: '#B05A00', fontWeight: 700 }}>+ {fmtHrs(overtimeToPay)} h. supp à payer</div>}
+          {totalOvertime > 0 && <div style={{ fontSize: 12, color: '#B05A00', fontWeight: 700 }}>+ {fmtHrs(totalOvertime)} h. supp à payer</div>}
         </div>
         <span style={{ fontSize: 20, color: 'var(--dim)', transform: open ? 'rotate(90deg)' : 'none' }}>›</span>
       </div>
@@ -209,12 +212,20 @@ function VendeurCard({ emp, data, onChange, storeBonusPool, overtimeToPay = 0 })
             </div>
             <input className="inp" type="number" min="0" step="0.01" value={v.travel ?? ''} onChange={e => set('travel', e.target.value)} style={{ width: 120, textAlign: 'center', fontSize: 16, fontWeight: 700, padding: '8px 10px' }} placeholder="0" />
           </div>
+          <SectionLabel>Heures supplémentaires à payer</SectionLabel>
+          <div style={{ background: 'var(--card)', border: '1.5px solid #F5B764', borderRadius: 14, padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#B05A00' }}>Heures supp. à payer (h)</div>
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>Saisie manuelle · affichée à part, ne s'ajoute pas à la prime{autoOvertime > 0 ? ` · +${fmtHrs(autoOvertime)} h auto (validées)` : ''}</div>
+            </div>
+            <input className="inp" type="number" min="0" step="0.25" value={v.manualOvertime ?? ''} onChange={e => set('manualOvertime', e.target.value)} style={{ width: 120, textAlign: 'center', fontSize: 16, fontWeight: 700, padding: '8px 10px', color: '#B05A00' }} placeholder="0" />
+          </div>
           <div style={{ marginTop: 18, background: 'linear-gradient(135deg,var(--teal-light),#EEF6FF)', border: '1.5px solid var(--teal-mid)', borderRadius: 14, padding: '16px 18px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 15, marginBottom: 5 }}><span>Ventes + assurances + add.</span><strong>{eur(base)}</strong></div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 15, marginBottom: 8 }}><span>Part prime magasin</span><strong>{eur(storeShare)}</strong></div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 19, fontWeight: 800, color: 'var(--teal-dark)', borderTop: '1.5px solid var(--teal-mid)', paddingTop: 8 }}><span>TOTAL PRIME</span><span>{eur(total)}</span></div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, marginTop: 6, color: 'var(--muted)' }}><span>Frais de déplacement (à part)</span><strong>{eur(travel)}</strong></div>
-            {overtimeToPay > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, marginTop: 4, color: '#B05A00' }}><span>Heures supplémentaires à payer (à part)</span><strong>{fmtHrs(overtimeToPay)} h</strong></div>}
+            {totalOvertime > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, marginTop: 4, color: '#B05A00' }}><span>Heures supplémentaires à payer (à part)</span><strong>{fmtHrs(totalOvertime)} h</strong></div>}
           </div>
         </div>
       )}

@@ -62,7 +62,7 @@ export default function MyPrimes() {
   const base = vendeurBase(v);
   const total = base + myShare;
   const travel = Number(v.travel)||0;
-  const myOvertime = getEmpOvertimeToPay ? getEmpOvertimeToPay(me.id, year, month) : 0;
+  const myOvertime = parseFloat(((getEmpOvertimeToPay ? getEmpOvertimeToPay(me.id, year, month) : 0) + (Number(v.manualOvertime)||0)).toFixed(2));
   const fmtHrs = h => { const m=Math.round(h*60); const H=Math.floor(m/60); const M=m%60; return M===0?`${H}`:`${H}h${String(M).padStart(2,'0')}`; };
   const addMargin = sumList(v.addEntries);
 
