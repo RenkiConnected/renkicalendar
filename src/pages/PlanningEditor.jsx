@@ -1820,9 +1820,9 @@ function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDra
                                 onMouseLeave={e=>e.currentTarget.style.opacity='.6'}
                               >📋</button>
                             )}
-                            {sh._away&&(sh._awayStoreName||stores.find(s=>s.id===sh._awayStoreId))&&(
+                            {sh._away&&(sh._awayStoreName||(allStores||[]).find(s=>s.id===sh._awayStoreId))&&(
                               <span style={{position:'absolute',top:2,left:4,fontSize:8,fontWeight:800,color:sh._awayColor||st.color,background:'rgba(255,255,255,.85)',borderRadius:4,padding:'1px 4px'}}>
-                                ✈ {(sh._awayStoreName||stores.find(s=>s.id===sh._awayStoreId)?.name||'').slice(0,10)}
+                                ✈ {(sh._awayStoreName||(allStores||[]).find(s=>s.id===sh._awayStoreId)?.name||'').slice(0,10)}
                               </span>
                             )}
                             <span style={{fontSize:14,fontWeight:700,color:isDragOver?'var(--teal-dark)':st.color,marginTop:sh._away?8:0}}>{sh._away?'Déplacement':st.label}</span>
