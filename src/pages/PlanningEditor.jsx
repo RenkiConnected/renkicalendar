@@ -18,6 +18,10 @@ function calcH(s,e,b){
 function roundTo15(mins) {
   return Math.round(mins / 15) * 15;
 }
+// Round minutes to nearest 30min slot (clean times: :00, :30 only)
+function roundTo30(mins) {
+  return Math.round(mins / 30) * 30;
+}
 
 // Format mins to HH:MM
 function minsToTime(mins) {
@@ -446,6 +450,8 @@ function AutoModal({store,emps,allEmployees,manageableStores,weekDates,currentWe
   const renfortEmps=renfortCandidates.filter(e=>renforts.includes(e.id));
   // Full list shown = home emps + chosen renforts
   const displayEmps=[...emps, ...renfortEmps];
+  // Jours fériés sélectionnés pour cette semaine (indices 0=Lun..6=Dim)
+  const [holidayDays, setHolidayDays] = useState([]);
 
   const openH=parseFloat(calcH(openStart,openEnd,brk).toFixed(2)); // full day span
   
@@ -573,10 +579,28 @@ function AutoModal({store,emps,allEmployees,manageableStores,weekDates,currentWe
           )}
         </div>
 
+        {/* Jours fériés de la semaine */}
+        <div style={{ background:'#FFF0F2', border:'1.5px solid #F5B5C0', borderRadius:12, padding:'12px 14px', marginBottom:12 }}>
+          <div style={{ fontSize:13.5, fontWeight:700, color:'#C8002B', marginBottom:8 }}>🎌 Jour(s) férié(s) cette semaine ?</div>
+          <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+            {weekDates.map((wd,di)=>{
+              const lbl=['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'][di];
+              const on=holidayDays.includes(di);
+              return (
+                <button key={di} type="button" onClick={()=>setHolidayDays(p=>on?p.filter(x=>x!==di):[...p,di])}
+                  style={{ padding:'8px 12px', borderRadius:9, border:`2px solid ${on?'#C8002B':'var(--border)'}`, background:on?'#FFE0E5':'#fff', color:on?'#C8002B':'var(--muted)', fontWeight:on?700:500, fontSize:13, cursor:'pointer' }}>
+                  {lbl} {wd.date.getDate()}
+                </button>
+              );
+            })}
+          </div>
+          {holidayDays.length>0 && <div style={{ fontSize:12, color:'#A03048', marginTop:8 }}>Ces jours seront marqués « Férié » et aucun horaire ne sera généré dessus.</div>}
+        </div>
+
         <button className="btn btn-primary"
           onClick={()=>{
             const selectedEmps=displayEmps.filter(e=>present[e.id]!==false);
-            onGenerate({openStart,openEnd,brk,selectedEmps,renfortIds:renforts});
+            onGenerate({openStart,openEnd,brk,selectedEmps,renfortIds:renforts,holidayDays});
           }} disabled={openH<=0} style={{width:'100%',justifyContent:'center',fontSize:15,padding:'13px',borderRadius:12}}>
           ⚡ Générer le planning
         </button>
@@ -819,9 +843,10 @@ export default function PlanningEditor(){
   const handleDelete=()=>{ if(!editCell) return; const tgt=resolveSaveTarget(editCell.empId,editCell.dayIdx); setShift(tgt.storeId,currentWeek,currentYear,editCell.empId,editCell.dayIdx,null); setEditCell(null); };
 
   /* ── AUTO GENERATE — SMART ALGORITHM ───────────────────────── */
-  const handleAutoGen=async({openStart,openEnd,brk,selectedEmps,renfortIds})=>{
+  const handleAutoGen=async({openStart,openEnd,brk,selectedEmps,renfortIds,holidayDays})=>{
     const storeHasLunch = !!(store.lunchBreak && store.lunchStart && store.lunchEnd);
     setGenerating(true); setShowAuto(false);
+    const holidaySet = new Set(holidayDays||[]);
     // Employees to schedule this week = selected (present) employees, fallback to storeEmps
     const genEmps = (selectedEmps && selectedEmps.length) ? selectedEmps : storeEmps;
     const renfortSet = new Set(renfortIds||[]);
@@ -866,6 +891,15 @@ export default function PlanningEditor(){
     weekDates.forEach((wd, di) => {
       const dow = wd.date.getDay();
       const isSunday = dow === 0;
+      const isHoliday = holidaySet.has(di);
+
+      // Holiday: mark everyone "Férié", no shifts generated
+      if (isHoliday) {
+        genEmps.forEach(emp => {
+          bulk[`${emp.id}_${di}`] = {type:'holiday',startTime:null,endTime:null,breakH:0,hours:null,note:'Jour férié',depannage:false};
+        });
+        return;
+      }
 
       // Who is available today (not on leave, not Sunday, not on their rest day)
       const available = genEmps.filter(e => !isSunday && !getEmpLeaveDays(e.id).has(di) && empRestDay[e.id] !== di);
@@ -893,7 +927,7 @@ export default function PlanningEditor(){
       // Each person's target shift length from their contract (per work day)
       const shiftLen = emp => {
         const dailyH = (emp.contractHours||35)/5;
-        return roundTo15(Math.round(dailyH*60) + breakMins); // includes break
+        return roundTo30(Math.round(dailyH*60) + breakMins); // includes break
       };
 
       if (n === 1) {
@@ -914,13 +948,13 @@ export default function PlanningEditor(){
           if (idx === 0) {
             // OPENER: starts exactly at store open
             sMins = storeOpenMins;
-            eMins = roundTo15(storeOpenMins + len);
+            eMins = roundTo30(storeOpenMins + len);
             if (eMins > storeCloseMins) eMins = storeCloseMins;
             note = 'Ouverture';
           } else if (idx === n - 1) {
             // CLOSER: ends exactly at store close
             eMins = storeCloseMins;
-            sMins = roundTo15(storeCloseMins - len);
+            sMins = roundTo30(storeCloseMins - len);
             if (sMins < storeOpenMins) sMins = storeOpenMins;
             note = 'Fermeture';
           } else {
@@ -931,10 +965,10 @@ export default function PlanningEditor(){
             const span = totalAmplitude - len;
             // Fraction places middle people between opener and closer, evenly spaced
             const frac = slotIdx / (n - 1);  // e.g. 3 people: middle=0.5; 4 people: 0.33,0.66
-            const offset = roundTo15(span * frac);
-            sMins = roundTo15(storeOpenMins + offset);
-            eMins = roundTo15(sMins + len);
-            if (eMins > storeCloseMins) { eMins = storeCloseMins; sMins = roundTo15(eMins - len); }
+            const offset = roundTo30(span * frac);
+            sMins = roundTo30(storeOpenMins + offset);
+            eMins = roundTo30(sMins + len);
+            if (eMins > storeCloseMins) { eMins = storeCloseMins; sMins = roundTo30(eMins - len); }
             if (sMins < storeOpenMins) sMins = storeOpenMins;
             note = 'Journée';
           }
