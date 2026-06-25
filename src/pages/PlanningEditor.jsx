@@ -647,7 +647,8 @@ function WeekNav({cw,setCw}){
 
 /* ── MAIN ─────────────────────────────────────────────────── */
 export default function PlanningEditor(){
-  const{stores,employees,shiftTypes,getSchedule,setShift,setBulkSchedule,currentWeek,setCurrentWeek,currentYear,selectedStore,setSelectedStore,getWeekDatesForCurrentWeek,leaveRequests,overtimeRecords,getEmpOvertimeBalance,resolveOvertime,deleteOvertimeEntry,updateOvertimeHours,authRole,schedules,currentEmp,getVisibleStoreIds}=useApp();
+  const{stores,employees,shiftTypes,getSchedule,setShift,setBulkSchedule,currentWeek,setCurrentWeek,currentYear,selectedStore,setSelectedStore,getWeekDatesForCurrentWeek,leaveRequests,overtimeRecords,getEmpOvertimeBalance,resolveOvertime,deleteOvertimeEntry,updateOvertimeHours,authRole,schedules,currentEmp,getVisibleStoreIds,effectiveContractHours}=useApp();
+  const getContractH = React.useCallback((emp)=>effectiveContractHours(emp,currentWeek,currentYear),[effectiveContractHours,currentWeek,currentYear]);
   // Stores this user can assign shifts to (managed stores for managers, all for dirigeants)
   const manageableStores = React.useMemo(()=>{
     const ids = getVisibleStoreIds ? getVisibleStoreIds() : stores.map(s=>s.id);
@@ -1223,7 +1224,7 @@ export default function PlanningEditor(){
               sched={schedule} types={shiftTypes} onCell={handleCell} totalH={totalH}
               onDragStart={handleDragStart} onDragOver={handleDragOver}
               onDrop={handleDrop} onDragEnd={handleDragEnd}
-              dragOver={dragOver} extraEmpIds={extraEmps.map(e=>e.id)} allStores={stores} activeStoreId={activeStore}
+              dragOver={dragOver} extraEmpIds={extraEmps.map(e=>e.id)} allStores={stores} activeStoreId={activeStore} getContractH={getContractH}
               overtimeRecords={overtimeRecords} onOvertimeClick={(empId)=>setOvertimeModal({empId})}
               clipboard={clipboard} onCopyShift={handleCopyShift} onPasteShift={handlePasteShift}
             />
@@ -1306,6 +1307,7 @@ export default function PlanningEditor(){
 
 /* ── OVERTIME MODAL ──────────────────────────────────────── */
 function OvertimeModal({emp,schedule,weekDates,currentWeek,currentYear,overtimeRecords,resolveOvertime,deleteOvertimeEntry,updateOvertimeHours,onClose,isManager}){
+  const { effectiveContractHours } = useApp();
   const workTypes=['work','communication','meeting','school'];
   const MONTHS=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
   const workedH=weekDates.reduce((t,_,di)=>{
@@ -1316,7 +1318,7 @@ function OvertimeModal({emp,schedule,weekDates,currentWeek,currentYear,overtimeR
     if(sh.split&&workTypes.includes(sh.split.type)) h+=splitHours(sh);
     return t+h;
   },0);
-  const contractH=emp.contractHours||35;
+  const contractH=effectiveContractHours(emp,currentWeek,currentYear);
   const thisWeekExtra=parseFloat(Math.max(0,workedH-contractH).toFixed(2));
   const empRecords=Object.values(overtimeRecords).filter(r=>r.empId===emp.id).sort((a,b)=>b.year-a.year||b.month-a.month);
   const pendingTotal=empRecords.filter(r=>r.status!=='paid').reduce((t,r)=>t+(r.extraHours||0),0);
@@ -1738,7 +1740,7 @@ function MonthManagerView({emps,storeId,currentWeek,currentYear,getSchedule,type
 }
 
 /* ── WEEK VIEW ────────────────────────────────────────────── */
-function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDragOver,onDrop,onDragEnd,dragOver,extraEmpIds,overtimeRecords,onOvertimeClick,clipboard,onCopyShift,onPasteShift,allStores,activeStoreId}){
+function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDragOver,onDrop,onDragEnd,dragOver,extraEmpIds,overtimeRecords,onOvertimeClick,clipboard,onCopyShift,onPasteShift,allStores,activeStoreId,getContractH}){
   return(
     <div className="card" style={{overflow:'hidden'}}>
       <div style={{overflowX:'auto'}}>
@@ -1757,7 +1759,7 @@ function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDra
           </thead>
           <tbody>
             {emps.map((emp,ei)=>{
-              const t=totalH(emp.id),c=emp.contractHours||35,diff=t-c;
+              const t=totalH(emp.id),c=(getContractH?getContractH(emp):(emp.contractHours||35)),diff=t-c;
               const isBorrowed=extraEmpIds.includes(emp.id);
               return(
                 <tr key={emp.id} style={{borderBottom:'1px solid var(--border)',background:isBorrowed?'#FFFDE7':ei%2===0?'#fff':'var(--card2)'}}>

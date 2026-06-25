@@ -508,6 +508,28 @@ export function AppProvider({ children }) {
     await deleteConstraintRequest(id);
   };
 
+  // ── CONTRACT HOURS (history-aware) ────────────────────
+  // emp.contractHistory = [{ hours, fromYear, fromWeek }]; the contract that
+  // applies to a given week is the most recent entry whose start <= that week.
+  const effectiveContractHours = (emp, week, year) => {
+    if (!emp) return 35;
+    const hist = Array.isArray(emp.contractHistory) ? emp.contractHistory : null;
+    if (!hist || hist.length === 0) return emp.contractHours || 35;
+    const target = (year || 0) * 100 + (week || 0);
+    let chosen = null;
+    hist.forEach(h => {
+      const start = (h.fromYear || 0) * 100 + (h.fromWeek || 0);
+      if (start <= target) {
+        if (!chosen || start > (chosen.fromYear * 100 + chosen.fromWeek)) chosen = h;
+      }
+    });
+    if (!chosen) {
+      const earliest = hist.reduce((a, b) => ((a.fromYear*100+a.fromWeek) <= (b.fromYear*100+b.fromWeek) ? a : b));
+      return earliest.hours;
+    }
+    return chosen.hours;
+  };
+
   // ── OVERTIME HELPERS ──────────────────────────────────
   const getEmpOvertimeBalance = (empId) => {
     let total = 0;
@@ -598,7 +620,7 @@ export function AppProvider({ children }) {
       appSettings,updateSettings,
       doResetEmployees,
       currentWeek,setCurrentWeek,currentYear,
-      overtimeRecords,getEmpOvertimeBalance,getEmpOvertimeToPay,resolveOvertime,deleteOvertimeEntry,updateOvertimeHours,
+      overtimeRecords,getEmpOvertimeBalance,getEmpOvertimeToPay,effectiveContractHours,resolveOvertime,deleteOvertimeEntry,updateOvertimeHours,
       constraintRequests,submitConstraintRequest,approveConstraintRequest,refuseConstraintRequest,removeConstraintRequest,
       selectedStore,setSelectedStore,
       getWeekDatesForCurrentWeek:w=>getWeekDates(w,currentYear),

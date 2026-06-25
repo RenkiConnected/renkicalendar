@@ -41,7 +41,7 @@ function fmtH(decimalHours){
   return m===0 ? `${h}h` : `${h}h${String(m).padStart(2,'0')}`;
 }
 
-export async function exportToPDF({ store, employees, schedules, weekDates, shiftTypes, currentWeek, currentYear, logoDataUrl, allStores }) {
+export async function exportToPDF({ store, employees, schedules, weekDates, shiftTypes, currentWeek, currentYear, logoDataUrl, allStores, getContractH }) {
 
   const sched = buildMergedSched(store, employees, schedules, currentYear, currentWeek, allStores);
   const storeColor = store.color || '#00C9B1';
@@ -63,7 +63,7 @@ export async function exportToPDF({ store, employees, schedules, weekDates, shif
       if (sh.split && workTypes.includes(sh.split.type)) totalH += splitHours(sh);
       return { sh, st, st2, isSun:wd.date.getDay()===0 };
     });
-    const diff = totalH - (emp.contractHours||35);
+    const diff = totalH - (getContractH ? getContractH(emp) : (emp.contractHours||35));
     return { emp, cells, totalH, diff };
   });
 
@@ -320,7 +320,7 @@ tbody tr:nth-child(even) td{background:#FAFCFC}
   setTimeout(() => URL.revokeObjectURL(url), 120000);
 }
 
-export async function exportToNotion({ store, employees, schedules, weekDates, shiftTypes, currentWeek, currentYear, logoDataUrl, allStores }) {
+export async function exportToNotion({ store, employees, schedules, weekDates, shiftTypes, currentWeek, currentYear, logoDataUrl, allStores, getContractH }) {
   const sched = buildMergedSched(store, employees, schedules, currentYear, currentWeek, allStores);
   const storeColor = store.color || '#00C9B1';
   const workTypes = ['work','communication','meeting','school'];
@@ -342,7 +342,7 @@ export async function exportToNotion({ store, employees, schedules, weekDates, s
       if (sh.split && workTypes.includes(sh.split.type)) totalH += splitHours(sh);
       return { sh, st, st2, isSun:wd.date.getDay()===0 };
     });
-    const diff = totalH - (emp.contractHours||35);
+    const diff = totalH - (getContractH ? getContractH(emp) : (emp.contractHours||35));
     const isVisitor = emp.storeId !== store.id;
     const homeStore = isVisitor && allStores ? allStores.find(s=>s.id===emp.storeId) : null;
     return { emp, cells, totalH, diff, isVisitor, homeStore };

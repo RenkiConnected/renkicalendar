@@ -6,6 +6,10 @@ const ROLE_COLOR = { admin:'#6366F1', dirigeant:'#0EA5E9', manager:'#F59E0B', ve
 
 function EmpModal({ emp, stores, allEmps, onSave, onClose, onResetPw, onSetPw }) {
   const [form, setForm] = useState(emp || { name:'', role:'vendeur', storeId:stores[0]?.id||'', contractHours:35, color:'#00C9B1' });
+  const originalHours = emp ? emp.contractHours : null;
+  const todayISO = new Date().toISOString().slice(0,10);
+  const [contractFromDate, setContractFromDate] = useState(todayISO);
+  const hoursChanged = emp && form.contractHours !== originalHours;
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   return (
@@ -91,6 +95,15 @@ function EmpModal({ emp, stores, allEmps, onSave, onClose, onResetPw, onSetPw })
               <input className="inp" type="number" min="1" max="48" value={form.contractHours}
                 onChange={e=>set('contractHours',parseInt(e.target.value)||35)} style={{ width:80, flex:'none' }}/>
             </div>
+            {hoursChanged && (
+              <div style={{ marginTop:12, background:'#FFF3E0', border:'1.5px solid #F5B764', borderRadius:12, padding:'12px 14px' }}>
+                <div style={{ fontSize:13.5, fontWeight:700, color:'#B05A00', marginBottom:7 }}>📅 Nouveau contrat ({originalHours}h → {form.contractHours}h) à partir de :</div>
+                <input className="inp" type="date" value={contractFromDate} onChange={e=>setContractFromDate(e.target.value)} style={{ fontSize:15, padding:'9px 12px' }} />
+                <div style={{ fontSize:12, color:'#8A5A20', marginTop:7, lineHeight:1.4 }}>
+                  Les plannings <strong>avant cette date</strong> (et la semaine en cours) gardent {originalHours}h. Le nouveau contrat de {form.contractHours}h s'applique à partir de la semaine contenant cette date.
+                </div>
+              </div>
+            )}
           </div>
           <div>
             <div className="lbl">Couleur</div>
@@ -124,7 +137,29 @@ function EmpModal({ emp, stores, allEmps, onSave, onClose, onResetPw, onSetPw })
         )}
 
         <div style={{ display:'flex', gap:10, marginTop:24 }}>
-          <button className="btn btn-primary" style={{ flex:1, justifyContent:'center', padding:'13px' }} onClick={()=>form.name&&onSave(form)}>✓ Enregistrer</button>
+          <button className="btn btn-primary" style={{ flex:1, justifyContent:'center', padding:'13px' }} onClick={()=>{
+            if(!form.name) return;
+            let out = { ...form };
+            if (hoursChanged) {
+              // Convert the application date to ISO week/year
+              const d = new Date(contractFromDate + 'T12:00:00');
+              const tmp = new Date(d); tmp.setHours(0,0,0,0);
+              tmp.setDate(tmp.getDate() + 4 - (tmp.getDay()||7));
+              const fromYear = tmp.getFullYear();
+              const yearStart = new Date(fromYear, 0, 1);
+              const fromWeek = Math.ceil((((tmp - yearStart) / 86400000) + 1) / 7);
+              // Existing history, or seed with the previous contract starting "forever ago"
+              const prevHist = Array.isArray(emp.contractHistory) && emp.contractHistory.length
+                ? [...emp.contractHistory]
+                : [{ hours: originalHours, fromYear: 2000, fromWeek: 1 }];
+              // Remove any entry already at this exact start, then add the new one
+              const filtered = prevHist.filter(h => !(h.fromYear === fromYear && h.fromWeek === fromWeek));
+              filtered.push({ hours: form.contractHours, fromYear, fromWeek });
+              filtered.sort((a,b)=>(a.fromYear*100+a.fromWeek)-(b.fromYear*100+b.fromWeek));
+              out.contractHistory = filtered;
+            }
+            onSave(out);
+          }}>✓ Enregistrer</button>            
           <button className="btn btn-ghost" onClick={onClose}>Annuler</button>
         </div>
       </div>

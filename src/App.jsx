@@ -17,7 +17,7 @@ import { exportToPDF, exportToNotion } from './utils/pdfExport';
 
 function AppContent() {
   const { isAuthenticated, authRole, stores, employees, schedules, shiftTypes,
-    currentWeek, currentYear, getWeekDatesForCurrentWeek, loading, appSettings } = useApp();
+    currentWeek, currentYear, getWeekDatesForCurrentWeek, loading, appSettings, effectiveContractHours } = useApp();
 
   const [page, setPage] = useState('dashboard');
   // Show public planning by default, login on demand
@@ -51,7 +51,7 @@ function AppContent() {
       else {
         try { const r=await fetch(appSettings?.logoUrl||'care-logo.png'); const b=await r.blob(); logoDataUrl=await new Promise(res=>{const rd=new FileReader();rd.onload=ev=>res(ev.target.result);rd.readAsDataURL(b);}); } catch {}
       }
-      try { await exportToPDF({ store, employees: getStoreEmployees(storeId, week), schedules, weekDates: getWeekDatesForCurrentWeek(week), shiftTypes, currentWeek: week, currentYear, logoDataUrl, allStores: stores }); }
+      try { await exportToPDF({ store, employees: getStoreEmployees(storeId, week), schedules, weekDates: getWeekDatesForCurrentWeek(week), shiftTypes, currentWeek: week, currentYear, logoDataUrl, allStores: stores, getContractH: (emp)=>effectiveContractHours(emp, week, currentYear) }); }
       catch (err) { alert('Erreur PDF : ' + err.message); }
     };
     const notion = async (e) => {
@@ -62,7 +62,7 @@ function AppContent() {
       else {
         try { const r=await fetch(appSettings?.logoUrl||'care-logo.png'); const b=await r.blob(); logoDataUrl=await new Promise(res=>{const rd=new FileReader();rd.onload=ev=>res(ev.target.result);rd.readAsDataURL(b);}); } catch {}
       }
-      try { await exportToNotion({ store, employees: getStoreEmployees(storeId, week), schedules, weekDates: getWeekDatesForCurrentWeek(week), shiftTypes, currentWeek: week, currentYear, logoDataUrl, allStores: stores }); }
+      try { await exportToNotion({ store, employees: getStoreEmployees(storeId, week), schedules, weekDates: getWeekDatesForCurrentWeek(week), shiftTypes, currentWeek: week, currentYear, logoDataUrl, allStores: stores, getContractH: (emp)=>effectiveContractHours(emp, week, currentYear) }); }
       catch (err) { alert('Erreur Notion : ' + err.message); }
     };
     window.addEventListener('exportPDF', pdf);
