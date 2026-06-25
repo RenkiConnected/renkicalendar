@@ -9,6 +9,13 @@ function buildMergedSched(store, employees, schedules, currentYear, currentWeek,
     for (let di=0; di<7; di++) {
       const key = `${emp.id}_${di}`;
       const here = base[key];
+      // If the home cell itself is a displacement marker, resolve its store name
+      if (here && here._away) {
+        const tgt = (stores||[]).find(s => s.id === here._awayStoreId);
+        if (tgt) { base[key] = { ...here, _awayStore: tgt.name, _awayColor: tgt.color }; }
+        else if (!here._awayStore) { base[key] = { ...here }; delete base[key]._away; } // unknown target → drop badge
+        continue;
+      }
       if (here && wt.includes(here.type)) continue; // already working here
       for (const s of stores) {
         if (s.id === store.id) continue;
@@ -67,7 +74,7 @@ export async function exportToPDF({ store, employees, schedules, weekDates, shif
     const { sh, st, st2, isSun } = cell;
     return `<td class="sc${isSun?' sun':''}">
       <div class="pill" style="background:${st.bgColor};border-color:${st.color}44">
-        ${sh._away ? `<span style="display:inline-block;font-size:9px;font-weight:800;color:#fff;background:${sh._awayColor||st.color};border-radius:5px;padding:1px 6px;margin-bottom:2px;">✈ ${sh._awayStore}</span>` : ''}
+        ${sh._away && sh._awayStore ? `<span style="display:inline-block;font-size:9px;font-weight:800;color:#fff;background:${sh._awayColor||st.color};border-radius:5px;padding:1px 6px;margin-bottom:2px;">✈ ${sh._awayStore}</span>` : ''}
         <span class="lbl" style="color:${st.color}">${st.label}</span>
         ${sh.startTime ? `<span class="tm" style="color:${st.color}">${sh.startTime}–${sh.endTime}</span>` : ''}
         ${(sh.hours||0) > 0 ? `<span class="hr" style="color:${st.color}">${fmtH(mainHours(sh))}</span>` : ''}
@@ -117,6 +124,7 @@ body{
 }
 .b-print{background:#fff;color:#1B2A3B;border:1.5px solid #CBD5E0}
 .b-pdf{background:${storeColor};color:#fff;box-shadow:0 3px 12px ${storeColor}55}
+.toolbar-hint{text-align:center;font-size:12px;color:#7A8A99;margin:8px 0 0;}
 
 /* Carte PDF */
 .page{
@@ -226,6 +234,7 @@ tbody tr:nth-child(even) td{background:#FAFCFC}
     padding:0;margin:0;
   }
   .toolbar{display:none!important}
+  .toolbar-hint,.no-print{display:none!important}
   .page{
     width:100%;max-width:none;
     border-radius:0;box-shadow:none;
@@ -238,8 +247,10 @@ tbody tr:nth-child(even) td{background:#FAFCFC}
 <body>
 
 <div class="toolbar">
-  <button class="btn b-print" onclick="window.print()">🖨️ Imprimer / Sauvegarder PDF</button>
+  <button class="btn b-print" onclick="window.print()">🖨️ Imprimer</button>
+  <button class="btn b-pdf" onclick="window.print()">📄 Sauvegarder en PDF</button>
 </div>
+<div class="toolbar-hint no-print">Pour sauvegarder en PDF : dans la fenêtre d'impression, choisissez « Enregistrer au format PDF » comme imprimante.</div>
 
 <div class="page">
   <div class="hdr">
@@ -345,7 +356,7 @@ export async function exportToNotion({ store, employees, schedules, weekDates, s
     if (cell.empty) return `<div style="min-height:54px;border-radius:9px;border:1.5px dashed #E2EBF0;display:flex;align-items:center;justify-content:center;color:#D0DDE5;font-size:18px;background:${cell.isSun?'#FFF7F7':'#FAFCFC'}">—</div>`;
     const { sh, st, st2 } = cell;
     return `<div style="border-radius:9px;border:1.5px solid ${st.color}40;background:${st.bgColor};padding:8px 6px;min-height:54px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;">
-      ${sh._away?`<span style="font-size:9px;font-weight:800;color:#fff;background:${sh._awayColor||st.color};border-radius:5px;padding:1px 6px;margin-bottom:1px;">✈ ${sh._awayStore}</span>`:''}
+      ${sh._away && sh._awayStore?`<span style="font-size:9px;font-weight:800;color:#fff;background:${sh._awayColor||st.color};border-radius:5px;padding:1px 6px;margin-bottom:1px;">✈ ${sh._awayStore}</span>`:''}
       <span style="font-weight:700;font-size:12px;color:${st.color}">${st.label}</span>
       ${sh.startTime?`<span style="font-size:11px;color:${st.color};opacity:.9">${sh.startTime}–${sh.endTime}</span>`:''}
       ${mainHours(sh)>0?`<span style="font-size:11px;color:${st.color};opacity:.7">${fmtH(mainHours(sh))}</span>`:''}

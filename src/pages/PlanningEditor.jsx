@@ -807,8 +807,11 @@ export default function PlanningEditor(){
     // Mark displacement metadata when target differs from the employee's home store
     const emp=employees.find(e=>e.id===editCell.empId);
     const isAway = emp && tgt!==emp.storeId;
-    const payload = isAway ? {...data, _away:true, _awayStoreId:tgt} : {...data};
-    if(payload._away===undefined && data._away){ delete payload._away; delete payload._awayStoreId; }
+    const tgtStore = stores.find(s=>s.id===tgt);
+    const payload = isAway
+      ? {...data, _away:true, _awayStoreId:tgt, _awayStoreName:tgtStore?.name, _awayColor:tgtStore?.color}
+      : {...data};
+    if(!isAway){ delete payload._away; delete payload._awayStoreId; delete payload._awayStoreName; delete payload._awayColor; }
     setShift(tgt,currentWeek,currentYear,editCell.empId,editCell.dayIdx,payload);
     setEditCell(null);
   };
@@ -1817,9 +1820,9 @@ function WeekView({emps,days,allDays,sched,types,onCell,totalH,onDragStart,onDra
                                 onMouseLeave={e=>e.currentTarget.style.opacity='.6'}
                               >📋</button>
                             )}
-                            {sh._away&&(
+                            {sh._away&&(sh._awayStoreName||stores.find(s=>s.id===sh._awayStoreId))&&(
                               <span style={{position:'absolute',top:2,left:4,fontSize:8,fontWeight:800,color:sh._awayColor||st.color,background:'rgba(255,255,255,.85)',borderRadius:4,padding:'1px 4px'}}>
-                                ✈ {sh._awayStoreName?.slice(0,10)}
+                                ✈ {(sh._awayStoreName||stores.find(s=>s.id===sh._awayStoreId)?.name||'').slice(0,10)}
                               </span>
                             )}
                             <span style={{fontSize:14,fontWeight:700,color:isDragOver?'var(--teal-dark)':st.color,marginTop:sh._away?8:0}}>{sh._away?'Déplacement':st.label}</span>

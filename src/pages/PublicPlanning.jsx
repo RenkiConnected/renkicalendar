@@ -429,7 +429,7 @@ export default function PublicPlanning({ onLogin }) {
                         >
                           {sh ? (
                             <>
-                              {sh._away && <span style={{ fontSize: isMobile?12:10, fontWeight:800, color:'#fff', background:st.color, borderRadius:7, padding:'2px 9px', marginBottom:2 }}>✈ {sh._awayStore}</span>}
+                              {sh._away && sh._awayStore && <span style={{ fontSize: isMobile?12:10, fontWeight:800, color:'#fff', background:st.color, borderRadius:7, padding:'2px 9px', marginBottom:2 }}>✈ {sh._awayStore}</span>}
                               <span style={{ fontSize: isMobile?18:13, fontWeight:800, color:st.color, textAlign:'center', lineHeight:1.2 }}>{isMobile?st.label:st.label.slice(0,5)}</span>
                               {sh.startTime && <span style={{ fontSize: isMobile?19:13, color:st.color, opacity:.95, fontWeight:800, fontVariantNumeric:'tabular-nums' }}>{sh.startTime}</span>}
                               {sh.startTime && sh.endTime && isMobile && <span style={{ fontSize:16, color:st.color, opacity:.75, fontWeight:600, fontVariantNumeric:'tabular-nums' }}>{sh.endTime}</span>}
