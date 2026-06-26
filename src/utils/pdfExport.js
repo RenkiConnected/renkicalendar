@@ -489,7 +489,9 @@ function _buildStorePrime(store, employees, sd, getOvertime, year, month) {
   const totalPrimes = rows.reduce((t,r)=>t+r.total,0);
   const totalTravel = rows.reduce((t,r)=>t+r.travel,0);
   const totalOvertime = rows.reduce((t,r)=>t+(r.overtime||0),0);
-  return { storeMargin, pool, palier, rows, totalPrimes, totalTravel, totalOvertime };
+  const lastYearMargin = Number(sd.lastYearMargin)||0;
+  const evolPct = lastYearMargin>0 ? ((storeMargin-lastYearMargin)/lastYearMargin)*100 : null;
+  return { storeMargin, pool, palier, rows, totalPrimes, totalTravel, totalOvertime, lastYearMargin, evolPct };
 }
 function _fmtHrs(h){ const m=Math.round(h*60); const H=Math.floor(m/60); const M=m%60; return M===0?`${H}`:`${H}h${String(M).padStart(2,'0')}`; }
 
@@ -500,6 +502,7 @@ function _storeTableHTML(store, data) {
     <div style="background:${color};padding:15px 22px;display:flex;align-items:center;justify-content:space-between;">
       <div style="font-size:19px;font-weight:800;color:#fff;">${store.name}</div>
       <div style="font-size:12px;color:#fff;opacity:.95;">${data.palier} · Enveloppe ${_eur(data.pool)} · Marge ${_eur(data.storeMargin)}</div>
+      ${data.evolPct!=null?`<div style="font-size:13px;font-weight:800;margin-top:3px;color:${data.evolPct>0.5?'#9EF5C0':(data.evolPct<-0.5?'#FFC2CC':'#FFE08A')};">${data.evolPct>0?'+':''}${data.evolPct.toFixed(1)} % vs N-1 (${_eur(data.lastYearMargin)} → ${_eur(data.storeMargin)}) ${data.evolPct>0.5?'▲':(data.evolPct<-0.5?'▼':'●')}</div>`:''}
     </div>
     <div style="padding:6px 0;background:#fff;">
       ${data.rows.length===0 ? `<div style="padding:16px 22px;color:#9EBBCA;font-style:italic;">Aucun collaborateur</div>` : data.rows.map(r=>`

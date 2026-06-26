@@ -348,6 +348,10 @@ export default function Primes() {
         const k = keyFor(store.id);
         const sd = primes[k] || {};
         const storeMargin = sumList(sd.marginEntries);
+        const lastYearMargin = Number(sd.lastYearMargin) || 0;
+        const evolPct = lastYearMargin > 0 ? ((storeMargin - lastYearMargin) / lastYearMargin) * 100 : null;
+        const evolColor = evolPct == null ? 'var(--muted)' : (evolPct > 0.5 ? '#1A8A42' : (evolPct < -0.5 ? '#C8002B' : '#E08A00'));
+        const evolLabel = evolPct == null ? '' : (evolPct > 0.5 ? '▲ Hausse' : (evolPct < -0.5 ? '▼ Baisse' : '● Maintien'));
         const palier1 = Number(sd.palier1) || 0;
         const palier2 = Number(sd.palier2) || 0;
         let storeBonusPool = 0, palierLabel = 'Aucun palier atteint', palierColor = 'var(--muted)';
@@ -380,6 +384,22 @@ export default function Primes() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   <div><label className="lbl">Palier 1 (€)</label><input className="inp" type="number" min="0" step="0.01" value={sd.palier1 ?? ''} onChange={e => updateStoreField(store.id, { palier1: e.target.value })} placeholder="0" /></div>
                   <div><label className="lbl">Palier 2 (€)</label><input className="inp" type="number" min="0" step="0.01" value={sd.palier2 ?? ''} onChange={e => updateStoreField(store.id, { palier2: e.target.value })} placeholder="0" /></div>
+                  <div>
+                    <label className="lbl">Marge année dernière · même mois (€)</label>
+                    <input className="inp" type="number" min="0" step="0.01" value={sd.lastYearMargin ?? ''} onChange={e => updateStoreField(store.id, { lastYearMargin: e.target.value })} placeholder="0" />
+                  </div>
+                  {evolPct != null && (
+                    <div style={{ background: evolColor + '14', border: `1.5px solid ${evolColor}55`, borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                      <div>
+                        <div style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>Évolution vs {MONTHS[month]} {year - 1}</div>
+                        <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 2 }}>{eur(lastYearMargin)} → {eur(storeMargin)}</div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: 22, fontWeight: 800, color: evolColor }}>{evolPct > 0 ? '+' : ''}{evolPct.toFixed(1)} %</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: evolColor }}>{evolLabel}</div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
               <div style={{ marginTop: 16, display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'center' }}>
