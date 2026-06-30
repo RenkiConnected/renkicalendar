@@ -628,4 +628,65 @@ export async function exportPrimesNotion({ storesData, month, year, scope }) {
   } catch(err){ if(node.parentNode) document.body.removeChild(node); alert('Erreur génération image : '+err.message); }
 }
 
+// Visual recap of store margin vs last year (N-1), exported as a WhatsApp-friendly JPG
+export async function exportMargeVisuel({ store, storeMargin, lastYearMargin, month, year }) {
+  const evolPct = lastYearMargin > 0 ? ((storeMargin - lastYearMargin) / lastYearMargin) * 100 : null;
+  const up = evolPct != null && evolPct > 0.5;
+  const down = evolPct != null && evolPct < -0.5;
+  const color = up ? '#1A8A42' : (down ? '#C8002B' : '#E08A00');
+  const arrow = up ? '▲' : (down ? '▼' : '●');
+  const word = up ? 'HAUSSE' : (down ? 'BAISSE' : 'MAINTIEN');
+  const sc = store.color || '#00C9B1';
+  const diff = storeMargin - lastYearMargin;
+
+  const node = document.createElement('div');
+  node.style.cssText = `position:fixed;left:-99999px;top:0;width:1080px;background:#fff;font-family:'Segoe UI',Arial,sans-serif;`;
+  node.innerHTML = `
+    <div style="width:1080px;box-sizing:border-box;">
+      <div style="background:linear-gradient(135deg,${sc},${sc}CC);padding:48px 56px;color:#fff;">
+        <div style="font-size:26px;font-weight:700;letter-spacing:.04em;opacity:.92;">${store.name.toUpperCase()}</div>
+        <div style="font-size:52px;font-weight:800;line-height:1.05;margin-top:6px;">Chiffre du mois</div>
+        <div style="font-size:30px;font-weight:600;opacity:.95;margin-top:6px;">${MONTHS_FR[month]} ${year}</div>
+      </div>
+      <div style="padding:48px 56px;">
+        <div style="display:flex;gap:28px;margin-bottom:36px;">
+          <div style="flex:1;background:#F4F7F9;border-radius:22px;padding:30px 32px;">
+            <div style="font-size:22px;color:#5A6B78;font-weight:700;">${MONTHS_FR[month]} ${year - 1}</div>
+            <div style="font-size:46px;font-weight:800;color:#1B2A3B;margin-top:6px;">${_eur(lastYearMargin)}</div>
+          </div>
+          <div style="flex:1;background:${sc}14;border:2px solid ${sc}55;border-radius:22px;padding:30px 32px;">
+            <div style="font-size:22px;color:${sc};font-weight:700;">${MONTHS_FR[month]} ${year}</div>
+            <div style="font-size:46px;font-weight:800;color:${sc};margin-top:6px;">${_eur(storeMargin)}</div>
+          </div>
+        </div>
+        ${evolPct != null ? `
+        <div style="background:${color}12;border:3px solid ${color};border-radius:24px;padding:38px 40px;text-align:center;">
+          <div style="font-size:30px;font-weight:800;color:${color};letter-spacing:.08em;">${arrow} ${word}</div>
+          <div style="font-size:86px;font-weight:900;color:${color};line-height:1.05;margin:8px 0;">${evolPct > 0 ? '+' : ''}${evolPct.toFixed(1)} %</div>
+          <div style="font-size:26px;font-weight:700;color:${color};">${diff >= 0 ? '+' : ''}${_eur(diff)} vs l'an dernier</div>
+        </div>` : `
+        <div style="background:#F4F7F9;border-radius:24px;padding:38px 40px;text-align:center;">
+          <div style="font-size:24px;color:#5A6B78;font-weight:600;">Saisissez la marge de l'année dernière pour voir l'évolution.</div>
+        </div>`}
+        <div style="margin-top:34px;text-align:center;font-size:18px;color:#9EBBCA;">Care Planning · ${new Date().toLocaleDateString('fr-FR')}</div>
+      </div>
+    </div>`;
+  document.body.appendChild(node);
+  try {
+    const canvas = await html2canvas(node, { scale: 2, backgroundColor: '#ffffff', logging: false, useCORS: true });
+    if (node.parentNode) document.body.removeChild(node);
+    canvas.toBlob((blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `chiffre-${store.name}-${MONTHS_FR[month]}-${year}.jpg`.replace(/\s+/g, '-').toLowerCase();
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    }, 'image/jpeg', 0.95);
+  } catch (err) {
+    if (node.parentNode) document.body.removeChild(node);
+    alert('Erreur génération image : ' + err.message);
+  }
+}
+
 export { _buildStorePrime as buildStorePrime };

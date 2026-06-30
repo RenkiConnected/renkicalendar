@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { exportPrimesPDF, exportPrimesNotion, buildStorePrime } from '../utils/pdfExport';
+import { exportPrimesPDF, exportPrimesNotion, buildStorePrime, exportMargeVisuel } from '../utils/pdfExport';
 
 const UNIT = {
   smartphone: 5, box: 5, forfait999: 10, forfait699: 5, forfaitEngage: 10, accessoire: 1,
@@ -400,6 +400,10 @@ export default function Primes() {
                       </div>
                     </div>
                   )}
+                  <button className="btn btn-ghost btn-sm" style={{ justifyContent:'center' }}
+                    onClick={()=>exportMargeVisuel({ store, storeMargin, lastYearMargin, month, year })}>
+                    📲 Visuel WhatsApp (JPG) · chiffre vs N-1
+                  </button>
                 </div>
               </div>
               <div style={{ marginTop: 16, display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'center' }}>
