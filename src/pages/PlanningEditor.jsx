@@ -609,6 +609,37 @@ function AutoModal({store,emps,allEmployees,manageableStores,weekDates,currentWe
   );
 }
 
+/* ── DUPLICATE WEEK MODAL ─────────────────────────────────── */
+function DuplicateWeekModal({currentWeek,currentYear,onDuplicate,onClose}){
+  const [tWeek,setTWeek]=useState(currentWeek+1>52?1:currentWeek+1);
+  const [tYear,setTYear]=useState(currentWeek+1>52?currentYear+1:currentYear);
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:440}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+          <h3 style={{fontFamily:'var(--font-h)',fontWeight:800,fontSize:20}}>📋 Dupliquer la semaine</h3>
+          <button className="btn btn-ghost btn-xs" onClick={onClose}>✕</button>
+        </div>
+        <p style={{fontSize:14,color:'var(--muted)',marginBottom:18}}>Copie complète du planning de la semaine {currentWeek} ({currentYear}) vers la semaine choisie. Le planning existant de la semaine cible sera remplacé.</p>
+        <div style={{display:'flex',gap:12,marginBottom:20}}>
+          <div style={{flex:1}}>
+            <label className="lbl">Semaine cible</label>
+            <input className="inp" type="number" min="1" max="53" value={tWeek} onChange={e=>setTWeek(parseInt(e.target.value)||1)} />
+          </div>
+          <div style={{flex:1}}>
+            <label className="lbl">Année</label>
+            <input className="inp" type="number" min="2024" max="2030" value={tYear} onChange={e=>setTYear(parseInt(e.target.value)||currentYear)} />
+          </div>
+        </div>
+        <div style={{display:'flex',gap:10}}>
+          <button className="btn btn-ghost" style={{flex:1,justifyContent:'center'}} onClick={onClose}>Annuler</button>
+          <button className="btn btn-primary" style={{flex:1,justifyContent:'center'}} onClick={()=>onDuplicate(tWeek,tYear)}>📋 Dupliquer</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── BORROW MODAL ─────────────────────────────────────────── */
 function BorrowModal({store,allEmployees,allStores,currentEmps,onBorrow,onClose}){
   const[selected,setSelected]=useState('');
@@ -684,6 +715,8 @@ export default function PlanningEditor(){
   const[viewMode,setViewMode]=useState('week');
   const[activeDay,setActiveDay]=useState(0);
   const[editCell,setEditCell]=useState(null);
+  const[activeTile,setActiveTile]=useState(null); // selected quick tile for painting
+  const[showDuplicate,setShowDuplicate]=useState(false);
   const[showWknd,setShowWknd]=useState(false);
   const[showAuto,setShowAuto]=useState(false);
   const[showBorrow,setShowBorrow]=useState(false);
@@ -787,15 +820,41 @@ export default function PlanningEditor(){
       // Recompute hours from actual times (never trust stored 'hours')
       if(workTypes.includes(s.type)) t+=mainHours(s);
       if(s.split && workTypes.includes(s.split.type)) t+=splitHours(s);
+      // Holidays count as a worked day (flat hours credit, default 7h)
+      if(s.type==='holiday') t+=(Number(s.hours)||7);
     });
     return parseFloat(t.toFixed(2));
   };
 
   const handleCell=(empId,dayIdx,forceEdit=false)=>{
     const dow=weekDates[dayIdx].date.getDay();
+    // Tile-paint mode: a tile is selected → apply it directly to the clicked cell
+    if(activeTile && !forceEdit){
+      applyTile(empId,dayIdx,activeTile);
+      return;
+    }
     if(!showWknd&&dow===0){ setConfirmWknd({empId,dayIdx}); return; }
-    // Manager planning: ALWAYS go straight to edit modal (shift or empty)
     setEditCell({empId,dayIdx});
+  };
+
+  // Apply a quick tile (rest/leave/etc or a 7h/8h workday) to a cell
+  const applyTile=(empId,dayIdx,tile)=>{
+    const tgt=resolveSaveTarget(empId,dayIdx);
+    let payload;
+    if(tile==='work7'||tile==='work8'){
+      const hours = tile==='work7'?7:8;
+      const open = store.openTime||'09:30';
+      const brk = (store.lunchBreak&&store.lunchStart&&store.lunchEnd)?1:1; // 1h lunch
+      // start at open, end = open + hours + break
+      const [oh,om]=open.split(':').map(Number);
+      const startMins=oh*60+om;
+      const endMins=startMins+hours*60+Math.round(brk*60);
+      payload={type:'work',startTime:open,endTime:minsToTime(endMins),breakH:brk,hours,note:'',depannage:false};
+    } else {
+      const labels={rest:'',vacation:'Congé',holiday:'Férié',school:'École',meeting:'Réunion',communication:'Communication'};
+      payload={type:tile,startTime:null,endTime:null,breakH:0,hours:tile==='holiday'?7:null,note:labels[tile]||'',depannage:false};
+    }
+    setShift(tgt.storeId,currentWeek,currentYear,empId,dayIdx,payload);
   };
 
   // ── COPY / PASTE shifts ──
@@ -847,9 +906,7 @@ export default function PlanningEditor(){
     const storeHasLunch = !!(store.lunchBreak && store.lunchStart && store.lunchEnd);
     setGenerating(true); setShowAuto(false);
     const holidaySet = new Set(holidayDays||[]);
-    // Employees to schedule this week = selected (present) employees, fallback to storeEmps
     const genEmps = (selectedEmps && selectedEmps.length) ? selectedEmps : storeEmps;
-    const renfortSet = new Set(renfortIds||[]);
 
     // ── Helpers ──
     const toMins = t => { const [h,m]=t.split(':').map(Number); return h*60+m; };
@@ -863,147 +920,162 @@ export default function PlanningEditor(){
 
     const storeOpenMins = toMins(openStart);
     const storeCloseMins = toMins(openEnd);
-    const breakMins = Math.round((brk||0)*60);
+    const lunchSMins = storeHasLunch ? toMins(store.lunchStart) : null;
+    const lunchEMins = storeHasLunch ? toMins(store.lunchEnd) : null;
+    // The lunch break for a worker (in minutes) when the store closes midday is fixed at 1h
+    const LUNCH_BREAK_MINS = 60;
     const bulk = {};
-    const empHours = {};
+    const empHours = {}; // worked hours (paid) per emp this week
     genEmps.forEach(e=>{ empHours[e.id]=0; });
 
-    // ── PRE-ASSIGN REST DAYS (1 per employee, spread so no same-day clashes) ──
-    // Working days = Mon(0)..Sat(5), not Sunday(6)
-    const workingDays = [0,1,2,3,4,5]; // indices in weekDates (Mon-Sat)
-    const empRestDay = {}; // empId -> dayIdx
-    const dayRestCount = {}; // dayIdx -> how many resting that day
-    workingDays.forEach(d=>{ dayRestCount[d]=0; });
+    const workingDays = [0,1,2,3,4,5]; // Mon..Sat (Sunday = 6 closed)
 
-    genEmps.forEach((emp, i) => {
-      const leaveDays = getEmpLeaveDays(emp.id);
-      // Candidate days: working days where employee isn't on leave
-      const candidates = workingDays.filter(d => !leaveDays.has(d));
-      if (candidates.length === 0) return; // all days are leave, skip
-      // Pick the day with the fewest rests so far (spread evenly)
-      const restDay = candidates.reduce((best, d) =>
-        (dayRestCount[d] < dayRestCount[best]) ? d : best, candidates[0]);
-      empRestDay[emp.id] = restDay;
-      dayRestCount[restDay] = (dayRestCount[restDay]||0) + 1;
+    // Build a holiday-as-worked map: holidays count as a 7h worked day.
+    // Effective contract per emp for this week (history-aware)
+    const contractOf = (emp) => effectiveContractHours(emp, currentWeek, currentYear);
+
+    // How many days each emp works this week (constraint) and resulting daily hours
+    const HOLIDAY_HOURS = 7;
+    const planByEmp = {}; // empId -> { workDayIdxs:[], dailyMins, restDays:Set, holidayDays:Set }
+
+    genEmps.forEach(emp => {
+      const leave = getEmpLeaveDays(emp.id);
+      const empHolidays = new Set(workingDays.filter(d => holidaySet.has(d)));
+      // Available working days = Mon-Sat, not on leave, not holiday (holidays handled separately), not fixed rest
+      let avail = workingDays.filter(d => !leave.has(d) && !empHolidays.has(d));
+      // Fixed rest day constraint
+      if (emp.fixedRestDay != null && emp.fixedRestDay >= 0) {
+        avail = avail.filter(d => d !== emp.fixedRestDay);
+      }
+      const contract = contractOf(emp);
+      // Holidays already credit HOLIDAY_HOURS each; remaining hours to spread over worked days
+      const holidayCredit = empHolidays.size * HOLIDAY_HOURS;
+      const remaining = Math.max(0, contract - holidayCredit);
+      // Number of work days: constraint (workDays) or default min(avail, 5)
+      let nDays = emp.workDays && emp.workDays > 0 ? emp.workDays : Math.min(avail.length, 5);
+      nDays = Math.min(nDays, avail.length);
+      const dailyH = nDays > 0 ? remaining / nDays : 0;
+      planByEmp[emp.id] = { avail, nDays, dailyMins: Math.round(dailyH*60), empHolidays, leave, contract };
     });
 
-    // For each working day, build coverage with guaranteed opener + closer
+    // Choose which days each emp actually works (prefer days needing coverage, spread rest)
+    // Simple approach: take the first nDays of avail, but rotate start to spread rest days.
+    const dayLoad = {}; workingDays.forEach(d=>dayLoad[d]=0);
+    genEmps.forEach((emp,i) => {
+      const p = planByEmp[emp.id];
+      if (!p) return;
+      // Sort available days by current load (fill less-covered days first), stable rotate by index
+      const ordered = [...p.avail].sort((a,b)=> (dayLoad[a]-dayLoad[b]) || a-b);
+      const chosen = ordered.slice(0, p.nDays).sort((a,b)=>a-b);
+      p.workSet = new Set(chosen);
+      chosen.forEach(d=>dayLoad[d]++);
+    });
+
+    // Assign shift times per day with opener/closer + preference
     weekDates.forEach((wd, di) => {
       const dow = wd.date.getDay();
       const isSunday = dow === 0;
-      const isHoliday = holidaySet.has(di);
 
-      // Holiday: mark everyone "Férié", no shifts generated
-      if (isHoliday) {
+      // Holiday → everyone gets a 7h worked day (counts as worked)
+      if (holidaySet.has(di)) {
         genEmps.forEach(emp => {
-          bulk[`${emp.id}_${di}`] = {type:'holiday',startTime:null,endTime:null,breakH:0,hours:null,note:'Jour férié',depannage:false};
+          const leave = planByEmp[emp.id]?.leave || new Set();
+          if (leave.has(di)) { bulk[`${emp.id}_${di}`] = {type:'vacation',startTime:null,endTime:null,breakH:0,hours:null,note:'Congé approuvé',depannage:false}; return; }
+          bulk[`${emp.id}_${di}`] = {type:'holiday',startTime:null,endTime:null,breakH:0,hours:HOLIDAY_HOURS,note:'Férié (7h)',depannage:false};
+          empHours[emp.id] += HOLIDAY_HOURS;
         });
         return;
       }
 
-      // Who is available today (not on leave, not Sunday, not on their rest day)
-      const available = genEmps.filter(e => !isSunday && !getEmpLeaveDays(e.id).has(di) && empRestDay[e.id] !== di);
-
-      // Mark Sunday rest + leaves + assigned rest days first
+      // Mark rest / leave first
       genEmps.forEach(emp => {
         const key = `${emp.id}_${di}`;
-        if (isSunday) {
-          bulk[key] = {type:'rest',startTime:null,endTime:null,breakH:0,hours:null,note:'',depannage:false};
-        } else if (getEmpLeaveDays(emp.id).has(di)) {
-          bulk[key] = {type:'vacation',startTime:null,endTime:null,breakH:0,hours:null,note:'Congé approuvé',depannage:false};
-        } else if (empRestDay[emp.id] === di) {
-          bulk[key] = {type:'rest',startTime:null,endTime:null,breakH:0,hours:null,note:'Repos hebdomadaire',depannage:false};
-        }
+        const p = planByEmp[emp.id];
+        if (isSunday) { bulk[key] = {type:'rest',startTime:null,endTime:null,breakH:0,hours:null,note:'',depannage:false}; return; }
+        if (p && p.leave.has(di)) { bulk[key] = {type:'vacation',startTime:null,endTime:null,breakH:0,hours:null,note:'Congé approuvé',depannage:false}; return; }
+        if (p && !p.workSet.has(di)) { bulk[key] = {type:'rest',startTime:null,endTime:null,breakH:0,hours:null,note: emp.fixedRestDay===di?'Repos fixe':'Repos',depannage:false}; }
       });
 
-      if (isSunday || available.length === 0) return;
+      if (isSunday) return;
 
-      // Sort available by who has worked the LEAST so far (fair rotation)
-      const sorted = [...available].sort((a,b)=> (empHours[a.id]||0) - (empHours[b.id]||0));
+      // Who works today
+      const workers = genEmps.filter(e => planByEmp[e.id] && planByEmp[e.id].workSet.has(di));
+      if (workers.length === 0) return;
+
+      // Order workers: openers-preferred first, closers-preferred last, others by least hours
+      const pref = e => e.shiftPref || 'none';
+      const sorted = [...workers].sort((a,b)=>{
+        const pa=pref(a), pb=pref(b);
+        if(pa==='open'&&pb!=='open') return -1;
+        if(pb==='open'&&pa!=='open') return 1;
+        if(pa==='close'&&pb!=='close') return 1;
+        if(pb==='close'&&pa!=='close') return -1;
+        return (empHours[a.id]||0)-(empHours[b.id]||0);
+      });
 
       const n = sorted.length;
-      const totalAmplitude = storeCloseMins - storeOpenMins; // e.g. 600 min for 09:30-19:30
+      const amplitude = storeCloseMins - storeOpenMins;
 
-      // Each person's target shift length from their contract (per work day)
-      const shiftLen = emp => {
-        const dailyH = (emp.contractHours||35)/5;
-        return roundTo30(Math.round(dailyH*60) + breakMins); // includes break
-      };
-
-      if (n === 1) {
-        // Only one person: they cover the whole day (open to close)
-        const emp = sorted[0];
+      sorted.forEach((emp, idx) => {
         const key = `${emp.id}_${di}`;
-        const h = calcH(openStart, openEnd, brk);
-        bulk[key] = {type:'work',startTime:openStart,endTime:openEnd,breakH:brk,hours:h,note:'Journée complète',depannage:false};
-        empHours[emp.id] += h;
-      } else {
-        // Multiple people: GUARANTEE 1 opener (starts at open) + 1 closer (ends at close)
-        // Distribute the rest with staggered mid-day starts to avoid everyone together
-        sorted.forEach((emp, idx) => {
-          const key = `${emp.id}_${di}`;
-          const len = shiftLen(emp); // mins including break
-          let sMins, eMins, note;
+        const p = planByEmp[emp.id];
+        // Worked minutes target for this day (exact from contract), break added on top
+        const workMins = p.dailyMins;
+        const breakForDay = storeHasLunch ? LUNCH_BREAK_MINS : Math.round((brk||0)*60);
+        const spanMins = workMins + breakForDay; // amplitude needed including break
 
-          if (idx === 0) {
-            // OPENER: starts exactly at store open
-            sMins = storeOpenMins;
-            eMins = roundTo30(storeOpenMins + len);
-            if (eMins > storeCloseMins) eMins = storeCloseMins;
-            note = 'Ouverture';
-          } else if (idx === n - 1) {
-            // CLOSER: ends exactly at store close
-            eMins = storeCloseMins;
-            sMins = roundTo30(storeCloseMins - len);
-            if (sMins < storeOpenMins) sMins = storeOpenMins;
-            note = 'Fermeture';
-          } else {
-            // MIDDLE: spread evenly across the inner part of the day so coverage
-            // is continuous (no big gaps, nobody bunched at open/close).
-            const midSlots = n - 2;          // number of middle people
-            const slotIdx = idx;             // 1-based position among all
-            const span = totalAmplitude - len;
-            // Fraction places middle people between opener and closer, evenly spaced
-            const frac = slotIdx / (n - 1);  // e.g. 3 people: middle=0.5; 4 people: 0.33,0.66
-            const offset = roundTo30(span * frac);
-            sMins = roundTo30(storeOpenMins + offset);
-            eMins = roundTo30(sMins + len);
-            if (eMins > storeCloseMins) { eMins = storeCloseMins; sMins = roundTo30(eMins - len); }
-            if (sMins < storeOpenMins) sMins = storeOpenMins;
-            note = 'Journée';
-          }
+        let sMins, eMins, note;
+        if (idx === 0) {
+          sMins = storeOpenMins; eMins = roundTo30(storeOpenMins + spanMins); note='Ouverture';
+          if (eMins > storeCloseMins) eMins = storeCloseMins;
+        } else if (idx === n-1) {
+          eMins = storeCloseMins; sMins = roundTo30(storeCloseMins - spanMins); note='Fermeture';
+          if (sMins < storeOpenMins) sMins = storeOpenMins;
+        } else {
+          const frac = idx/(n-1);
+          sMins = roundTo30(storeOpenMins + (amplitude - spanMins)*frac);
+          eMins = roundTo30(sMins + spanMins);
+          if (eMins > storeCloseMins){ eMins=storeCloseMins; sMins=roundTo30(eMins-spanMins); }
+          if (sMins < storeOpenMins) sMins=storeOpenMins;
+          note='Journée';
+        }
 
-          const sStart = minsToTime(sMins);
-          const sEnd = minsToTime(eMins);
-
-          if (storeHasLunch) {
-            // Store closes for lunch: split into morning + afternoon
-            const lunchS = store.lunchStart, lunchE = store.lunchEnd;
-            const lunchSMins = toMins(lunchS), lunchEMins = toMins(lunchE);
-            // Morning part (if shift overlaps morning) + afternoon part
-            const amStart = Math.max(sMins, storeOpenMins);
-            const amEnd = Math.min(eMins, lunchSMins);
-            const pmStart = Math.max(sMins, lunchEMins);
-            const pmEnd = Math.min(eMins, storeCloseMins);
-            const amH = amEnd>amStart ? calcH(minsToTime(amStart),minsToTime(amEnd),0) : 0;
-            const pmH = pmEnd>pmStart ? calcH(minsToTime(pmStart),minsToTime(pmEnd),0) : 0;
-            bulk[key] = {
-              type:'work', startTime:minsToTime(amStart), endTime:minsToTime(amEnd),
-              breakH:0, hours:amH, note, depannage:false,
-              split: pmH>0 ? {type:'work',startTime:minsToTime(pmStart),endTime:minsToTime(pmEnd),hours:pmH,note:'Après-midi'} : null,
-            };
-            empHours[emp.id] += amH + pmH;
-          } else {
-            const h = calcH(sStart, sEnd, brk);
-            bulk[key] = {type:'work',startTime:sStart,endTime:sEnd,breakH:brk,hours:h,note,depannage:false};
-            empHours[emp.id] += h;
-          }
-        });
-      }
+        if (storeHasLunch) {
+          // Worker takes the store's midday closure as their 1h break (split shift)
+          const amStart = Math.max(sMins, storeOpenMins);
+          const amEnd = Math.min(eMins, lunchSMins);
+          const pmStart = Math.max(sMins, lunchEMins);
+          const pmEnd = Math.min(eMins, storeCloseMins);
+          const amH = amEnd>amStart ? calcH(minsToTime(amStart),minsToTime(amEnd),0) : 0;
+          const pmH = pmEnd>pmStart ? calcH(minsToTime(pmStart),minsToTime(pmEnd),0) : 0;
+          bulk[key] = {
+            type:'work', startTime:minsToTime(amStart), endTime:minsToTime(amEnd>amStart?amEnd:amStart),
+            breakH:0, hours:amH, note, depannage:false,
+            split: pmH>0 ? {type:'work',startTime:minsToTime(pmStart),endTime:minsToTime(pmEnd),hours:pmH,note:'Après-midi'} : null,
+          };
+          empHours[emp.id] += amH + pmH;
+        } else {
+          const bH = (brk||0);
+          const h = calcH(minsToTime(sMins), minsToTime(eMins), bH);
+          bulk[key] = {type:'work',startTime:minsToTime(sMins),endTime:minsToTime(eMins),breakH:bH,hours:h,note,depannage:false};
+          empHours[emp.id] += h;
+        }
+      });
     });
 
     await setBulkSchedule(activeStore,currentWeek,currentYear,bulk);
     setGenerating(false);
+  };
+
+  // ── DUPLIQUER LE PLANNING VERS UNE AUTRE SEMAINE ──────────
+  const handleDuplicateWeek=async(targetWeek,targetYear)=>{
+    if(!activeStore) return;
+    const srcKey=`${activeStore}_${currentYear}_W${currentWeek}`;
+    const src=schedules[srcKey]||{};
+    const copy={};
+    Object.entries(src).forEach(([k,v])=>{ copy[k]=v?{...v}:v; });
+    await setBulkSchedule(activeStore,targetWeek,targetYear,copy);
+    setShowDuplicate(false);
   };
 
   // ── EFFACER LE PLANNING ──────────────────────────────────
@@ -1119,6 +1191,31 @@ export default function PlanningEditor(){
           }}>{s.name}</button>
         ))}
       </div>
+
+      {/* TILE PALETTE — click a tile then click cells to paint */}
+      {store && (
+        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14,flexWrap:'wrap',background:'var(--card2)',border:'1.5px solid var(--border)',borderRadius:12,padding:'10px 12px'}}>
+          <span style={{fontSize:13,fontWeight:700,color:'var(--muted)',marginRight:2}}>Remplissage rapide :</span>
+          {[
+            ['rest','Repos','#F5A623'],['vacation','Congé','#7C3AED'],['holiday','Férié 7h','#DC2626'],
+            ['school','École','#0EA5E9'],['meeting','Réunion','#16A34A'],['communication','Comm.','#EA580C'],
+            ['work7','Journée 7h','#00C9B1'],['work8','Journée 8h','#00A896'],
+          ].map(([t,lbl,col])=>{
+            const on=activeTile===t;
+            return (
+              <button key={t} onClick={()=>setActiveTile(on?null:t)} style={{
+                padding:'7px 13px',borderRadius:20,cursor:'pointer',
+                border:`2px solid ${on?col:col+'55'}`,background:on?col:'#fff',color:on?'#fff':col,
+                fontWeight:700,fontSize:13,transition:'all .15s'}}>
+                {lbl}
+              </button>
+            );
+          })}
+          {activeTile && <span style={{fontSize:12.5,color:'var(--teal-dark)',fontWeight:600,marginLeft:4}}>👆 Cliquez les cases à remplir · <button onClick={()=>setActiveTile(null)} style={{background:'none',border:'none',color:'#C8002B',cursor:'pointer',fontWeight:700,textDecoration:'underline',fontSize:12.5}}>Terminer</button></span>}
+          <div style={{flex:1}}/>
+          {storeEmps.length>0 && <button className="btn btn-ghost btn-sm" onClick={()=>setShowDuplicate(true)} title="Copier ce planning vers une autre semaine">📋 Dupliquer la semaine</button>}
+        </div>
+      )}
 
       {/* VIEW TOGGLE + borrowed employees */}
       <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16,flexWrap:'wrap'}}>
@@ -1333,6 +1430,7 @@ export default function PlanningEditor(){
           </div>
         </div>
       )}
+      {showDuplicate&&store&&<DuplicateWeekModal currentWeek={currentWeek} currentYear={currentYear} onDuplicate={handleDuplicateWeek} onClose={()=>setShowDuplicate(false)}/>}
       {showAuto&&store&&<AutoModal store={store} emps={storeEmps} allEmployees={employees} manageableStores={manageableStores} weekDates={weekDates} currentWeek={currentWeek} currentYear={currentYear} leaveRequests={leaveRequests} onGenerate={handleAutoGen} onClose={()=>setShowAuto(false)}/>}
       {showBorrow&&store&&<BorrowModal store={store} allEmployees={employees} allStores={stores} currentEmps={allDisplayEmps} onBorrow={handleBorrow} onClose={()=>setShowBorrow(false)}/>}
     </div>

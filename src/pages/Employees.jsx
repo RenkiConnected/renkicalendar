@@ -105,6 +105,52 @@ function EmpModal({ emp, stores, allEmps, onSave, onClose, onResetPw, onSetPw })
               </div>
             )}
           </div>
+
+          {/* Contraintes individuelles */}
+          <div style={{ background:'var(--card2)', border:'1.5px solid var(--border)', borderRadius:14, padding:'14px 16px' }}>
+            <div style={{ fontSize:14, fontWeight:800, marginBottom:10 }}>⚙️ Contraintes individuelles (génération auto)</div>
+
+            <div style={{ marginBottom:12 }}>
+              <label className="lbl">Nombre de jours travaillés par semaine</label>
+              <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+                {[0,3,4,5,6].map(n=>(
+                  <button key={n} type="button" onClick={()=>set('workDays', n===0?null:n)} style={{
+                    flex:'1 1 auto', minWidth:54, padding:'9px', borderRadius:9,
+                    border:`2px solid ${(form.workDays||null)===(n===0?null:n)?'var(--teal)':'var(--border)'}`,
+                    background:(form.workDays||null)===(n===0?null:n)?'var(--teal-light)':'#fff',
+                    fontWeight:700, fontSize:13, cursor:'pointer' }}>
+                    {n===0?'Auto':`${n} j`}
+                  </button>
+                ))}
+              </div>
+              <div style={{ fontSize:11.5, color:'var(--muted)', marginTop:5 }}>
+                « Auto » = réparti sur les jours ouverts. Sinon le contrat ({form.contractHours}h) est réparti sur ce nombre de jours (ex : 24h sur 3 jours = 8h/jour).
+              </div>
+            </div>
+
+            <div style={{ marginBottom:12 }}>
+              <label className="lbl">Jour de repos fixe</label>
+              <select className="inp" value={form.fixedRestDay ?? ''} onChange={e=>set('fixedRestDay', e.target.value===''?null:parseInt(e.target.value))}>
+                <option value="">Aucun (automatique)</option>
+                {['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'].map((d,i)=><option key={i} value={i}>{d}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label className="lbl">Préférence horaire</label>
+              <div style={{ display:'flex', gap:6 }}>
+                {[['none','Indifférent'],['open','Ouvertures'],['close','Fermetures']].map(([val,lbl])=>(
+                  <button key={val} type="button" onClick={()=>set('shiftPref', val==='none'?null:val)} style={{
+                    flex:1, padding:'9px', borderRadius:9,
+                    border:`2px solid ${(form.shiftPref||'none')===val?'var(--teal)':'var(--border)'}`,
+                    background:(form.shiftPref||'none')===val?'var(--teal-light)':'#fff',
+                    fontWeight:700, fontSize:13, cursor:'pointer' }}>
+                    {lbl}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
           <div>
             <div className="lbl">Couleur</div>
             <div style={{ display:'flex', alignItems:'center', gap:12 }}>

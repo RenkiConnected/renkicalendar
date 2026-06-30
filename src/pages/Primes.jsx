@@ -225,6 +225,7 @@ function VendeurCard({ emp, data, onChange, storeBonusPool, overtimeToPay = 0 })
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 15, marginBottom: 8 }}><span>Part prime magasin</span><strong>{eur(storeShare)}</strong></div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 19, fontWeight: 800, color: 'var(--teal-dark)', borderTop: '1.5px solid var(--teal-mid)', paddingTop: 8 }}><span>TOTAL PRIME</span><span>{eur(total)}</span></div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, marginTop: 6, color: 'var(--muted)' }}><span>Frais de déplacement (à part)</span><strong>{eur(travel)}</strong></div>
+            {travel > 0 && <div style={{ marginTop: 6, background: '#FFF7E0', border: '1.5px solid #F5C96B', color: '#9A6A00', borderRadius: 9, padding: '8px 11px', fontSize: 12.5, fontWeight: 600 }}>⚠️ Pensez à envoyer vos justificatifs de déplacement par mail.</div>}
             {totalOvertime > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, marginTop: 4, color: '#B05A00' }}><span>Heures supplémentaires à payer (à part)</span><strong>{fmtHrs(totalOvertime)} h</strong></div>}
           </div>
         </div>

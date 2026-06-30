@@ -202,6 +202,7 @@ export default function MyPrimes() {
         <div style={{ fontSize:14, color:'var(--muted)', textTransform:'uppercase', fontWeight:700, letterSpacing:'.04em' }}>Total prime du mois</div>
         <div style={{ fontFamily:'var(--font-h)', fontWeight:800, fontSize:42, color:'var(--teal-dark)', margin:'4px 0' }}>{eur(total)}</div>
         {travel>0 && <div style={{ fontSize:15, color:'var(--muted)' }}>+ {eur(travel)} de frais de déplacement (à part)</div>}
+        {travel>0 && <div style={{ marginTop:8, background:'#FFF7E0', border:'1.5px solid #F5C96B', color:'#9A6A00', borderRadius:10, padding:'10px 13px', fontSize:13.5, fontWeight:600 }}>⚠️ Pensez à envoyer vos justificatifs de déplacement par mail.</div>}
         {myOvertime>0 && <div style={{ fontSize:15, color:'#B05A00', fontWeight:700 }}>+ {fmtHrs(myOvertime)} h supplémentaires à payer (à part)</div>}
       </div>
 

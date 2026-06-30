@@ -61,6 +61,7 @@ export async function exportToPDF({ store, employees, schedules, weekDates, shif
       const st2 = sh.split ? (stMap[sh.split.type]||{label:sh.split.type,color:'#F97316',bgColor:'#FFF3E0'}) : null;
       if (workTypes.includes(sh.type)) totalH += mainHours(sh);
       if (sh.split && workTypes.includes(sh.split.type)) totalH += splitHours(sh);
+      if (sh.type==='holiday') totalH += (Number(sh.hours)||7);
       return { sh, st, st2, isSun:wd.date.getDay()===0 };
     });
     const diff = totalH - (getContractH ? getContractH(emp) : (emp.contractHours||35));
@@ -340,6 +341,7 @@ export async function exportToNotion({ store, employees, schedules, weekDates, s
       const st2 = sh.split ? (stMap[sh.split.type]||{label:sh.split.type,color:'#F97316',bgColor:'#FFF3E0'}) : null;
       if (workTypes.includes(sh.type)) totalH += mainHours(sh);
       if (sh.split && workTypes.includes(sh.split.type)) totalH += splitHours(sh);
+      if (sh.type==='holiday') totalH += (Number(sh.hours)||7);
       return { sh, st, st2, isSun:wd.date.getDay()===0 };
     });
     const diff = totalH - (getContractH ? getContractH(emp) : (emp.contractHours||35));
