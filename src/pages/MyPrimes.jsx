@@ -14,6 +14,56 @@ const eur = n => (Math.round((n+Number.EPSILON)*100)/100).toLocaleString('fr-FR'
 const sumList = arr => Array.isArray(arr)?arr.reduce((t,x)=>t+(Number(x)||0),0):(Number(arr)||0);
 function addRate(m){ if(m<=0)return 0; if(m<=500)return .10; if(m<=1500)return .15; return .20; }
 function vendeurBase(v){ let t=0; for(const[k]of ITEM_ROWS)t+=(Number(v[k])||0)*UNIT[k]; for(const[k]of EXT_ROWS)t+=(Number(v[k])||0)*UNIT[k]; ASSURANCES.forEach((a,i)=>t+=(Number(v['ass'+i])||0)*a); const am=sumList(v.addEntries); t+=am*addRate(am); return t; }
+// Safe arithmetic evaluator (+ - * / parentheses, decimals with . or ,)
+function evalExpr(raw){ if(raw==null)return NaN; let s=String(raw).trim().replace(/,/g,'.').replace(/\s+/g,''); if(s==='')return NaN; if(!/^[0-9+\-*/().]+$/.test(s))return NaN; try{ const val=Function('"use strict";return ('+s+')')(); return (typeof val==='number'&&isFinite(val))?val:NaN; }catch{ return NaN; } }
+
+// Stepper tile to edit a count (vendeur self-entry)
+function CountTile({ icon, label, unit, value, onChange }) {
+  const n = Number(value) || 0;
+  return (
+    <div style={{ background:'var(--card)', border:'1.5px solid var(--border)', borderRadius:14, padding:'12px', textAlign:'center' }}>
+      <div style={{ fontSize:22 }}>{icon}</div>
+      <div style={{ fontSize:12.5, fontWeight:700, margin:'4px 0 2px' }}>{label}</div>
+      <div style={{ fontSize:11, color:'var(--muted)', marginBottom:8 }}>{unit}</div>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+        <button type="button" onClick={()=>onChange(Math.max(0,n-1))} style={{ width:30, height:30, borderRadius:8, border:'1.5px solid var(--border)', background:'#fff', cursor:'pointer', fontSize:18, fontWeight:700 }}>−</button>
+        <input type="number" min="0" value={value ?? ''} onChange={e=>onChange(e.target.value)} style={{ width:46, textAlign:'center', fontSize:17, fontWeight:800, border:'1.5px solid var(--border)', borderRadius:8, padding:'5px 2px' }} />
+        <button type="button" onClick={()=>onChange(n+1)} style={{ width:30, height:30, borderRadius:8, border:'1.5px solid var(--teal)', background:'var(--teal)', color:'#fff', cursor:'pointer', fontSize:18, fontWeight:700 }}>+</button>
+      </div>
+    </div>
+  );
+}
+
+// Editable cumulative list with calculation support
+function EditEntryList({ title, hint, entries, onChange, accent }) {
+  const list = Array.isArray(entries) ? entries : [];
+  const total = sumList(list);
+  const [draft, setDraft] = useState('');
+  const preview = evalExpr(draft);
+  const hasCalc = /[+\-*/]/.test(String(draft).trim().replace(/^-/, ''));
+  const add = () => { const x = evalExpr(draft); if(!isNaN(x)&&x!==0){ onChange([...list, parseFloat(x.toFixed(2))]); setDraft(''); } };
+  const remove = i => onChange(list.filter((_,idx)=>idx!==i));
+  return (
+    <div style={{ background:'var(--card)', border:`1.5px solid ${accent}55`, borderRadius:14, padding:'16px' }}>
+      <div style={{ fontSize:14, fontWeight:800, marginBottom:2 }}>{title}</div>
+      {hint && <div style={{ fontSize:12, color:'var(--muted)', marginBottom:10 }}>{hint}</div>}
+      <div style={{ display:'flex', gap:6, marginBottom: hasCalc&&!isNaN(preview)?4:10 }}>
+        <input className="inp" type="text" value={draft} onChange={e=>setDraft(e.target.value)} onKeyDown={e=>{ if(e.key==='Enter'){ e.preventDefault(); add(); } }} style={{ flex:1, fontSize:15, padding:'9px 12px' }} placeholder="Montant ou calcul ex: 120+50*2" />
+        <button type="button" onClick={add} className="btn btn-primary btn-sm" style={{ flexShrink:0 }}>+ Ajouter</button>
+      </div>
+      {hasCalc && draft.trim()!=='' && <div style={{ fontSize:12.5, marginBottom:10, color:isNaN(preview)?'#C8002B':accent, fontWeight:600 }}>{isNaN(preview)?'⚠️ Calcul invalide':`= ${eur(preview)}`}</div>}
+      {list.length>0 && (
+        <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:10 }}>
+          {list.map((x,i)=>(<span key={i} style={{ display:'inline-flex', alignItems:'center', gap:6, background:accent+'18', color:accent, borderRadius:20, padding:'5px 10px 5px 12px', fontSize:14, fontWeight:700 }}>{eur(x)}<button type="button" onClick={()=>remove(i)} style={{ background:'none', border:'none', cursor:'pointer', color:accent, fontSize:16, lineHeight:1, padding:0 }}>×</button></span>))}
+        </div>
+      )}
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', borderTop:'1px solid var(--border)', paddingTop:8 }}>
+        <span style={{ fontSize:13, color:'var(--muted)', fontWeight:600 }}>Total cumulé</span>
+        <strong style={{ fontSize:18, color:accent }}>{eur(total)}</strong>
+      </div>
+    </div>
+  );
+}
 
 function DetailRow({ label, qty, unit, sub, note }) {
   return (
@@ -28,7 +78,8 @@ function DetailRow({ label, qty, unit, sub, note }) {
 }
 
 export default function MyPrimes() {
-  const { employees, stores, currentEmp, currentUser, primes, submitPrimeChangeRequest, primeRequests, getEmpOvertimeToPay } = useApp();
+  const { employees, stores, currentEmp, currentUser, primes, submitPrimeChangeRequest, primeRequests, getEmpOvertimeToPay, savePrimeData } = useApp();
+  const [editMode, setEditMode] = useState(false);
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth());
   const [year, setYear] = useState(now.getFullYear());
@@ -97,6 +148,25 @@ export default function MyPrimes() {
     setTimeout(()=>setSent(false), 5000);
   };
 
+  // ── Self-edit: vendeur saves their own prime data and can update store margin ──
+  const resolvedStoreId = key.replace(`_${year}_M${month}`, '') || me.storeId;
+  const saveKey = `${resolvedStoreId}_${year}_M${month}`;
+  const [draftV, setDraftV] = useState(null);
+  const editV = (editMode && draftV) ? draftV : v;
+  const startEdit = () => { setDraftV({ ...v }); setEditMode(true); };
+  const cancelEdit = () => { setDraftV(null); setEditMode(false); };
+  const setVField = (k, val) => setDraftV(d => ({ ...(d||{}), [k]: val }));
+  const saveOwn = async () => {
+    const cur = primes[saveKey] || {};
+    await savePrimeData(saveKey, { ...cur, storeId: resolvedStoreId, year, month, vendeurs: { ...(cur.vendeurs || {}), [me.id]: draftV } });
+    setDraftV(null); setEditMode(false);
+    setSent(true); setTimeout(()=>setSent(false), 4000);
+  };
+  const saveStoreMargin = async (newEntries) => {
+    const cur = primes[saveKey] || {};
+    await savePrimeData(saveKey, { ...cur, storeId: resolvedStoreId, year, month, marginEntries: newEntries });
+  };
+
   return (
     <div className="anim-up">
       <div style={{ marginBottom:18 }}>
@@ -150,6 +220,49 @@ export default function MyPrimes() {
           <div style={{ fontSize:12, color:'var(--muted)', marginBottom:8 }}>{palierLabel} · marge magasin {eur(storeMargin)}</div>
           <div style={{ display:'flex', justifyContent:'space-between', fontSize:19, fontWeight:800, color:'var(--teal-dark)', borderTop:'1.5px solid var(--border)', paddingTop:8 }}><span>TOTAL</span><span>{eur(total)}</span></div>
         </div>
+      </div>
+
+      {/* ── Saisie de mes primes (vendeur) ── */}
+      <div className="card" style={{ padding:'22px', marginBottom:16 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:10, marginBottom:editMode?16:0 }}>
+          <h2 className="section-title" style={{ margin:0 }}>Saisir mes primes</h2>
+          {!editMode ? (
+            <button className="btn btn-primary btn-sm" onClick={startEdit}>✏️ Saisir / modifier mes ventes</button>
+          ) : (
+            <div style={{ display:'flex', gap:8 }}>
+              <button className="btn btn-ghost btn-sm" onClick={cancelEdit}>Annuler</button>
+              <button className="btn btn-primary btn-sm" onClick={saveOwn}>✓ Enregistrer</button>
+            </div>
+          )}
+        </div>
+        {sent && <div style={{ background:'#E8FAF0', border:'1.5px solid #A5D6A7', color:'#1A8A42', borderRadius:10, padding:'10px 14px', fontSize:14, fontWeight:600, marginTop:12 }}>✅ Vos primes ont été enregistrées.</div>}
+
+        {editMode && (
+          <>
+            <div style={{ fontSize:13, fontWeight:800, color:'var(--muted)', textTransform:'uppercase', letterSpacing:'.03em', margin:'4px 0 10px' }}>Ventes</div>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))', gap:10, marginBottom:16 }}>
+              {ITEM_ROWS.map(([k,label,unit,icon])=>(<CountTile key={k} icon={icon} label={label} unit={unit} value={editV[k]} onChange={val=>setVField(k,val)} />))}
+            </div>
+            <div style={{ fontSize:13, fontWeight:800, color:'var(--muted)', textTransform:'uppercase', letterSpacing:'.03em', margin:'4px 0 10px' }}>Extensions de garantie</div>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))', gap:10, marginBottom:16 }}>
+              {EXT_ROWS.map(([k,label,unit,icon])=>(<CountTile key={k} icon={icon} label={label} unit={unit} value={editV[k]} onChange={val=>setVField(k,val)} />))}
+            </div>
+            <div style={{ fontSize:13, fontWeight:800, color:'var(--muted)', textTransform:'uppercase', letterSpacing:'.03em', margin:'4px 0 10px' }}>Assurances</div>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))', gap:10, marginBottom:16 }}>
+              {ASSURANCES.map((a,i)=>(<CountTile key={i} icon="🔒" label={'Assurance '+eur(a)} unit={eur(a)} value={editV['ass'+i]} onChange={val=>setVField('ass'+i,val)} />))}
+            </div>
+            <div style={{ marginBottom:8 }}>
+              <EditEntryList title="Mes ventes additionnelles (marge)" hint="Saisissez la marge ; le taux s'applique automatiquement" accent="var(--teal)" entries={editV.addEntries} onChange={val=>setVField('addEntries',val)} />
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* ── Chiffre magasin (modifiable) ── */}
+      <div className="card" style={{ padding:'22px', marginBottom:16 }}>
+        <h2 className="section-title" style={{ marginBottom:6 }}>Chiffre magasin</h2>
+        <p style={{ fontSize:13, color:'var(--muted)', marginBottom:14 }}>Marge cumulée de {store?.name||'la boutique'} pour {MONTHS[month]} {year}. Vous pouvez la mettre à jour.</p>
+        <EditEntryList title="Marge magasin (cumul)" hint="Ajoutez un ou plusieurs montants, ils s'additionnent" accent={store?.color||'var(--teal)'} entries={sd.marginEntries} onChange={saveStoreMargin} />
       </div>
 
       {/* Change request */}
