@@ -716,6 +716,7 @@ export default function PlanningEditor(){
   const[activeDay,setActiveDay]=useState(0);
   const[editCell,setEditCell]=useState(null);
   const[activeTile,setActiveTile]=useState(null); // selected quick tile for painting
+  const[dayChooser,setDayChooser]=useState(null); // {empId,dayIdx,hours} for ouverture/fermeture choice
   const[showDuplicate,setShowDuplicate]=useState(false);
   const[showWknd,setShowWknd]=useState(false);
   const[showAuto,setShowAuto]=useState(false);
@@ -830,6 +831,11 @@ export default function PlanningEditor(){
     const dow=weekDates[dayIdx].date.getDay();
     // Tile-paint mode: a tile is selected → apply it directly to the clicked cell
     if(activeTile && !forceEdit){
+      // For 7h/8h workday tiles, ask Ouverture or Fermeture first
+      if(activeTile==='work7'||activeTile==='work8'){
+        setDayChooser({empId,dayIdx,hours:activeTile==='work7'?7:8});
+        return;
+      }
       applyTile(empId,dayIdx,activeTile);
       return;
     }
@@ -837,23 +843,43 @@ export default function PlanningEditor(){
     setEditCell({empId,dayIdx});
   };
 
-  // Apply a quick tile (rest/leave/etc or a 7h/8h workday) to a cell
+  // Build a work-day shift (open or close side), splitting around store lunch closure if any
+  const buildWorkDay=(hours,side)=>{
+    const toM=t=>{const[h,m]=t.split(':').map(Number);return h*60+m;};
+    const open=store.openTime||'09:30';
+    const close=store.closeTime||'19:30';
+    const hasLunch=!!(store.lunchBreak&&store.lunchStart&&store.lunchEnd);
+    const breakMins=60; // 1h lunch
+    const openM=toM(open), closeM=toM(close);
+    let sM,eM;
+    if(side==='close'){ eM=closeM; sM=eM-hours*60-breakMins; if(sM<openM)sM=openM; }
+    else { sM=openM; eM=sM+hours*60+breakMins; if(eM>closeM)eM=closeM; }
+
+    if(hasLunch){
+      const lS=toM(store.lunchStart), lE=toM(store.lunchEnd);
+      const amStart=Math.max(sM,openM), amEnd=Math.min(eM,lS);
+      const pmStart=Math.max(sM,lE), pmEnd=Math.min(eM,closeM);
+      const amH=amEnd>amStart?(amEnd-amStart)/60:0;
+      const pmH=pmEnd>pmStart?(pmEnd-pmStart)/60:0;
+      return {type:'work',startTime:minsToTime(amStart),endTime:minsToTime(amEnd>amStart?amEnd:amStart),breakH:0,hours:amH,note:side==='close'?'Fermeture':'Ouverture',depannage:false,
+        split: pmH>0?{type:'work',startTime:minsToTime(pmStart),endTime:minsToTime(pmEnd),hours:pmH,note:'Après-midi'}:null};
+    }
+    const h=(eM-sM)/60-breakMins/60;
+    return {type:'work',startTime:minsToTime(sM),endTime:minsToTime(eM),breakH:1,hours:h,note:side==='close'?'Fermeture':'Ouverture',depannage:false};
+  };
+
+  // Apply a work day (7h/8h) with chosen side
+  const applyWorkDay=(empId,dayIdx,hours,side)=>{
+    const tgt=resolveSaveTarget(empId,dayIdx);
+    setShift(tgt.storeId,currentWeek,currentYear,empId,dayIdx,buildWorkDay(hours,side));
+    setDayChooser(null);
+  };
+
+  // Apply a quick tile (rest/leave/etc) to a cell
   const applyTile=(empId,dayIdx,tile)=>{
     const tgt=resolveSaveTarget(empId,dayIdx);
-    let payload;
-    if(tile==='work7'||tile==='work8'){
-      const hours = tile==='work7'?7:8;
-      const open = store.openTime||'09:30';
-      const brk = (store.lunchBreak&&store.lunchStart&&store.lunchEnd)?1:1; // 1h lunch
-      // start at open, end = open + hours + break
-      const [oh,om]=open.split(':').map(Number);
-      const startMins=oh*60+om;
-      const endMins=startMins+hours*60+Math.round(brk*60);
-      payload={type:'work',startTime:open,endTime:minsToTime(endMins),breakH:brk,hours,note:'',depannage:false};
-    } else {
-      const labels={rest:'',vacation:'Congé',holiday:'Férié',school:'École',meeting:'Réunion',communication:'Communication'};
-      payload={type:tile,startTime:null,endTime:null,breakH:0,hours:tile==='holiday'?7:null,note:labels[tile]||'',depannage:false};
-    }
+    const labels={rest:'',vacation:'Congé',holiday:'Férié',school:'École',meeting:'Réunion',communication:'Communication'};
+    const payload={type:tile,startTime:null,endTime:null,breakH:0,hours:tile==='holiday'?7:null,note:labels[tile]||'',depannage:false};
     setShift(tgt.storeId,currentWeek,currentYear,empId,dayIdx,payload);
   };
 
@@ -1427,6 +1453,19 @@ export default function PlanningEditor(){
                 Annuler
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {dayChooser&&(
+        <div className="overlay" onClick={()=>setDayChooser(null)}>
+          <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:380,textAlign:'center'}}>
+            <h3 style={{fontFamily:'var(--font-h)',fontWeight:800,fontSize:19,marginBottom:6}}>Journée de {dayChooser.hours}h</h3>
+            <p style={{fontSize:14,color:'var(--muted)',marginBottom:18}}>Placer sur l'ouverture ou la fermeture du magasin ?</p>
+            <div style={{display:'flex',gap:10}}>
+              <button className="btn btn-primary" style={{flex:1,justifyContent:'center',padding:'13px'}} onClick={()=>applyWorkDay(dayChooser.empId,dayChooser.dayIdx,dayChooser.hours,'open')}>🌅 Ouverture</button>
+              <button className="btn btn-sec" style={{flex:1,justifyContent:'center',padding:'13px'}} onClick={()=>applyWorkDay(dayChooser.empId,dayChooser.dayIdx,dayChooser.hours,'close')}>🌙 Fermeture</button>
+            </div>
+            <button className="btn btn-ghost btn-sm" style={{marginTop:12}} onClick={()=>setDayChooser(null)}>Annuler</button>
           </div>
         </div>
       )}
