@@ -22,6 +22,13 @@ const EXT_ROWS = [
   ['extHigh', 'Ext. > 1000 €', '5 €', '🛡️'],
 ];
 const MONTHS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+const PALIER2_CONDITIONS = [
+  'Stock et SAV à jour (noté dans Notion)',
+  'Inventaire tournant sans écart',
+  'Avis Google positifs',
+  'Offre complémentaire à jour dans WIN',
+  'Propreté et assiduité',
+];
 
 // Remaining worked days (Mon–Sat) in a month from today, excluding given holiday dates (YYYY-MM-DD)
 function remainingWorkDays(year, month, holidays) {
@@ -355,9 +362,10 @@ export default function Primes() {
         const evolLabel = evolPct == null ? '' : (evolPct > 0.5 ? '▲ Hausse' : (evolPct < -0.5 ? '▼ Baisse' : '● Maintien'));
         const palier1 = Number(sd.palier1) || 0;
         const palier2 = Number(sd.palier2) || 0;
+        const palier2Invalid = !!sd.palier2Invalid;
         let storeBonusPool = 0, palierLabel = 'Aucun palier atteint', palierColor = 'var(--muted)';
-        if (palier2 > 0 && storeMargin >= palier2) { storeBonusPool = storeMargin * 0.03; palierLabel = 'Palier 2 atteint · 3 %'; palierColor = '#1A8A42'; }
-        else if (palier1 > 0 && storeMargin >= palier1) { storeBonusPool = storeMargin * 0.015; palierLabel = 'Palier 1 atteint · 1,5 %'; palierColor = '#1A8A42'; }
+        if (palier2 > 0 && storeMargin >= palier2 && !palier2Invalid) { storeBonusPool = storeMargin * 0.03; palierLabel = 'Palier 2 atteint · 3 %'; palierColor = '#1A8A42'; }
+        else if (palier1 > 0 && storeMargin >= palier1) { storeBonusPool = storeMargin * 0.015; palierLabel = palier2Invalid && storeMargin >= palier2 && palier2 > 0 ? 'Palier 2 invalidé → Palier 1 · 1,5 %' : 'Palier 1 atteint · 1,5 %'; palierColor = palier2Invalid && storeMargin >= palier2 && palier2 > 0 ? '#E08A00' : '#1A8A42'; }
         const storeEmps = employees.filter(e => e.storeId === store.id && (e.role === 'vendeur' || e.role === 'manager'));
         const vendeurs = sd.vendeurs || {};
         const totalShare = storeEmps.reduce((t, e) => t + (storeBonusPool * (Number(vendeurs[e.id] ? vendeurs[e.id].storeBonusPct : 0) || 0) / 100), 0);
@@ -442,6 +450,39 @@ export default function Primes() {
                 ))}
               </div>
 
+              {/* Palier 2 : conditions + validation lu et approuvé */}
+              <div style={{ marginTop: 16, background: '#F3F0FF', border: '1.5px solid #C4B5FD', borderRadius: 14, padding: '16px 18px' }}>
+                <div style={{ fontSize: 15, fontWeight: 800, color: '#5B21B6', marginBottom: 8 }}>🎯 Palier 2 validé uniquement si :</div>
+                <ul style={{ margin: '0 0 14px', paddingLeft: 20, color: '#4C1D95' }}>
+                  {PALIER2_CONDITIONS.map((c, i) => (<li key={i} style={{ fontSize: 13.5, marginBottom: 4, lineHeight: 1.4 }}>{c}</li>))}
+                </ul>
+
+                <label style={{ display: 'flex', alignItems: 'center', gap: 11, background: palier2Invalid ? '#FFF0F2' : '#fff', border: `1.5px solid ${palier2Invalid ? '#F5B5C0' : 'var(--border)'}`, borderRadius: 10, padding: '11px 14px', cursor: 'pointer', marginBottom: 14 }}>
+                  <input type="checkbox" checked={palier2Invalid} onChange={e => updateStoreField(store.id, { palier2Invalid: e.target.checked })} style={{ width: 20, height: 20, cursor: 'pointer', accentColor: '#C8002B', flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: palier2Invalid ? '#C8002B' : 'var(--text)' }}>❌ Palier 2 invalide (conditions non remplies)</div>
+                    <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>Si coché, les primes sont calculées au Palier 1 (1,5 %) même si la marge atteint le seuil du Palier 2.</div>
+                  </div>
+                </label>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#5B21B6', marginBottom: 8 }}>Lu et approuvé ({MONTHS[month]} {year}) :</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {storeEmps.map(emp => {
+                    const ack = (sd.palier2Ack || {})[emp.id];
+                    return (
+                      <label key={emp.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: ack ? '#E8FAF0' : '#fff', border: `1.5px solid ${ack ? '#A5D6A7' : 'var(--border)'}`, borderRadius: 10, padding: '8px 12px', cursor: 'pointer' }}>
+                        <input type="checkbox" checked={!!ack} onChange={e => {
+                          const cur = { ...(sd.palier2Ack || {}) };
+                          if (e.target.checked) cur[emp.id] = { name: emp.name, date: new Date().toISOString() };
+                          else delete cur[emp.id];
+                          updateStoreField(store.id, { palier2Ack: cur });
+                        }} style={{ width: 18, height: 18, cursor: 'pointer', accentColor: '#1A8A42' }} />
+                        <span style={{ fontSize: 13.5, fontWeight: 700, color: ack ? '#1A8A42' : 'var(--text)' }}>{emp.name}</span>
+                        {ack && <span style={{ fontSize: 11, color: '#1A8A42' }}>✓ {new Date(ack.date).toLocaleDateString('fr-FR')}</span>}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
               {/* Jours fériés à exclure */}
               <div style={{ marginTop: 14, background: 'var(--card2)', border: '1.5px solid var(--border)', borderRadius: 12, padding: '12px 14px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>

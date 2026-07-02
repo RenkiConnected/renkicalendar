@@ -469,9 +469,10 @@ function _vBase(v){ let t=0; _ITEMK.forEach(k=>t+=(Number(v[k])||0)*_UNIT[k]); _
 function _buildStorePrime(store, employees, sd, getOvertime, year, month) {
   const storeMargin = _sum(sd.marginEntries);
   const p1 = Number(sd.palier1)||0, p2 = Number(sd.palier2)||0;
+  const p2Invalid = !!sd.palier2Invalid;
   let pool=0, palier='Aucun palier';
-  if(p2>0 && storeMargin>=p2){ pool=storeMargin*0.03; palier='Palier 2 (3 %)'; }
-  else if(p1>0 && storeMargin>=p1){ pool=storeMargin*0.015; palier='Palier 1 (1,5 %)'; }
+  if(p2>0 && storeMargin>=p2 && !p2Invalid){ pool=storeMargin*0.03; palier='Palier 2 (3 %)'; }
+  else if(p1>0 && storeMargin>=p1){ pool=storeMargin*0.015; palier=(p2Invalid&&p2>0&&storeMargin>=p2)?'Palier 2 invalidé → Palier 1 (1,5 %)':'Palier 1 (1,5 %)'; }
   const vendeurs = sd.vendeurs || {};
   const emps = employees.filter(e=>e.storeId===store.id && (e.role==='vendeur'||e.role==='manager'));
   const rows = emps.map(emp=>{
@@ -493,7 +494,8 @@ function _buildStorePrime(store, employees, sd, getOvertime, year, month) {
   const totalOvertime = rows.reduce((t,r)=>t+(r.overtime||0),0);
   const lastYearMargin = Number(sd.lastYearMargin)||0;
   const evolPct = lastYearMargin>0 ? ((storeMargin-lastYearMargin)/lastYearMargin)*100 : null;
-  return { storeMargin, pool, palier, rows, totalPrimes, totalTravel, totalOvertime, lastYearMargin, evolPct };
+  const palier2Ack = sd.palier2Ack || {};
+  return { storeMargin, pool, palier, rows, totalPrimes, totalTravel, totalOvertime, lastYearMargin, evolPct, palier2Ack };
 }
 function _fmtHrs(h){ const m=Math.round(h*60); const H=Math.floor(m/60); const M=m%60; return M===0?`${H}`:`${H}h${String(M).padStart(2,'0')}`; }
 
@@ -528,6 +530,11 @@ function _storeTableHTML(store, data) {
       <div style="padding:13px 22px;background:#F6FAFB;border-top:2px solid ${color}40;display:flex;justify-content:space-between;align-items:center;">
         <span style="font-size:14px;font-weight:800;">TOTAL ${store.name}</span>
         <span style="font-size:13px;color:#5A6B78;"><strong style="font-size:16px;color:#1B2A3B;">Frais : ${_eur(data.totalTravel)}</strong>${data.totalOvertime>0?` · <strong style="font-size:16px;color:#B05A00;">H. supp : ${_fmtHrs(data.totalOvertime)} h</strong>`:''} · <strong style="font-size:17px;color:${color};">Primes ${_eur(data.totalPrimes)}</strong></span>
+      </div>
+      <div style="margin-top:14px;background:#F3F0FF;border:1px solid #C4B5FD;border-radius:10px;padding:12px 14px;">
+        <div style="font-size:12.5px;font-weight:800;color:#5B21B6;margin-bottom:5px;">Palier 2 validé uniquement si :</div>
+        <div style="font-size:11.5px;color:#4C1D95;line-height:1.5;">Stock et SAV à jour (Notion) · Inventaire tournant sans écart · Avis Google positifs · Offre complémentaire à jour dans WIN · Propreté et assiduité</div>
+        <div style="font-size:11.5px;color:#5B21B6;margin-top:7px;"><strong>Lu et approuvé :</strong> ${Object.keys(data.palier2Ack||{}).length ? Object.values(data.palier2Ack).map(a=>`✓ ${a.name}`).join(' · ') : '<em>Aucune validation ce mois</em>'}</div>
       </div>
     </div>
   </div>`;

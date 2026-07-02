@@ -2,6 +2,13 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 
 const UNIT = { smartphone:5, box:5, forfait999:10, forfait699:5, forfaitEngage:10, accessoire:1, extLow:3, extMid:4, extHigh:5 };
+const PALIER2_CONDITIONS = [
+  'Stock et SAV à jour (noté dans Notion)',
+  'Inventaire tournant sans écart',
+  'Avis Google positifs',
+  'Offre complémentaire à jour dans WIN',
+  'Propreté et assiduité',
+];
 const ASSURANCES = [16.90,15.90,10.90,6.90,3.90];
 const ITEM_ROWS = [
   ['smartphone','Smartphones','5 €','📱'],['box','Box','5 €','📦'],
@@ -166,6 +173,14 @@ export default function MyPrimes() {
     const cur = primes[saveKey] || {};
     await savePrimeData(saveKey, { ...cur, storeId: resolvedStoreId, year, month, marginEntries: newEntries });
   };
+  const myAck = (sd.palier2Ack || {})[me.id];
+  const toggleAck = async (checked) => {
+    const cur = primes[saveKey] || {};
+    const acks = { ...(cur.palier2Ack || {}) };
+    if (checked) acks[me.id] = { name: me.name, date: new Date().toISOString() };
+    else delete acks[me.id];
+    await savePrimeData(saveKey, { ...cur, storeId: resolvedStoreId, year, month, palier2Ack: acks });
+  };
 
   return (
     <div className="anim-up">
@@ -264,6 +279,21 @@ export default function MyPrimes() {
         <h2 className="section-title" style={{ marginBottom:6 }}>Chiffre magasin</h2>
         <p style={{ fontSize:13, color:'var(--muted)', marginBottom:14 }}>Marge cumulée de {store?.name||'la boutique'} pour {MONTHS[month]} {year}. Vous pouvez la mettre à jour.</p>
         <EditEntryList title="Marge magasin (cumul)" hint="Ajoutez un ou plusieurs montants, ils s'additionnent" accent={store?.color||'var(--teal)'} entries={sd.marginEntries} onChange={saveStoreMargin} />
+      </div>
+
+      {/* ── Palier 2 : conditions + lu et approuvé ── */}
+      <div className="card" style={{ padding:'22px', marginBottom:16, background:'#F3F0FF', border:'1.5px solid #C4B5FD' }}>
+        <h2 className="section-title" style={{ marginBottom:8, color:'#5B21B6' }}>🎯 Palier 2 validé uniquement si :</h2>
+        <ul style={{ margin:'0 0 16px', paddingLeft:20, color:'#4C1D95' }}>
+          {PALIER2_CONDITIONS.map((c,i)=>(<li key={i} style={{ fontSize:14, marginBottom:5, lineHeight:1.4 }}>{c}</li>))}
+        </ul>
+        <label style={{ display:'flex', alignItems:'center', gap:12, background: myAck?'#E8FAF0':'#fff', border:`1.5px solid ${myAck?'#A5D6A7':'var(--border)'}`, borderRadius:12, padding:'14px 16px', cursor:'pointer' }}>
+          <input type="checkbox" checked={!!myAck} onChange={e=>toggleAck(e.target.checked)} style={{ width:22, height:22, cursor:'pointer', accentColor:'#1A8A42', flexShrink:0 }} />
+          <div>
+            <div style={{ fontSize:15, fontWeight:700, color: myAck?'#1A8A42':'var(--text)' }}>Lu et approuvé pour {MONTHS[month]} {year}</div>
+            {myAck && <div style={{ fontSize:12.5, color:'#1A8A42', marginTop:2 }}>✓ Validé le {new Date(myAck.date).toLocaleDateString('fr-FR')}</div>}
+          </div>
+        </label>
       </div>
 
       {/* Change request */}
